@@ -1,0 +1,1444 @@
+
+===== PAGE 1 =====
+arXiv:2305.03777v1  [eess.SY]  5 May 2023
+Koopman System Approximation Based Optimal Control of
+Multiple Robots—Part I: Concepts and Formulations
+Gang Tao and Qianhong Zhao
+Department of Electrical and Computer Engineering
+University of Virginia
+Charlottesville, V A 22904
+Abstract
+This paper presents a study of the Koopman operator theory an d its application to optimal
+control of a multi-robot system. The Koopman operator, whil e operating on a set of observa-
+tion functions of the state vector of a nonlinear system, pro duces a set of dynamic equations
+which, through a dynamic transformation, form a new dynamic system. As an operator, it has
+a rich spectrum of mathematical properties, and as a tool for dynamic system analysis and
+control design, it has a unique collection of practical mean ings.
+The Koopman system technique is then applied to the developm ent of a linear or bilinear
+model approximation of nonlinear utility functions for opt imal control of a system of multiple
+(mobile) robots, by selecting the utility functions as the K oopman system state variables and
+expressing the set of Koopman variables as the state variabl es of a linear or bilinear system
+whose parameters are determined through optimization. An i terative (online) algorithm is
+developed for adaptively estimating the parameters of the a pproximation model of the robot
+system with nonlinear utility functions.
+Finally, the control problems based on a linear or bilinear m odel for the nonlinear utility
+functions are formulated for optimal control of the multi-r obot system, by transforming the
+nonlinear programming problem to a linear programming prob lem.
+Key words: Functional transformation, Koopman equation, Koopman opera tor, Koop-
+man system, Koopman variables, observables, online learning, optim al control, robot
+system, utility functions.
+1 Introduction
+Recently, research on the Koopman systems induced by the Koopm an operator [1] has shown broad
+and signiﬁcant progresses in both theory and applications, and the re is a vast amount of literature
+on the related topics, see, for example, [2]-[14] addressing some to pics such as deﬁnitions, theory
+and system applications of Koopman operators. This paper uses th e basic concepts and theory
+1
+===== PAGE 2 =====
+developed in these references, and develops some extensions and application to the multi-robot
+system with nonlinear utility functions to be approximated by a linear m odel seen in the literature
+and a bilinear model derived in the paper.
+The Koopman operator (a transformation deﬁned in [1]), when applie d on a set of observation
+functions (observables) ψ(x(k)) of the state vector of a (discrete-time) nonlinear dynamic syst em
+x(k + 1) = f (x(k),u (k)), produces the future values ψ(x(k + 1)) (of the observables) which are
+equal to ψ(f (x(k),u (k))) because of x(k + 1) = f (x(k),u (k)). Thus, a dynamic relationship is
+generated, which, via a functional transformation, induces a new dynamic system with ψ(x(k)) as
+its state variables, which, when properly constructed and approx imated, can facilitate the analysis
+and feedback control design for the original nonlinear system.
+In theory, under the Koopman operation and a necessary functio nal transformation, a set of
+chosen system state observation functions lead to a well-deﬁned K oopman system, and certain
+choices of observation functions can lead to some canonical form K oopman system. In practice, some
+performance-related functions may need to be selected as the ob servation functions (the Koopman
+variables) and the associated subsystem dynamic functions can be nonlinear and noncanonical.
+Those functions should be approximated well for helping to solve the related control problems, as a
+main motivation of using a Koopman system formulation. For many app lications, it is often crucial
+to go beyond a linear model approximation of the resulted Koopman s ystem, to use, for example,
+a bilinear model, in order to increase the model accuracy for improve d system performance.
+This paper pursues some related issues of Koopman systems. Theo retically, the relationship
+ψ(x(k + 1)) = ψ(f (x(k),u (k))) from the Koopman operation is not yet a formal dynamic equatio n
+(a Koopman system equation, as the base for applications of Koopm an systems, such as linear or
+bilinear approximations of a nonlinear Koopman system equation) whic h should contain ψ(x(k))
+(in stead of x(k)) in ψ(f (x(k),u (k))). A formal functional transformation is needed to construct
+such a dynamic equation. Practically, optimal control or model pre dictive control with nonlinear
+utility (performance) functions (to be maximized by feedback cont rol) usually needs to solve some
+nonlinear programming problems which can be computationally overloa ding. Transformation of
+such a nonlinear programming problem to a linear one needs to be demo nstrated. In this paper,
+such issues will be further considered and studied.
+The goals of this paper are to show some of our new research progr esses in this direction:
+• to establish a functional transformation to link the (discrete-time ) Koopman equation
+K[ψ(x(k))] = ψ(x(k+)) = ψ(f (x(k),u (k))) to a dynamic system equation ψ(x(k+)) =
+2
+===== PAGE 3 =====
+ξ(ψ(x(k)),u (k)), i.e., z(k + 1) = ξ(z(k),u (k)) which provides the base for a linear
+approximation model z(k + 1) = Az(k) +Bu(k) or other dynamic models;
+• to develop, based on the established functional transformation, a linear approxima-
+tion Koopman system model and a bilinear approximation Koopman sys tem model for a
+multi-robot system with nonlinear utility functions (the performanc e indexes to be max-
+imized by feedback control), and design iterative (adaptive) algorit hms for updating the
+model parameters online with new measurements (incoming data); a nd
+• to transform the nonlinear programming problem from optimal cont rol of a multi-
+robot system with nonlinear utility (performance) functions, to a lin ear programming
+problem, based on the developed linear or bilinear Koopman system mo del.
+With the presentation of the linear model of a Koopman system, we d emonstrate the basic pro-
+cedure of an approximation model derivation and evaluation (for bo th a linear model and a bilinear
+model approximations). With the development of the bilinear model, w e expand the approximation
+model with additional terms which capture more dynamics of a nonline ar Koopman system model,
+to improve the accuracy of an approximation model.
+In Section 2, we present some basic concepts of the Koopman oper ator and its induced dynamic
+system (a Koopman system), and derive a proposition to show the e xistence of such a system. We
+also show some basic ideas of approximating a nonlinear Koopman syst em by a linear or bilinear
+system model. In Section 3, we develop a Koopman system framewor k for a multi-robot system with
+nonlinear utility (performance) functions for optimal control, whic h consists of the construction of a
+Koopman system with nonlinear utility functions as a set of observat ion functions, the development
+of an adaptive (online) linear approximation model and an adaptive bilin ear approximation model
+(for the Koopman system) updated by an iterative algorithm for pa rameter estimation. In Section
+4, we employ the developed linear and bilinear Koopman system models t o transform the original
+nonlinear programming control problem to a linear programming prob lem.
+2 Koopman System and Model Approximation
+In this section, we study the Koopman operator deﬁnitions for disc rete-time systems, the dynamic
+equations (Koopman equations) induced by Koopman operation on o bservation functions of the
+state vector of a dynamic system, the dynamic (functional) trans formation using observation func-
+tions as the state variables (Koopman variables) of a new dynamic sy stem (Koopman system),
+3
+===== PAGE 4 =====
+and the iterative (adaptive) learning algorithms for linear or bilinear a pproximation of a nonlinear
+Koopman system, to be used for feedback control design.
+2.1 Koopman Operator
+We start with a discrete-time nonlinear system without a control inp ut, described by
+x(k + 1) = f (x(k)), (2.1)
+where k = 0, 1, 2,..., are the discrete time instants, x(k) ∈ Rn is the system state vector, and
+f (x(k)) ∈ Rn represents the nonlinear dynamic vector function of the system. The simpliﬁed
+notation x(k + 1) = f (x(k)) is used to denote the discrete-time system: x(tk+1) = f (x(tk)), k =
+0, 1, 2,... , for a system state vector x(t) at the discrete-time instant t =tk.
+2.1.1 Deﬁnition Based on x(k + 1) = f (x(k))
+An observation of the state vector x(k) can be made through a scalar function ψ0(·) of x(k):
+ψ0(x(k)) ∈ R for x(k) ∈ Rn, called an observable. An operation on or a transformation of the
+observableψ0(x) can be made, in terms of the dynamic function f (x) of the system (2.1), by the
+Koopman operator originally proposed in [1], which may be described by the following deﬁnition,
+in terms of the dynamic system (2.1).
+Deﬁnition 2.1 [6], [12] The Koopman operator K, applied on an observable ψ0(x) ∈R, for x ∈Rn
+from the system (2.1) with a dynamic function f (x) ∈Rn, is deﬁned by the Koopman operation:
+(Kψ0)(x) = K[ψ0(x)] = ψ0(f (x)). (2.2)
+Deﬁnition 2.1, when applied to the system (2.1), implies (deﬁnes) the e quation (identity):
+K[ψ0(x(k))] = ψ0(f (x(k))) = ψ0(x(k + 1)), (2.3)
+which shows three important features of the Koopman operator ( operation):
+• it deﬁnes a system-related composite functional operation on x(k), by K[ψ0(x(k))] =
+ψ0(f (x(k))), as f (x(k)) is the system dynamic function;
+• it deﬁnes a time-advance operation, by K[ψ0(x(k))] = ψ0(x(k + 1)), as x(k + 1) is the
+time-advanced (future) value of the system state vector x(k); and
+• it deﬁnes a new dynamic relationship, by ψ0(f (x(k))) = ψ0(x(k + 1)), as it involves
+both time instants k and k + 1.
+4
+===== PAGE 5 =====
+Suppose that N observations (observables) ψi(x(k)) (i = 1, 2,...,N ) have been made for some
+chosen functions ψi(·) of certain interest. Then, under the Koopman operation (2.2), w e have a set
+of Koopman equations:
+K[ψi(x(k))] = ψi(f (x(k))) = ψi(x(k + 1)), i= 1, 2,...,N, (2.4)
+which all involve both time instants k andk + 1 and thus represent some new dynamic relations or
+a dynamic system, and can be further considered to derive the follo wing additional (key) feature of
+the Koopman operation:
+• it deﬁnes, when applied to a set of system observation functions ψi(x(k)) ( i =
+1, 2,...,N ), a dynamic system transformation, by zi(k)
+△
+= ψ(x(k)) and ψi(f (x(k))) =
+ψi(x(k + 1)), i = 1, 2,...,N , as ψi(f (x(k))) = ψi(x(k + 1)) = zi(k + 1) is to be repre-
+sented in terms of ψj(x(k)) = zj(k), j = 1, 2,...,N , with some functions ξi(·, ·,..., ·):
+ψi(f (x(k))) = ξi(ψ1(x(k)),ψ 2(x(k)),...,ψ N (x(k))).
+There is a vast amount of literature on Koopman operator theory a nd its applications to dynamic
+system analysis and control, e.g., [2], [3], [4], [5], [7], [8], [9], [10], [11], [13], [14], also addressing the
+case when the dynamic system is under the inﬂuence of a control inp ut u.
+2.1.2 Deﬁnition Based on x(k + 1) = f (x(k),u (k))
+We now consider the controlled nonlinear system
+x(k + 1) = f (x(k),u (k)), (2.5)
+wherek = 0, 1, 2,..., are the discrete time instants, x(k) ∈Rn is the system state vector, u(k) ∈Rm
+is the system control input vector, and f (x(k),u (k)) ∈Rn is the nonlinear dynamic function of the
+system with the control input u. Our next goal is to develop a dynamic (functional) transformation
+for (2.5), which is also applicable to the system (2.1), leading to a Koop man dynamic system.
+Inspired by the deﬁnition of the Koopman operator K in (2.2) associated with a dynamic system:
+x(k + 1) = f (x(k)), K[ψ0(x(k))] = ψ0(f (x(k))), for a scalar function ψ0(x) of x ∈ Rn, which is
+essentially the operation (2.3): K[ψ0(x(k))] = ψ0(x(k + 1)), we may deﬁne the Koopman operator
+for the case when there is a control input in the dynamic system equ ation, analogously.
+Deﬁnition 2.2 The Koopman operator K, on a scalar function ψ0(x(k)) of x(k) ∈ Rn from a
+dynamic system: x(k + 1) = f (x(k),u (k)), is deﬁned by the operation:
+K[ψ0(x(k))] = ψ0(x(k + 1)). (2.6)
+5
+===== PAGE 6 =====
+Deﬁnition 2.2, when applied to the system (2.5), implies (deﬁnes) the e quation (identity):
+K[ψ0(x(k))] = ψ0(x(k + 1)) = ψ0(f (x(k),u (k))), (2.7)
+which introduces a new dynamic relationship
+ψ0(x(k + 1)) = ψ0(f (x(k),u (k))). (2.8)
+The question is how to further explore and “exploit” such a new dyna mic equation.
+Suppose that N observations (observables) ψi(x(k)) (i = 1, 2,...,N ) have been made for some
+chosen functions ψi(·). Then, under the Koopman operation (2.7), we also have a set of K oopman
+equations:
+K[ψi(x(k))] = ψi(x(k + 1)) = ψi(f (x(k),u (k))), i= 1, 2,...,N, (2.9)
+of which there are three possible cases of interest to consider:
+• the transformation of the original nonlinear system to another no nlinear system;
+• the transformation of the original nonlinear system to a linear syst em with approxi-
+mation errors (a practical form); and
+• the transformation of the original nonlinear system to a bilinear sys tem with approx-
+imation errors (a practical and potentially more useful form).
+2.2 Functional Transformations
+The Koopman operator K deﬁned by the Koopman operation (2.6) generates a new system (K oop-
+man system) based on an induced functional transformation (a dy namic transformation).
+2.2.1 Functional Transformation: with A Diﬀeomorphism
+For a set of observations ψi(x(k)) (i = 1, 2,...,N =n), denoted as zi(k) = ψi(x(k))(i = 1, 2,...,n )
+(called the Koopman variables), we introduce the vectors
+z(k) = [z1(k),z 2(k), · · ·,zn(k)]T ∈Rn (2.10)
+ψ(x(k)) = [ψ1(x(k)),ψ 2(x(k)),...,ψ n(x(k))]T ∈Rn. (2.11)
+If the mapping z =ψ(x) ∈Rn for x ∈Rn:
+z(k)
+△
+=ψ(x(k)) ∈Rn, x(k) ∈Rn, (2.12)
+6
+===== PAGE 7 =====
+is a diﬀeomorphism [15], that is, ∂ψ (x)
+∂x is nonsingular, so that the inverse φ(·) = ψ−1(·) of ψ(·) is
+well-deﬁned: x =ψ−1(z), for z =ψ(x). In this case, the vector function
+ψ(f (x(k),u (k))) = [ψ1(f (x(k),u (k))),ψ 2(f (x(k),u (k))),...,ψ n(f (x(k),u (k)))]T ∈Rn (2.13)
+can be expressed as
+ψ(f (x(k),u (k))) = ξ(ψ(x(k)),u (k)), (2.14)
+for some nonlinear vector function ξ(ψ,u ) ∈Rn ofψ ∈Rn andu ∈Rm. To see (2.14), with z =ψ(x)
+in ξ(ψ(x),u ) and x = ψ−1(z) in f (x,u ) for ψ(f (x,u )) = ξ(ψ(x),u ), we have ψ(f (ψ−1(z),u )) =
+ξ(z,u ), that is, with z and u being the variables, the function ξ(z,u ) can be constructed by
+ξ(z,u )
+△
+=ψ(f (ψ−1(z),u )) (2.15)
+which may be called a functional transformation, as a well-deﬁned tr ansformation, given thatψ−1(·),
+f (·, ·) and ψ(·) are both well-deﬁned functions.
+Then, with z(k) = ψ(x(k)) as the state vector, from (2.9) and (2.14), we have
+z(k + 1) = ξ(z(k),u (k)), (2.16)
+which is a dynamic system equation and may be called a Koopman system , that is, we have obtained
+a new dynamic system (2.16) derived from the original system (2.5), with the Koopman operation
+(2.6) and the coordinate transformation (2.12): z(k) = ψ(x(k)) ∈Rn.
+In this formulation, the observations ψi(x(k)) (i = 1, 2,...,n ) only explicitly depend on the
+system state vector x(k), not on the system input u(k), which is necessary for a state (coordinate)
+transformation. Some of zi(k) = ψi(x(k)) (i = 1, 2,...,n ) may be taken as the new output signals:
+w(k) = Cz (k), for some matrix ∈Rp×N , to form a new control system:
+z(k + 1) = ξ(z(k),u (k)), w(k) = Cz (k). (2.17)
+2.2.2 Functional Transformation: the General Case
+. For N observationszi(k) = ψi(x(k)) (i = 1, 2,...,N ), we form the vectors
+z(k) = [z1(k),z 2(k),...,z N (k)]T ∈RN (2.18)
+ψ(x(k)) = [ψ1(x(k)),ψ 2(x(k)),...,ψ N (x(k))]T ∈RN, (2.19)
+and have the vector equation (identity):
+z(k) = ψ(x(k)) (2.20)
+7
+===== PAGE 8 =====
+which, if considered as an equation to solve for x(k) with a given z(k), has a natural solution x(k) (as
+from the observation identity: z(k) = ψ(x(k))) and may have more than one solutions x(k) for the
+samez(k) to meet z(k) = ψ(x(k)).1 For example, for a given observation equation z(k) = ψ(x(k)),
+there may be a minimum-norm solution x(k) to satisfy this equation, similar to a linear equation
+Ax =y. Therefore, there exists a vector function φ(·) such that
+x(k) = φ(z(k)) (2.21)
+for x(k) ∈ Rn and z(k) ∈ RN satisfying z(k) = ψ(x(k)). Then, with z = ψ(x) and u being the
+variables, the function ξ(z,u ) can be constructed as
+ξ(z,u )
+△
+=ψ(f (φ(z),u )) = ψ(f (x),u )|x=φ (z) (2.22)
+which is well-deﬁned as φ(·), f (·, ·) and ψ(·) are well-deﬁned functions, so that, in general, we can
+also arrive at the functional transformation (2.14):
+ψ(f (x(k),u (k))) = ξ(ψ(x(k)),u (k)), (2.23)
+for some function ξ(·, ·), to derive the Koopman system dynamic equation (2.16):
+z(k + 1) = ξ(z(k),u (k)). (2.24)
+Remark 2.1 If for N >n, a subvector ¯z(k) ∈Rn of z(k) ∈RN , ¯z(k) = ¯ψ(x(k)) (where ¯ψ(·) ∈Rn
+is the corresponding subvector of ψ(·) ∈ RN ) is a diﬀeomorphism between ¯ z and x (that is, ∂ ¯ψ (x)
+∂x
+is nonsingular, for ¯z = ¯ψ(x)), then, besides the formulation in the above remark, we also have :
+x(k) = ¯ψ−1(¯z(k)), so that, with z =ψ(x) in ξ(ψ(x),u ) and x = ¯ψ−1(¯z) in f (x,u ) for ψ(f (x,u )) =
+ξ(ψ(x),u ), we have ψ(f ( ¯ψ−1(z),u )) = ξ(z,u ), that is, with z andu being the variables, the function
+ξ(z,u ) can be constructed and expressed as
+ξ(z,u ) = ψ(f ( ¯ψ−1(¯z),u )) = ψ(f ( ¯ψ−1(z),u )), (2.25)
+where the second equality is only a nominal expression in terms of z in ¯ψ−1(·). ✷
+In summary, we have the following conclusion.
+1It however should not be understood as: for a given ψ (·), z =ψ (x) has a solution x for any chosen z.
+8
+===== PAGE 9 =====
+Proposition 2.1 For a nonlinear system x(k + 1) = f (x(k),u (k)) (x ∈Rn, u ∈Rm) and a set of
+observations zi(k) = ψi(x(k)) (i = 1, 2,...,N ≥ 1), the Koopman operation (2.6): K[ψi(x(k))] =
+ψi(x(k + 1)), is associated with a functional transformation (2.23): ψ(f (x,u )) = ξ(ψ(x),u ) with
+ψ = [ψ1,...,ψ N ]T ∈RN , and forms a dynamic system (2.24): z(k + 1) = ξ(z(k),u (k)).
+The Koopman operation generated system z(k + 1) = ξ(z(k),u (k)) may be called a Koopman
+dynamic system. In the Koopman system research, a lot of eﬀort h as been applied to the task of
+approximating the Koopman equations (2.9): ψ(x(k + 1)) = ψ(f (x(k),u (k))), by a linear system
+equation: ψ(x(k + 1)) = Aψ(x(k)) + Bu(k), i.e., z(k + 1) = Az(k) + Bu(k), which is a linear
+Koopman system such that ξ(z(k),u (k)) = Az(k) +Bu(k).
+The equationψ(x(k+1)) = ψ(f (x(k),u (k))), a dynamic relation as it involves both time instants
+k and k + 1, is a dynamic system equation only when ψ(f (x(k),u (k))) = ξ(ψ(x(k)),u (k)) holds
+(so that ψ(x(k + 1)) = ξ(ψ(x(k)),u (k)), or, z(k + 1) = ξ(z(k),u (k))), which has been formally
+established by Proposition 2.1 and is the foundation for a linear Koopm an system (and any other
+bilinear or multilinear Koopman systems).
+Eﬀort has also been applied to the task of selecting the observation functionsψi(x(k)) such that
+the system function ξ(z(k),u (k)) is naturally linear: ξ(z(k),u (k)) = z(k + 1) = Az(k) +Bu(k).
+In this paper, we will focus our main attention on the ﬁrst task: app roximation of a nonlinear
+Koopman system by either a linear system model: z(k + 1) = Az(k) +Bu(k) +η(k), or a bilinear
+system model: z(k + 1) = Az(k) +Bu(k) +D(x(k),u (k)) +η(k), where η(k) is the modeling error
+which is inevitable for many practical problems, and D(x(k),u (k)) is a bilinear function of x(k) and
+u(k), to be deﬁned to capture more dynamics (and reduce the modeling errorη(k)) of the nonlinear
+Koopman system: z(k + 1) = ξ(z(k),u (k)).
+2.3 Linear Approximation of A Koopman System
+For a set of N ≥n observationsψi(x(k)) (i = 1, 2,...,N ), from the Koopman operation (2.6) and
+functional transformation (2.23), the Koopman system dynamic f unctions
+K[ψi(x(k))] = ψi(x(k + 1)) = ψi(f (x(k),u (k))) = ξi(ψ(x(k)),u (k)) (2.26)
+may be expressed as
+ξi(ψ(x(k)),u (k)) = aT
+iψ(x(k)) +bT
+iu(k) +ηi(k), i= 1, 2,...,N, (2.27)
+9
+===== PAGE 10 =====
+for some parameter vectors ai ∈RN and bi ∈Rm, i = 1, 2,...,N , and
+ψ(x(k)) = [ψ1(x(k)),ψ 2(x(k)),...,ψ N (x(k))]T ∈RN, (2.28)
+where ηi(k) is the approximation error of ψi(f (x(k),u (k))) by aT
+iψ(x(k))) +bT
+iu(k). With zi(k) =
+ψi(x(k)) and z(k) = [z1(k),z 2(k),...,z N (k)]T ∈RN , we have a linear model
+z(k + 1) = Az (k) +Bu (k) +η(k), (2.29)
+with an approximation error vector η(k), where
+A =
+
+
+
+
+aT
+1
+.
+.
+.
+aT
+N
+
+
+
+ ∈RN ×N, B =
+
+
+
+
+bT
+1
+.
+.
+.
+bT
+N
+
+
+
+ ∈RN ×m (2.30)
+η(k) = [η1(k),η 2(k),...,η N (k)]T ∈RN. (2.31)
+Such a linear model has been commonly used in the Koopman system lite rature, for approximation
+of the Koopman equations (2.9): ψi(x(k + 1)) = ψi(f (x(k),u (k))), i= 1, 2,...,N .
+In (2.29), the parameters A and B are expected to be such that the error η(k) is minimized.
+This motivates several methods to calculate A and B.
+Method I : One method is to ﬁnd A and B to minimize the instantaneous error sum
+J1 =
+N∑
+i=1
+η2
+i (k) = ηT (k)η(k) = (z(k + 1) −Az(k) −Bu(k))T (z(k + 1) −Az(k) −Bu(k)). (2.32)
+Method II : Another method [6] is to ﬁnd A and B to minimize the accumulative error sum
+over a signal measurement interval k =k0,k 0 + 1,...,k 0 +k1:
+J2 =
+k0+k1∑
+k=k0
+N∑
+i=1
+η2
+i (k) =
+k0+k1∑
+k=k0
+(z(k + 1) −Az(k) −Bu(k))T (z(k + 1) −Az(k) −Bu(k)). (2.33)
+The solution [A,B ] minimizing J2 satisﬁes
+[A,B ]
+k0+k1∑
+k=k0
+[
+z(k)
+u(k)
+] [
+z(k)
+u(k)
+] T
+=
+k0+k1∑
+k=k0
+z(k + 1)
+[
+z(k)
+u(k)
+] T
+. (2.34)
+The solution [ A,B ] meeting (2.34) may not be unique and needs to be re-calculated whe n k1
+increases, that is, when new measurements (data) are collected, with increasing computations.
+Method III : The third method is to ﬁnd the iteratively updated (online) estimate s ˆai(k) and
+ˆbi(k) of ai and bi, as k goes, from the incoming measurements (data) of z(k + 1), z(k) and u(k),
+with ﬁxed computations. An iterative (adaptive) algorithm will be give n in this paper, which will
+be extensively simulated for identiﬁcation and optimal control for t he system of multiple robots
+with nonlinear utility functions to be selected as a group of Koopman v ariables zi(k).
+10
+===== PAGE 11 =====
+Remark 2.2 The ideal case of (2.29) is with η(k) ≡ 0:
+z(k + 1) = Az (k) +Bu (k), (2.35)
+as the (exact) representation of the Koopman system (2.24): z(k + 1) = ξ(z(k),u (k)), under the
+transformation ξ(z(k),u (k)) = ψ(f (x(k),u (k))) = ψ(x(k + 1)) = z(k + 1). This can happen when
+the observations ψi(x(k)) (as the components of ψ(x(k))) and the system function f (x(k),u (k))
+(of the original system x(k + 1) = f (x(k),u (k))) are correlated in a perfect matching, to make
+ξ(z(k),u (k)) = Az (k) + Bu (k). In other words, for a given f (x(k),u (k)), the observations
+ψi(x(k))(i = 1, 2,...,N ) should be carefully chosen, if possible, to make an ideal linear syste m
+model (2.35). This has been a dream and yet hard task for the Koop man system research, only
+fulﬁlled for some simple example systems. ✷
+While the smallness of the approximation error η(k) in (2.29) is crucial for many applications,
+the linear model approximation structure in (2.29) can have certain limitations in some applications.
+In other words, the approximation of z(k + 1) = ξ(z(k),u (k)) by a linear model
+ξ(z(k),u (k)) = Az (k) +Bu (k) +η(k) = [A,B ]
+[
+z(k)
+u(k)
+]
++η(k), (2.36)
+or by a bilinear model
+ξ(z(k),u (k)) = Az (k) +Bu (k) +
+
+
+
+
+[zT (k),uT (k)]D1
+.
+.
+.
+[zT (k),uT (k)]DN
+
+
+
+
+[
+z(k)
+u(k)
+]
++ηb(k), (2.37)
+for some additional parameter matrices Di (i = 1, 2,...,N ), can make a big diﬀerence, because
+• the model errors η(k) and ηb(k) can be diﬀerent as obvious; and
+• even if the model errors η(k) and ηb(k) are not diﬀerent under certain conditions,
+the model structures are diﬀerent, e.g., the distributions of ξ(z(k),u (k)) over z(k) and
+u(k) are diﬀerent for diﬀerent models, which can have some signiﬁcant e ﬀect on control
+system performance, when the models are used for feedback con trol design.
+Thus, it is desirable to study a bilinear model approximation of a Koopm an system.
+11
+===== PAGE 12 =====
+2.4 Bilinear Approximation of A Koopman System
+Considering a vector function f (x) = [f1(x),f 2(x),...,f m(x)]T ∈Rm of x = [x1,x 2,...,x n]T ∈Rn
+(which, here, is a generic notation, not related to a system x(k + 1) = f (x(k),u (k))), and applying
+Taylor’s theorem at a chosen point x0 ∈Rn of x, we express
+fi(x) = fi(x0) + (∇fi(x0))T (x −x0) + 1
+2 (x −x0)THfi(x0)(x −x0) + higher-order terms, (2.38)
+for i = 1, 2,...,n , where
+∇fi(x0) = ∂fi
+∂x |x=x0 = [∂fi
+∂x1
+|x=x0, ∂fi
+∂x2
+|x=x0,..., ∂fi
+∂xn
+|x=x0]T ∈Rn (2.39)
+Hi =Hfi(x0) = [hfi,pq ]p,q =1, 2,...,n = [ ∂2fi
+∂xp∂xq
+|x=x0] =
+
+
+
+
+
+∂ 2fi
+∂x 1∂x 1
+· · · ∂ 2fi
+∂x 1∂x n
+.
+.
+.
+∂ 2fi
+∂x n∂x 1
+· · · ∂ 2fi
+∂x n∂x n
+
+
+
+
+
+x=x0
+∈Rn×n, (2.40)
+which is the (generically symmetric) Hessian matrix of fi(x) at x0, that is, Hi =Hfi =HT
+fi =HT
+i .
+We then apply this approximation expression to the Koopman system (2.24):
+zi(k + 1) = ξi(z(k),u (k)), i= 1, 2,...,N, (2.41)
+for fi(x) = ξi(z(k),u (k)) and x = [zT,uT ]T (i = 1, 2,...,N ).
+With fi(x0) = 0, ( ∇fi(x0))T = [A,B ], x0 = 0 (a zero vector) and Di = 1
+2Hfi, we can see that
+(2.38) and (2.41) lead to the bilinear model (2.37).
+As a comparison, the linear model approximation (2.36) is based on th e approximation
+fi(x) ≈ (∇fi(x0))T (x −x0), x0 = 0 1×n, (2.42)
+which is a special case of the bilinear expansion (2.38), and, when app lied to the robot system with
+nonlinear utility functions, may not provide enough capacity to solve the control problem of driving
+the robots to their desired positions and velocities.
+The bilinear expansion (2.38) will be studied in Section 3 for the multi-ro bot system.
+3 Koopman Models of A Multi-Robot System
+In this section, we address the problem of developing a linear or bilinea r model for a 5-robot system
+with nonlinear utility functions for optimal control. Our plan is to choo se a set of Koopman variables
+(consisting of the set of robot system state variables and the set of the utility functions plus possibly
+12
+===== PAGE 13 =====
+an additional set of state variables), to form a Koopman system fo r the multi-robot system, and to
+develop iterative (online) approximations of the Koopman system, u sing a linear model structure
+and a bilinear model structure. We will then formulate the optimal co ntrol problem based on the
+linear or bilinear model of the utility functions, to approximate the or iginal optimal control of
+maximizing the nonlinear utility functions.
+In Section 3.1, we study the 5-robot system model combined with th e nonlinear utility functions
+introduced in the Ford report [16] for optimal control of the robo t system. In Section 3.2, we
+introduce the Koopman variables to form a Koopman system for the combined robot system. In
+Section 3.3, we develop an iterative algorithm for estimating the para meters of a linear Koopman
+system model. In Section 3.4, we develop an iterative algorithm for es timating the parameters of
+a bilinear Koopman system model. In both sections, we also describe a simulation study plan. In
+Section 3.5, we formulate the optimal control based on a linear or bilin ear Koopman system model.
+3.1 Robot System and Utility Functions
+We now present the multi-robot system model with nonlinear utility fu nctions (to be maximized to
+generate the control signal to drive the robots to some desired lo cations).
+Robot system model . A 5-robot system model is described as
+vi(k + 1) =vi(k) +ai(k) ∆t
+ri(k + 1) =ri(k) +vi(k) ∆t + 0.5ai(k) (∆t)2, i= 1, 2,..., 5, (3.1)
+where ri(k) = (xi(k),yi(k)) are the ith robot’s positions, vi(k) = (vx
+i (k),vy
+i (k)) are the velocities,
+ai(k) = (ax
+i (k),ay
+i (k)) are the acceleration vectors as the control vector signals to t he robots, and
+∆t is a ﬁxed number representing a uniform sampling interval.
+With the total state vector deﬁned by
+X(k) = [x1(k),y 1(k),...,x 5(k),y 5(k),vx
+1 (k),vy
+1(k),...,v x
+5 (k),vy
+5(k)]T ∈R20, (3.2)
+we can express (3.1) as
+X(k + 1) = AX(k) +BU (k), (3.3)
+where the control vector U(k) is
+U(k) = [ax
+1(k),ay
+1(k),ax
+2(k),ay
+2(k),...,a x
+5(k),ay
+5(k)]T ∈R10, (3.4)
+and A ∈R20×20 and B ∈R20×10 are some matrices as the controlled system matrices which can be
+directly obtained from the system model (3.1).
+13
+===== PAGE 14 =====
+Utility functions . The utility functions of [16] have the form
+ui(k) =
+6∑
+j=1
+ω(j)
+i φ(j)
+i (X(k)), (3.5)
+where X(k) in (3.2) depends on sl(k) = {rl(k),vl(k)} (l = 1, 2,..., 5), ω(j)
+i are constants, and the
+details of the nonlinear functions φ(j)
+i (X(k)) are given in [16] (and also in this paper’s companion
+paper [17]: “Koopman system approximation based optimal control of multiple robots — Part II:
+Simulations and Evaluations), in terms ofsl(k) = {rl(k),vl(k)} (l = 1, 2,..., 5). The optimal control
+problem is to ﬁnd the control signal U(k) to maximize the utility functions ui(k + 1)(i = 1, 2,..., 5).
+Inspired by [6], a set of Koopman variables are deﬁned as
+zi,j (k) = ψi,j (X(k)) = φ(j)
+i (X(k)), (3.6)
+for i = 1, 2,..., 5, j = 1, 2,..., 6, and the corresponding Koopman equations are
+ψi,j (X(k + 1)) = ψi,j (AX(k) +BU (k)) = φ(j)
+i (AX(k) +BU (k)). (3.7)
+A main goal of our study is to express φ(j)
+i (AX(k) +BU (k)) in terms of ψi,j (X(k)) (plus some
+other variables including X(k)) and U(k), so that zi,j (k + 1) = ψi,j (X(k + 1)) can be expressed
+in terms of zi,j (k) = ψi,j (X(k)) and other variables and signals. This will transform the nonlinear
+utility functions φ(j)
+i (X(k)) in (3.5) to a set of linear functions zi,j (k).
+3.2 Koopman System Construction
+A key step in applying the Koopman system techniques to system mod eling and feedback control
+is to select the desired components zi(k) of z(k), the Koopman variables.
+3.2.1 Koopman System with Natural Variables
+There are two sets of natural system variables: one set from the robot system state variables, and
+one set from the utility functions, and both can be used as the Koop man system variables.
+Robot system state variables . In our study, we also take the original system state vector
+X(k) in (3.2) as a part of the Koopman state vector z(k):
+zi(k) = ψi(X(k)) = Xi(k), i= 1, 2,..., 20, (3.8)
+where Xi(k) (1, 2,..., 20) are the components of X(k)
+△
+= [X1(k),X 2(k),...,X 20(k)]T .
+14
+===== PAGE 15 =====
+Then, the Koopman equations (2.9): ψi(f (x(k),u (k))) = ψi(x(k + 1)) =zi(k + 1) for x(k + 1) =
+f (x(k),u (k)) (i.e., X(k + 1) = AX(k) +BU (k)) become
+ψi(AX(k) +BU (k)) = ψi(X(k + 1))
+ψ i(X(k))=Xi(k)
+=⇒ (AX(k) +BU (k))i =Xi(k + 1) = zi(k + 1), (3.9)
+where (AX(k) +BU (k))i denotes the ith component of AX(k) +BU (k), or in the vector form,
+AX(k) +BU (k) = X(k + 1) ⇔Az(1)(k) +BU (k) = z(1)(k + 1), (3.10)
+where
+z(1)(k) = [z1(k),...,z 20(k)]T =X(k) ∈R20, (3.11)
+that is, the Koopman subsystem (3.10) for z(1)(k) = [z1(k),...,z 20(k)]T is the original robot system
+(3.3) which is already linear in this case without any transformation.
+Utility functions as Koopman variables . Then, we formally include the previously deﬁned
+Koopman variables: the 5 sets of the utility function components φ(j)
+i (X(k)), each set for one robot
+with 6 components, for i = 1, 2,..., 5, j = 1, 2,..., 6:
+z20+6(i−1)+j(k) = ψ20+6(i−1)+j (X(k))
+=zi,j (k) = ψi,j (X(k)) = φ(j)
+i (X(k)), i= 1, 2,..., 5, j = 1, 2,..., 6, (3.12)
+(from z21(k) to z50(k)), for φ(j)
+i (X(k)) in the utility function (3.5), whose details are shown in [17],
+to transform the utility functions to a linear form:
+ui(k) =
+6∑
+j=1
+ω(j)
+i z20+6(i−1)+j (k), (3.13)
+in terms of the Koopman system variables z20+6(i−1)+j (k), i = 1, 2,..., 5, j = 1, 2,..., 6.
+For the utility function components based deﬁnitions of Koopman va riables z20+6(i−1)+j(k) in-
+troduced in (3.12): z20+6(i−1)+j(k) = ψ20+6(i−1)+j(X(k)) = φ(j)
+i (X(k)), the Koopman equations
+(2.9): ψi(f (x(k),u (k))) = ψi(x(k + 1)) = zi(k + 1) for x(k + 1) = f (x(k),u (k)), applied to
+X(k + 1) = AX(k) +BU (k), become
+ψl(AX(k) +BU (k)) = ψl(X(k + 1))
+zi(k)=ψ l(X(k))=φ (j)
+i (X(k))
+=⇒ φ(j)
+i (AX(k) +BU (k)) = φ(j)
+i (X(k + 1)) = zl(k + 1), (3.14)
+15
+===== PAGE 16 =====
+for l = 20 + 6(i − 1) +j + 1 = 21, 22,..., 50 (with i = 1, 2,..., 5, j = 1, 2,..., 6).
+Similar to z(1)(k) in (3.11), we can deﬁne
+z(2)(k) = [z21(k),...,z 50(k)]T =ψ(2)(X(k)) = [ψ21(X(k)),...,ψ 50(X(k))]T ∈R30, (3.15)
+as the second group of Koopman variables. As shown in Section 2.1.2, the Koopman equations
+(2.9): ψi(f (x(k),u (k))) = ψi(x(k + 1)) = zi(k + 1) for x(k + 1) = f (x(k),u (k)) (i.e., X(k + 1) =
+AX(k) + BU (k)) can be expressed as (2.16): z(k + 1) = ξ(z(k),u (k)), for some vector function
+ξ(·, ·). This implies, when applied to φ(j)
+i (AX(k) +BU (k)) = φ(j)
+i (X(k + 1)), that
+z(2)(k + 1) = ξ(2)(z(1)(k),z (2)(k),U (k)) (3.16)
+for some vector function ξ(2)(·, ·, ·) ∈R30, where z(2)(k) = ψ(2)(X(k)), and
+z(2)(k + 1) = ψ(2)(X(k + 1)) = ψ(2)(AX(k) +BU (k)). (3.17)
+3.2.2 Koopman System with Possible Additional State Variab les
+While the use of the robot system state variables z(1)(k) = X(k) as a part of the Koopman system
+state vector z(k) can help expanding the basis of Koopman variables beyond those fr om z(2)(k),
+additional Koopman system state variables zi(k) = ψi(X(k)),k = 51, 52,...,N , if properly chosen,
+can help further to increase the accuracy of the linear or bilinear mo del approximation of the 5-robot
+system with nonlinear utility functions. Neural network functions c an be good candidates for such
+Koopman variables (observations) zi(k) = ψi(X(k)) [7], [18].
+The current choice of z(1)(k) and z(2)(k) is to build a basic framework: a dynamic system for
+z(k) = [zT
+(1)(k),zT
+(2)(k)]T in (3.10) and (3.16), with the utility functions in (3.5) expressed as (3 .13),
+and eventually, as the total utility function
+u(k) =
+6∑
+i=1
+ui(k) =
+6∑
+i=1
+ωT
+i z(2)i(k) = ωTz(2)(k), (3.18)
+for z(2)(k) = [( z(2)1(k))T,..., (z(2)5(k))T ]T ∈ R30 for z(2)i(k) ∈ R6, ωi = [ω(1)
+i ,...,ω (6)
+i ]T ∈ R6,
+i = 1, · · ·, 5, and ω = [ωT
+1,...,ω T
+5 ]T ∈ R30. In this way, the nonlinear utility functions ui(k) are
+linear in the new system variables z(2)(k).
+Recall that the control objective is to ﬁnd U(k) to maximize u(k +1) subject to some constraints
+on U(k), originally, for z(2)(k + 1) from the nonlinear model (3.17) (nonlinear in the control vecto r
+U(k)), and, based on the study of this paper (with a linear or bilinear mod el approximation of the
+Koopman system), for z(2)(k + 1) from either a linear or bilinear model, to make u(k + 1) linear in
+or aﬃne in U(k), simplifying the optimal control solution procedure.
+16
+===== PAGE 17 =====
+With the possible addition of more Koopman variables zi(k),k = 51, 52,...,N , from some addi-
+tional observationszi(k) = ψi(x(k)) = ψi(X(k)), to form z(3) = [z51,...,z N ]T , for some N >50, the
+total Koopman system state vector is z(k) = [zT
+(1)(k),zT
+(2)(k),zT
+(3)(k)]T , and while the utility xfunc-
+tion is still the same u(k) = ωTz(2)(k). In this case, there are two subsystems to be approximated:
+z(2)(k + 1) = ξ(2)(z(1)(k),z (2)(k),z (3)(k),U (k)), (3.19)
+z(3)(k + 1) = ξ(3)(z(1)(k),z (2)(k),z (3)(k),U (k)), (3.20)
+whereξ(i)(·, ·, ·, ·),i = 2, 3, are some vector functions which are ensured to exist by Propos ition 2.1,
+for z(3)(k) being a vector of additional observations: z(3)(k) = z(3)(X(k)).
+Hence, the basic solution procedure will be the same, if some addition al koopman variables
+zi(k) = zi(X(k)), k = 51, 52,...,N , in z(3)(k) = [ z51(k),z 52(k),...,z N (k)]T , are to be included.
+The expectation is that the addition of z(3)(k) makes the approximation of z(2)(k) closer to z(2)(k),
+in the sense that a linear programming control design based on appr oximation of z(2)(k) solves
+the original nonlinear programming control problem for z(2)(k) = Ψ (2)(X(k)) being nonlinear more
+accurately than that without the addition of z(3)(k).
+3.3 Iterative Algorithm for Linear Model Identiﬁcation
+In this subsection, we develop an iterative algorithm for estimating t he parameters of a linear
+approximation model of the robot system with nonlinear utility funct ions, for the Koopman system
+model (3.16), based on the Koopman variables z(1)(k) and z(2)(k).
+3.3.1 Linear Model Structure
+We form the augmented Koopman vector vector
+z(k) = [(z(1)(k))T, (z(2)(k))T ]T ∈R50 (3.21)
+for z(1)(k) ∈ R20 in (3.11) and z(2)(k) ∈ R30 in (3.15). Our interest is to ﬁnd some matrices
+Az ∈R50×50 and Bz ∈R50×10 such that
+z(k + 1) = Azz(k) +BzU(k) +ηz(k), (3.22)
+for some minimized approximation error vector ηz(k) ∈R50. From (3.10), we can see that Az, Bz
+and ηz(k) have the following structures:
+Az =
+[
+A 020×30
+A21 A22
+]
+, Bz =
+[
+B
+B2
+]
+, ηz(k) =
+[
+020×0
+η(2)(k)
+]
+, (3.23)
+17
+===== PAGE 18 =====
+where A21 ∈ R30×20, A22 ∈ R30×30 and B2 ∈ R30×10 are parameter matrices to be calculated to
+minimize the error vector η(2)(k) ∈R30.
+Three methods have been given in Section 2.1.2 for calculating or estim ating such matrices Az
+and Bz. The second method minimizing the cost function J2 given in (2.33) can be used, taking
+into account the special form of Az and Bz in (3.23) with A and B known, given that the signals
+z(k + 1) and z(k) are measured signals: z(1)(K) = X(k) and z(2)(k) with components φ(j)
+i (X(k)).
+The speciﬁc algorithm for obtaining A21, A22 and B2 can be derived.
+The cost function J2 given in (2.33) is
+J2 =
+k0+k1∑
+k=k0
+ηT
+z (k)ηz(k) =
+k0+k1∑
+k=k0
+(z(k + 1) −Azz(k) −BzU(k))T (z(k + 1) −Azz(k) −BzU(k)), (3.24)
+as the sum of ηz(k) over [k0,k 0 +k1]. From (3.23), we have
+z(1)(k + 1) = Az(1)(k) +BU (k) (3.25)
+z(2)(k + 1) = A21z(1)(k) +A22z(2)(k) +B2U(k) +η(2)(k), (3.26)
+so that the above cost function J2 becomes
+J2 =
+k0+k1∑
+k=k0
+ηT
+(2)(k)η(2)(k) =
+k0+k1∑
+k=k0
+(z(2)(k + 1) −A21z(1)(k) −A22z(2)(k) −B2U(k))T
+·(z(2)(k + 1) −A21z(1)(k) −A22z(2)(k) −B2U(k)). (3.27)
+One can ﬁnd the matrices A21, A22 and B2 to minimize J2, using a batch data set of z(k) and
+U(k) over an interval [ k0,k 0 +k1]. To make use of the incoming new data, one can re-solve the
+minimization problem with increased k1 (and k0). Such an algorithm for obtaining the matrices
+A21, A22 and B2 is a batch-data algorithm.
+It would be useful to derive an iterative algorithm which can update t he values of A21, A22 and
+B2, using the incoming new data and the previous values of A21, A22 and B2. Such an algorithm
+has certain online learning properties desirable for applications.
+3.3.2 Iterative Algorithm for the 5-Robot System
+For the Koopman state vector z(k) deﬁned in (3.21), we want to the matrices Az andBz in (3.22):
+z(k + 1) =Azz(k) +BzU(k) +ηz(k), to minimize the error ηz(k) in some sense. From the structures
+of Az and Bz in (3.23), we are led to the linear model (3.26) with η(2)(k):
+z(2)(k + 1) = A21z(1)(k) +A22z(2)(k) +B2U(k) +η(2)(k), (3.28)
+18
+===== PAGE 19 =====
+and to ﬁnd the parameter matrices ˆA21 ∈ R30×20, ˆA22 ∈ R30×30 and ˆB2 ∈ R30×10, to minimize
+η(2)(k) ∈R30 in the sense that some accumulative sum J of the errors
+z(2)(τ + 1) − ( ˆA21z(1)(τ ) + ˆA22z(2)(τ ) + ˆB2U(τ )) (3.29)
+is minimized over the time interval: k0,k 0 + 1,...,k − 1.
+To present an iterative algorithm for ˆA21 ∈R30×20, ˆA22 ∈R30×30 and ˆB2 ∈R30×10, we let
+y(k) = z(2)(k + 1) ∈R30 (3.30)
+ζ(k) = [zT
+(1)(k),zT
+(2)(k),U T (k)]T ∈R60 (3.31)
+Θ T = [A21,A 22,B 2] ∈R30×60 (3.32)
+and rewrite (3.28) as
+y(k) = Θ Tζ(k) +η(2)(k), (3.33)
+where
+η(2)(k)
+△
+= [η2, 1(k),η 2, 2(k),...,η 2, 30(k)]T ∈R30. (3.34)
+The cost function J3 to be minimized is chosen as
+J3 =J3( ˆΘ) = 1
+2
+k−1∑
+τ=k0
+1
+ρ( ˆΘ T (k)ζ(τ ) −y(τ ))T ( ˆΘ T (k)ζ(τ ) −y(τ ))
++ 1
+2tr[( ˆΘ(k) − Θ 0)TP −1
+0 ( ˆΘ(k) − Θ 0)], P0 =PT
+0
+(
+∈R60×60
+)
+> 0, ρ> 0. (3.35)
+This cost function J3 is a modiﬁed version of the compact form of J2 in (3.27) with the estimates
+ˆA21, ˆA22 and ˆB2 (of the parameters A21, A22 and B2):
+J2 =
+k−1∑
+τ=k0
+( ˆΘ T (k)ζ(τ ) −y(τ ))T ( ˆΘ T (k)ζ(τ ) −y(τ )), (3.36)
+which is suitable for a non-iterative algorithm using a batch of data [19 ]. The term 1
+2tr[( ˆΘ(k) −
+Θ 0)TP −1
+0 ( ˆΘ(k) − Θ 0)] in (3.35) represents a penalty on the initial estimate ˆΘ 0. The cost function
+J in (3.35) is suitable for the derivation of an iterative (adaptive) algor ithm for the online estimate
+ˆΘ(k), using real-time updated measurements (data) [20].
+The iterative algorithm for ˆΘ(k) = [ ˆθ1(k), ˆθ2(k),..., ˆθ30(k)] ∈R60×30 as the estimate of Θ in the
+parametrized form (3.33) with measured signals y(k) and ζ(k) has the form [20]:
+ˆΘ(k + 1) = ˆΘ(k) − P (k − 1)ζ(k)ǫT (k)
+m2(k) , k =k0,k 0 + 1,k 0 + 2,..., (3.37)
+19
+===== PAGE 20 =====
+with ˆΘ(k0) = Θ 0 as a chosen initial estimate of Θ, where
+ǫ(k) = ˆΘ T (k)ζ(k) −y(k) (3.38)
+m(k) =
+√
+ρ +ζT (k)P (k − 1)ζ(k), ρ> 0 (3.39)
+P (k) = P (k − 1) −P (k − 1)ζ(k)ζT (k)P (k − 1)
+m2(k) , k =k0,k 0 + 1,k 0 + 2,..., (3.40)
+with P (k0 − 1) = P0 =PT
+0 > 0 chosen (typically, P0 >p 0I60 with a large value of p0 > 0).
+This algorithm, with ˆΘ(k0) andP (k0−1) chosen, generates ˆΘ(k+1) (which depends on P (k−1))
+and P (k) (which is for the next step ˆΘ(k + 1), at each step k =k0,k 0 + 1,k 0 + 2,... , iteratively.
+Some useful modiﬁcations [20] to this algorithm include:
+• gain matrix resetting: reset P (kr + 1) = p0I whenever the minimum eigenvalue of
+P (kr), λmin(P (kr)) ≤ p1 for some small positive number p1 << p0, to avoid the gain
+matrix P (k) to become close to being singular; and
+• parameter projection: force the components of ˆΘ(k) to stay in some intervals, to
+ensure robustness with respect to the approximation error η(2)(k) in (3.33).
+Such a least-squares algorithm has some desired properties, see [2 0] for details.
+3.3.3 Linear Model Identiﬁcation Simulation
+To simulate the developed iterative linear model identiﬁcation algorith m on the 5-robot system
+with nonlinear utility functions, for determining the parameters ˆΘ T (k) = [ ˆA21(k), ˆA22(k), ˆB2(k)]
+online, at time k, we ﬁrst apply some chosen U(k) to the 5-robot system model (3.3): X(k + 1) =
+AX(k) +BU (k), to generate X(k + 1) as z(1)(k + 1) = X(k + 1) (see (3.11)):
+z(1)(k + 1) = [z1(k + 1),...,z 20(k + 1)]T =X(k + 1) ∈R20, (3.41)
+and use the utility functions (3.15) and (3.5): z(2)(k) = ψ(2)(X(k)), to calculate z(2)(k + 1):
+z(2)(k + 1) = ψ(2)(X(k + 1)). (3.42)
+We then go to time k + 1 for the next set of z(1)(·) = X(·) and z(2)(·). For this procedure, the initial
+conditions are z(1)(k0) = X(k0) (and z(2)(k0) = ψ(2)(X(k0))).
+In this way, at time k, we have the measurements (data) of y(k) = z(2)(k + 1) and ζ(k) (from
+z(1)(k),z (2)(k),U (k), see (3.31)) in the linear model (3.33): y(k) = Θ Tζ(k) +η(2)(k), for which the
+20
+===== PAGE 21 =====
+algorithm (3.37)-(3.40) can be used for identifying/estimating the p arameter matrix Θ containing
+the parameter matrices A21, A22 and B2 of the linear model (3.28) with η(2)(k):
+z(2)(k + 1) = A21z(1)(k) +A22z(2)(k) +B2U(k) +η(2)(k). (3.43)
+To apply such an iterative algorithm for the linear model estimation of the original nonlinear
+Koopman system model (3.16), the choice of U(k) should be such that the robots make some
+desired movements, rich enough to make the regressor signal ζ(k) in (3.31) exciting enough to help
+the iterative algorithm to estimate the parameter matrices A21,A 22,B 2 of the above model, and
+suitable enough to avoid collisions among the robots when moving arou nd their initial locations.
+3.3.4 Model Validation
+For model validation, there are two sets of data to be generated a nd collected: one set from the
+original nonlinear model, and one set from the approximate linear mod el.
+Data from the original system model . For the state vector z(k) = [(z(1)(k))T, (z(2)(k))T ]T ∈
+R50 in (3.21), the original z(1)-subsystem is (3.10):
+z(1)(k + 1) = Az(1)(k) +BU (k), (3.44)
+with z(1)(k) = X(k), plus the nonlinear model (3.16):
+z(2)(k + 1) = ξ(2)(z(1)(k),z (2)(k),U (k)), (3.45)
+where z(2)(k) is deﬁned in (3.15):
+z(2)(k) = ψ(2)(X(k)) = [ψ21(X(k)),...,ψ 50(X(k))]T. (3.46)
+Although the function ξ(2)(·, ·, ·) exists but it is only nominal (and is hard to get), we can use
+z(2)(k + 1) = ψ(2)(X(k + 1)), (3.47)
+to obtain z(2)(k + 1). Hence, with the initial conditions z(1)(k0) = X(k0), at time k, with the current
+X(k) as z(1)(k) = X(k) and a chosen U(k), we generate z(1)(k + 1) = X(k + 1), z(2)(k + 1) =
+ψ(2)(X(k + 1)), and then go to time k + 1, for the next set of z(1)(·) = X(·) and z(2)(·).
+Data from the approximate linear model . The approximate (identiﬁed/estimated) linear
+system is of the form (3.22) without ηz(k):
+ˆz(k + 1) = ˆAz ˆz(k) + ˆBzU(k), (3.48)
+21
+===== PAGE 22 =====
+(where ˆAz and ˆBz are the estimates of Az and Bz) which is equal to the two equations:
+z(1)(k + 1) = Az(1)(k) +BU (k) (3.49)
+ˆz(2)(k + 1) = ˆA21z(1)(k) + ˆA22 ˆz(2)(k) + ˆB2U(k), (3.50)
+where ˆA21, ˆA22 and ˆB2 are the ﬁnal (ﬁxed) estimates of A21,A22 andB2, obtained from the developed
+adaptive estimation algorithm, after a system identiﬁcation proces s is completed.
+This will generate a nominal linear approximation model for the origina l nonlinear system.
+However, since such a linear model uses ﬁxed parameter estimates ˆA21, ˆA22 and ˆB2, it may not
+capture the characteristics of the original nonlinear system dyna mically.
+Remark 3.1 An online (adaptive) linear model using adaptive parameters can be c onstructed as
+z(1)(k + 1) = Az(1)(k) +BU (k) (3.51)
+ˆz(2)(k + 1) = ˆA21(k)z(1)(k) + ˆA22(k)ˆz(2)(k) + ˆB2(k)U(k), (3.52)
+where ˆA21(k), ˆA22(k) and ˆB2(k) are the online (adaptive) estimates of A21, A22 and B2, obtained
+from the adaptive parameter estimation algorithm (3.37) at each tim e instant k, in stead of the
+ﬁnal (ﬁxed) estimates of A21, A22 and B2, obtained after a system identiﬁcation process. ✷
+To use this approximate linear model to calculate z(1)(·) and ˆz(2)(·), we set the initial conditions
+z(1)(k0) = X(k0) and ˆz(2)(k0) = ψ(2)(X(k0)), and, at time k, with the current z(1)(k) and a chosen
+U(k), we generate z(1)(k + 1) = X(k + 1) from (3.49), and with the current ˆ z(2)(k) and z(1)(k), we
+generate ˆz(2)(k + 1) from (3.50), and then go to time k + 1, for the next set of z(1)(·) and ˆz(2)(·).
+The signal ˆz(2)(·) from (3.50) is the state vector of the approximate linear system ( 3.50), and
+is a functional approximation of z(2)(k) = ψ(2)(X(k)) from the utility functions (3.5), as the state
+vector of the nominal nonlinear model (3.45).
+Model validation . To validate our proposed iterative identiﬁcation algorithm for the lin ear
+model (3.43), we calculate the values of z(1)(·) = X(·), z(2)(·) and ˆz(2)(·), with some test signals
+U(k), from the above two schemes: ˆ z(2)(k + 1) from (3.50) or (3.52), and z(2)(k + 1) from (3.47)
+(with X(k + 1) from (3.49)), and compare their diﬀerence (the model validatio n error):
+˜z(2)(k + 1) = ˆz(2)(k + 1) −z(2)(k + 1), (3.53)
+to check the accuracy of the approximate linear model (3.50) for a pproximating the nonlinear model
+(3.47) which has a nominal expression (3.45).
+22
+===== PAGE 23 =====
+It is important that the test signals U(k) for model validation should be diﬀerent from those
+used for the adaptive parameter identiﬁcation algorithm and should be diverse (with multiple sets
+of U(k) for multiple testings), to verify the suitability of the model for bro ad system motions.
+Error signals . In this development, there are four notable error signals.
+• The ﬁrst error signal is the estimation error ǫ(k) in (3.38) used in the iterative estima-
+tion algorithm (3.37), which is the diﬀerence between the known signa l ˆA21(k)z(1)(k) +
+ˆA22(k)z(2)(k) + ˆB2(k)U(k) and the known signal y(k) = z(2)(k + 1) = ψ(2)(X(k + 1)):
+ǫ(k) = ˆA21(k)z(1)(k) + ˆA22(k)z(2)(k) + ˆB2(k)U(k) −z(2)(k + 1). (3.54)
+This error signal is available at each time instant k, because it is generated from known
+signals, representing how close the estimated model output ˆ y(k) = ˆΘ T (k)ζ(k) to the
+real model output y(k) = z(2)(k + 1). Compared with (3.50), ˆy(k) = ˆΘ T (k)ζ(k) is
+ˆy(k) = ˆA21(k)z(1)(k) + ˆA22(k)ˆz(2)(k) + ˆB2(k)U(k), (3.55)
+in which ˆA21(k), ˆA22(k) and ˆB2(k) explicitly depend on k, while in (3.50), ˆA21, ˆA22 and
+ˆB2 are obtained and ﬁxed estimates of A21, A22 and B2.
+• The second error signal is the modeling error η(2)(k) in (3.26) which is an unavailable
+signal in real time (because A21, A22 and B2 are nominal and unknown), representing
+how close the nominal and unknown signal A21z(1)(k)+A22z(2)(k)+B2U(k) to the system
+signal z(2)(k + 1) = ξ(2)(z(1)(k),z (2)(k),U (k)) = ψ(2)(X(k + 1)) (see (3.45) and (3.47)).
+For one set of the estimates ( ˆA21, ˆA22, ˆB2) of ( A21,A 22,B 2), there is one realized and
+known version ˆη(2)(k) of η(2)(k), based on the equation
+z(2)(k + 1) = ˆA21z(1)(k) + ˆA22z(2)(k) + ˆB2U(k) + ˆη(2)(k), (3.56)
+that is, −ˆη(2)(k) is the diﬀerence between ˆA21z(1)(k) + ˆA22z(2)(k) + ˆB2U(k) (for ﬁxed or
+adaptive estimates ˆA21, ˆA22 and ˆB2) and z(2)(k + 1) = ψ(2)(X(k + 1)):
+−ˆη(2)(k) = ˆA21z(1)(k) + ˆA22z(2)(k) + ˆB2U(k) −z(2)(k + 1). (3.57)
+Hence, there are two versions of ˆη(2)(k), for ﬁxed or adaptive estimates ˆA21, ˆA22 and ˆB2.
+One may compare the deﬁned model (3.56) with the linear approximat e model (3.50),
+and the signal −ˆη(2)(k) in (3.56) with the estimation error signal ǫ(k) in (3.54).
+23
+===== PAGE 24 =====
+• The third error signal is the model validation error deﬁned in (3.53):
+˜z(2)(k+1) = ˆz(2)(k+1)−z(2)(k+1) = ˆA21z(1)(k)+ ˆA22 ˆz(2)(k)+ ˆB2U(k)−z(2)(k+1), (3.58)
+where ˆz(2)(k + 1) = ˆA21z(1)(k) + ˆA22 ˆz(2)(k) + ˆB2U(k) is the linear system approximation
+of the nonlinear signal z(2)(k + 1) = ξ(2)(z(1)(k),z (2)(k),U (k)) = ψ(2)(X(k + 1)), either
+ﬁxed parameter estimates ˆA21, ˆA22 and ˆB2 or adaptive (online) parameter estimates
+ˆA21 = ˆA21(k), ˆA22 = ˆA22(k) and ˆB2 = ˆB2(k).
+Hence, there are two versions of the model validation error ˜ z(2)(k + 1).
+• The fourth error signal is the a posteriori estimation error
+ǫa(k) = ˆΘ T (k + 1)ζ(k) −y(k), (3.59)
+as compared with the estimation error ǫ(k) = ˆΘ T (k)ζ(k) −y(k) deﬁned in (3.38). The
+errorǫa(k) is a reconstructed version ofǫ(k), using the updated parameter estimate ˆΘ(k+
+1), and ǫa(k) is a meaningful measure of the parameter estimation performanc e. If ˆΘ(k)
+converges to a constant matrix (or lim k→∞( ˆΘ(k + 1) − ˆΘ(k)) = 0, a weaker condition),
+then ǫa(k) converges to ǫ(k). Generically, ǫa(k) is smaller than ǫ(k) in magnitude, due
+to the estimation improvement by the updated parameter estimate ˆΘ(k + 1).
+Based on (3.56) with adaptive (online) parameter estimates ˆA21(k), ˆA22(k) and ˆB2(k), we can
+have the adaptive (online) linear Koopman system model:
+z(2)(k + 1) = ˆA21(k)z(1)(k) + ˆA22(k)z(2)(k) + ˆB2(k)U(k) (3.60)
+The model validation and error signal analysis are also applicable to th e bilinear model case.
+3.4 Bilinear Model Identiﬁcation
+We ﬁrst recall the Taylor series expansion (2.38) of the component fi(x) of a generic vector function
+f (x) = [f1(x),f 2(x),...,f m(x)]T ∈Rm of x = [x1,x 2,...,x n]T ∈Rn.
+Model setup . To be relevant to our robot system, we let
+x = [zT
+(1),zT
+(2),U T ]T, (3.61)
+where z(1) =z(1)(k), z(2) =z(2)(k) and U =U(k) are the robot system variables, Koopman system
+variables and control variables, respectively. Corresponding to x = [zT
+(1),zT
+(2),U T ]T , we choose
+x0 = [zT
+(1)0,zT
+(2)0,U T
+0 ]T, U0 = 0 1×62, (3.62)
+2For a bilinear model formulation, we consider the system with 3 robot s, to keep the system vector (and the
+corresponding system matrix) dimensions moderate: z(1)(k) ∈R12, z(2)(k) ∈R18 and U (k) ∈R6.
+24
+===== PAGE 25 =====
+where z(1)0 is the desired state vector of the robot system, and z(2)0 is the desired state vector of
+the Koopman system when the desired z(1)0 is achieved by z(1).
+With x = [zT
+(1),zT
+(2),U T ]T and, accordingly,
+Hi =Hfi(x0) =
+
+
+
+Hi, 11 Hi, 12 Hi, 13
+Hi, 21 Hi, 22 Hi, 23
+Hi, 31 Hi, 32 Hi, 33,
+
+
+ =HT
+i , (3.63)
+since U −U0 = U is expected to converge to 0 1×6, we may ignore the term UTHi, 33U in (x −
+x0)THfi(x0)(x −x0). Thus, we can approximate fi in (2.38) as
+fi(x) ≈fi(x0) + (∇fi(x0))T (x −x0) + 1
+2 (x −x0)THfi(x0)(x −x0) without UTHi, 33U. (3.64)
+Excluding the term UTHi, 33U from fi(x) will lead to a bilinear model linear (more precisely,
+aﬃne) in the control U(k), which is useful for reaching the goal of simplifying the solution pro cedure
+for the optimal control problem: from maximizing a set of nonlinear f unctions to maximizing a set
+of linear or aﬃne functions, the function sets both containing the c ontrol signal U(k).
+Remark 3.2 The linear model studied so far is based on the approximation
+fi(x) ≈ (∇fi(x0))T (x −x0), x0 = 0 1×n, (3.65)
+which, when applied to the robot system with nonlinear utility function s, may not provide enough
+capacity to solve the control problem of driving the robots to their desired positions.
+In this new formulation, the approximation scheme (3.64) is to be use d to derive a parametrized
+model which contains the oﬀ-set term fi(x0), the perturbed term x −x0 with nonzero x0, bilinear
+terms of [(z(1) −z(1)0)T, (z(2) −z(2)0)T ]T andU, and quadratic terms of [( z(1) −z(1)0)T, (z(2) −z(2)0)T ]T ,
+in addition to linear terms from ( ∇fi(x0))T (x −x0), with x = [zT
+(1),zT
+(2),U T ]T . Such a new bilinear
+scheme is expected to provide more capacity in generating more acc urate approximation of the
+nonlinear utility functions and more powerful control signals to max imize the utility functions, to
+drive the robots to their desired locations. ✷
+Model parametrization . While the terms fi(x0), ∇fi(x0) and Hfi(x0) (3.64) may be calcu-
+lated by deﬁnition when the function fi(x) is known, the error
+ei =fi(x) −fi(x0) + (∇fi(x0))T (x −x0) + 1
+2 (x −x0)THfi(x0)(x −x0) without UTHi, 33U (3.66)
+may not be always minimized by the calculated fi(x0), ∇fi(x0) and Hfi(x0).
+25
+===== PAGE 26 =====
+A minimization-based method can be used to calculate fi(x0), ∇fi(x0) and Hfi(x0) as parame-
+ters, based on some cost function similar to that given (3.36).
+An iterative (adaptive) algorithm is desirable to estimate fi(x0), ∇fi(x0) and Hfi(x0) (and some
+accumulative eﬀect of those higher-order terms in (2.38)), with up dated measurements (data). Such
+an online algorithm can be derived, by minimizing some cost function simila r to that given in (3.35),
+of the form (3.37), for which some model parametrization prepara tion is needed.
+Based on the new approximation scheme (3.64), for the Koopman sy stem model
+z(2)(k + 1) = ξ(2)(z(1)(k),z (2)(k),U (k))
+△
+=f (x) = [f1(x),...,f i(x),... ]T, (3.67)
+with the notation z(2)(k) = [z(2), 1(k),z (2), 2(k),...,z (2),i (k),..., ]T , a bilinear model based on
+z(2),i (k + 1) ≈fi(x0) + (∇fi(x0))T (x −x0) + 1
+2 (x −x0)THfi(x0)(x −x0) without UTHi, 33U, (3.68)
+is to be derived and estimated for its parameter matrices fi, ∇fi and Hfi without Hi, 33, for which
+a parametrized model (in terms of the parameters of fi(x0), ∇fi(x0) and Hfi(x0)) and an adaptive
+algorithm (to estimate these parameters) will be developed.
+Forz(2)(k) = [z(2), 1(k),z (2), 2(k),...,z (2),i (k),... ]T , applying a parametrization procedure (of sep-
+arating unknown parameters from known signals) on (3.68), we can derive the bilinear model
+z(2)(k + 1) =A21(z(1)(k) −z(1)0) +A22(z(2)(k) −z(2)0) +B2U(k)
++f (z(1)0,z (2)0) + Φ T
+1g1(z(1)(k) −z(1)0)
++ΦT
+2g2(z(2)(k) −z(2)0,z (1)(k) −z(1)0) + Φ T
+3g3(z(2)(k) −z(2)0)
++ΦT
+4g4(z(1)(k) −z(1)0,U (k)) + Φ T
+5g5(z(2)(k) −z(2)0,U (k)) +η(2)(k), (3.69)
+for some unknown parameter matrices A21, A22, B, Φ i, i = 1, 2,..., 5, and vector f (z(1)0,z (2)0) to
+be estimated, and some known (available) vector signals gi,i = 1, 2,..., 5, where η(2)(k) represents
+the modeling error. In this model, A21(z(1)(k) −z(1)0) +A22(z(2)(k) −z(2)0) +B2U(k) is the linear
+part at the operating point ( z(1)0,z (2)0), f (z(1)0,z (2)0) is the operating point dynamics oﬀset term,
+and other terms are from the bilinear modeling, in particular, their ith rows are
+(ΦT
+1g1(z(1)(k) −z(1)0))i = 0.5(z(1)(k) −z(1)0)THi, 11(z(1)(k) −z(1)0) (3.70)
+(ΦT
+2g2(z(2)(k) −z(2)0,z (1)(k) −z(1)0))i = (z(2)(k) −z(2)0)THi, 21(z(1)(k) −z(1)0) (3.71)
+(ΦT
+3g3(z(2)(k) −z(2)0))i = 0.5(z(2)(k) −z(2)0)THi, 22(z(2)(k) −z(2)0) (3.72)
+26
+===== PAGE 27 =====
+(ΦT
+4g4(z(1)(k) −z(1)0,U (k)))i = (z(1)(k) −z(1)0)THi, 13U(k) (3.73)
+(ΦT
+5g5(z(2)(k) −z(2)0,U (k)))i = (z(2)(k) −z(2)0)THi, 23U(k), (3.74)
+for Hi,jk being the parts of Hi in (3.63). To further clarify the parametrized model (3.69), we not e
+that, since Hi =HT
+i , that is, HT
+i, 21 =Hi, 12, HT
+i, 31 =Hi, 13 and HT
+i, 32 =Hi, 23, we have
+UT (k)Hi, 31(z(1)(k) −z(1)0) = (z(1)(k) −z(1)0)THT
+i, 31U(k) = (z(1)(k) −z(1)0)THi, 13U(k) (3.75)
+UT (k)Hi, 32(z(2)(k) −z(2)0) = (z(2)(k) −z(2)0)THT
+i, 32U(k) = (z(2)(k) −z(2)0)THi, 23U(k) (3.76)
+(z(2)(k) −z(2)0)THi, 21(z(1)(k) −z(1)0) = (z(1)(k) −z(1)0)THi, 12(z(2)(k) −z(2)0). (3.77)
+Also, from (3.67) and the deﬁnition of z(2)(k) = ψ(2)(X(k)) whose components are the nonlinear
+utility functions (see (3.15)), we have
+f (x0) = f (z(1)0,z (2)0) = ψ(2)(AX(0) +BU (0)) = ψ(2)(Az(1)0 +BU0) = ψ(2)(Az(1)0). (3.78)
+As a comparison to (3.69), the bilinear model proposed in [14] has the form:
+z(2)(k + 1) =A21z(1)(k) +A22z(2)(k) +B2U(k)
++ΦT
+4g4(z(1)(0),U (k)) + Φ T
+5g5(z(2)(0),U (k)). (3.79)
+Model adaptation . The model (3.69) can be written in the form (3.33):
+y(k) = Θ Tζ(k) +η(2)(k), (3.80)
+for an unknown parameter matrix Θ to be estimated and a known vec tor signal ζ(k):
+Θ = [A21,A 22,B 2,f (z(1)0,z (2)0), ΦT
+1, ΦT
+2, ΦT
+3, ΦT
+4, ΦT
+5 ]T (3.81)
+ζ(k) = [(z(1)(k) −z(1)0)T, (z(2)(k) −z(2)0)T, (U(k))T, 1, (g1(z(1)(k) −z(1)0))T,
+(g2(z(2)(k) −z(2)0,z (1)(k) −z(1)0))T, (g3(z(2)(k) −z(2)0))T, (g4(z(1)(k) −z(1)0,U (k)))T,
+(g5(z(2)(k) −z(2)0,U (k)))T ]T, (3.82)
+so that an iterative algorithm for estimating Θ can be developed, simila r to that for the linear
+model case in Section 3.3.2. More speciﬁcally, with ˆA21, ˆA22, ˆB2, ˆf0, ˆΦT
+1 , ˆΦT
+2 , ˆΦT
+3 , ˆΦT
+4 and ˆΦT
+5 being
+the estimates of the unknown parameters A21,A22,B2,f0 =f (z(1)0,z (2)0), Φ T
+1 , Φ T
+2 , Φ T
+3 , Φ T
+4 and Φ T
+5 ,
+respectively, we can deﬁne the estimation error as
+ǫ(k) = ˆA21(k)(z(1)(k) −z(1)0) + ˆA22(k)(z(2)(k) −z(2)0) + ˆB2(k)U(k)
++ ˆf0(k) + ˆΦT
+1 (k)g1(z(1)(k) −z(1)0)
++ ˆΦT
+2 (k)g2(z(2)(k) −z(2)0,z (1)(k) −z(1)0) + ˆΦT
+3 (k)g3(z(2)(k) −z(2)0)
++ ˆΦT
+4 (k)g4(z(1)(k) −z(1)0,U (k)) + ˆΦT
+5 (k)g5(z(2)(k) −z(2)0,U (k)) −z(2)(k + 1), (3.83)
+27
+===== PAGE 28 =====
+which can be written in the form (3.38): ǫ(k) = ˆΘ T (k)ζ(k) −y(k). Then, the iterative (adaptive)
+algorithm (3.37)–(3.40) can be used to generate the estimate ˆΘ(k) of Θ.
+Model simulation and validation . The simulation procedure in Section 3.3.3 and validation
+procedure in Section 3.3.4 for the linear model case can be similarly follo wed to conduct simulation
+and validation of the bilinear model developed in this subsection. The t hree error signals discussed
+in Section 3.3.4 also have their similar meanings for a bilinear model.
+Online Koopman model . The adaptive (online) bilinear Koopman model:
+z(2)(k + 1) = ˆA21(k)(z(1)(k) −z(1)0) + ˆA22(k)(z(2)(k) −z(2)0) + ˆB2(k)U(k)
++ ˆf0(k) + ˆΦT
+1 (k)g1(z(1)(k) −z(1)0)
++ ˆΦT
+2 (k)g2(z(2)(k) −z(2)0,z (1)(k) −z(1)0) + ˆΦT
+3 (k)g3(z(2)(k) −z(2)0)
++ ˆΦT
+4 (k)g4(z(1)(k) −z(1)0,U (k)) + ˆΦT
+5 (k)g5(z(2)(k) −z(2)0,U (k)) (3.84)
+will be used to approximate the nonlinear utility functions (3.5) as (3.1 3), as the adaptive (online)
+version of (3.69) without η(2)(k), to be used for solving the control problem to be formulated.
+3.5 General Framework of Koopman System Approximation
+For a generic vector function f (x) = [f1(x),f 2(x),...,f m(x)]T ∈Rm of x = [x1,x 2,...,x n]T ∈Rn,
+the second-order Taylor series expansion of fi(x) in (2.38) at x0 = [x01,...,x 0n]T can be written as
+fi(x) = fi(x0) +
+n∑
+j=1
+∂fi(x0)
+∂xj
+(xj −x0j) + 1
+2!
+n∑
+j=1
+n∑
+p=1
+∂2fi(x0)
+∂xj∂xp
+(xj −x0j)(xp −x0p) + h.o.t.. (3.85)
+Higher-order approximation of Koopman systems . We may also look into the third-order
+Taylor series expansion of fi(x):
+fi(x) =fi(x0) +
+n∑
+j=1
+∂fi(x0)
+∂xj
+(xj −x0j) + 1
+2!
+n∑
+j=1
+n∑
+p=1
+∂2fi(x0)
+∂xj∂xp
+(xj −x0j)(xp −x0p)
++ 1
+3!
+n∑
+j=1
+n∑
+p=1
+n∑
+l=1
+∂3fi(x0)
+∂xj∂xp∂xl
+(xj −x0j)(xp −x0p)(xl −x0l) + h.o.t., (3.86)
+or even higher-order Taylor series expansion offi(x) = z(2),i (k+1) = ψi(X(k+1)) = ξ(2),i (z(k),u (k)),
+to build some higher-order (multilinear) approximation models of a Koo pman system. Such a higher-
+order approximation model can also be expressed in a parametrized form (3.33) or (3.80) based on
+which an adaptive algorithm can be implemented to estimate its parame ters.
+28
+===== PAGE 29 =====
+Higher-order approximations can capture more essence of the no nlinear functions fi(x(k)) =
+ξ(2),i (z(k),u (k)), which is desirable and crucial for many applications including multi-r obot control.
+Recall that the robot system control problem of this paper is to ma ximize some nonlinear util-
+ity functions as the Koopman system variables z(2),i (k), by transforming a nonlinear programming
+problem to a linear programming problem. Hence, for such problems, the higher-order approxi-
+mation Koopman system models (the z(2)(k)-subsystem) should not contain higher-order terms of
+the control inputs U(k) (but the linear or aﬃne terms of U(k)) in the approximation expression of
+z(2),i (k + 1), in order to facilitate the control design to ﬁnd U(k) to maximize the utility functions
+ui(k +1) involving z(2)(k +1), using a linear programming framework for the nonlinear progra mming
+framework of maximizing the original nonlinear utility functions.
+Online Koopman system approximation procedure . For the multi-robot system (3.25)
+with nonlinear utility functions (3.5) whose components φ(j)
+i (X(k)) are modeled as the state vari-
+ables z(2)(k) of the (nominal) nonlinear Koopman system (3.16):
+z(2)(k + 1) = ξ(2)(z(1)(k),z (2)(k),U (k)), (3.87)
+a linear model (3.26) or a bilinear model (3.69) can be used for this non linear system, both leading
+to a parametrized model of the form (3.33) or (3.80):
+y(k) = Θ Tζ(k) +η(2)(k). (3.88)
+Based on this parametrized model, an estimation error ǫ(k) = ˆΘ T (k)ζ(k)−y(k) is formed, where
+ˆΘ(k) is the estimate of the unknown Θ, which is adaptively updated from a n iterative (online)
+algorithm of the form (3.37)–(3.40). Then, an adaptive (online) linea r or bilinear approximation
+model of (3.87) can be obtained as (3.60) or (3.84) which can be used for control design.
+4 Optimal Control Formulation with Koopman Models
+The optimal control problem is stated as: for the robot system (3 .3):
+X(k + 1) = AX(k) +BU (k), (4.1)
+ﬁnd the control input U(k) which maximizes the total utility function
+u(k + 1) =
+6∑
+i=1
+ui(k + 1) (4.2)
+29
+===== PAGE 30 =====
+for ui(k) given in (3.5) or (3.13):
+ui(k) =
+6∑
+j=1
+ω(j)
+i φ(j)
+i (X(k)) =
+6∑
+j=1
+ω(j)
+i z20+6(i−1)+j(k), i= 1, 2, · · ·, 5, (4.3)
+subject to the constraints: Ui(k) ∈ (−4, 3), for U(k) = [U1(k),...,U 10(k)]T : U(k) ∈Uc for
+Uc = {U(k) |Ui(k) ∈ (−4, 3),i = 1,..., 10}. (4.4)
+With z(2)(k) = [ z21(k),...,z 50(k)]T = [(z(2)1(k))T,..., (z(2)5(k))T ]T ∈ R30 for z(2)i(k) ∈ R6,
+ωi = [ω(1)
+i ,...,ω (6)
+i ]T ∈R6, i = 1, · · ·, 5, and ω = [ωT
+1,...,ω T
+5 ]T ∈R30, we can write u(k + 1) as
+u(k + 1) =
+6∑
+i=1
+ωT
+i z(2)i(k + 1) = ωTz(2)(k + 1), (4.5)
+ans denote the optimal control solution as
+U ∗(k) = arg max U (k)∈Uc ωTz(2)(k + 1). (4.6)
+In the original optimal control problem, we need to solve the contr ol problem with
+z(2)(k + 1) = ψ(2)(X(k + 1)) = ψ(2)(AX(k) +BU (k))(=ξ(2)(z(1)(k),z (2)(k),U (k))), (4.7)
+for the given nonlinear functions ψ(2)(·) (see (3.5), (3.6), (3.12), (3.13) and (3.15)) which are non-
+linear in nature (and so are the nominal (virtual) functions ξ(2)(z(1)(k),z (2)(k),U (k))).
+Using the developed approximation-based Koopman system modeling techniques, we can trans-
+form the this nonlinear programming problem to the linear programmin g problem of solving (4.6),
+with z(2)(k + 1) from a linear or bilinear model developed.
+Solution with a linear Koopman model . In this case, the adaptive linear model is
+z(2)(k + 1) = ˆA21(k)z(1)(k) + ˆA22(k)z(2)(k) + ˆB2(k)U(k), (4.8)
+and we ﬁnd U(k) to maximize ωTz(2)(k + 1), for U(k) ∈Uc, that is,
+U ∗(k) = arg max
+U (k)∈Uc
+wT ( ˆA21(k)z(1)(k) + ˆA22(k)z(2)(k) + ˆB2(k)U(k)). (4.9)
+Thus, this is a linear programming problem:
+Maximize wT ( ˆA21(k)z(1)(k) + ˆA22(k)z(2)(k) + ˆB2(k)U(k)),
+subject to − 4 ≤Ui(k) ≤ 3, i∈ {1, 2, 3, 4, 5, 6},
+(4.10)
+In Matlab, there is a built function linprog can solve such linear programming problems.
+30
+===== PAGE 31 =====
+Solution with a bilinear Koopman model . In this case, the adaptive bilinear model for
+z(2)(k + 1) is given in (3.84) in which the ith row of ˆΦT
+4 (k)g4(z(1)(k) −z(1)0,U (k)) ∈ R18 and
+ˆΦT
+5 (k)g5(z(2)(k) −z(2)0,U (k)) ∈R18 should be expressed explicitly in terms of U(k):
+( ˆΦT
+4 (k)g4(z(1)(k) −z(1)0,U (k)))i = (z(1)(k) −z(1)0)T ˆHi, 13(k)U(k) (4.11)
+( ˆΦT
+5 (k)g5(z(2)(k) −z(2)0,U (k)))i = (z(2)(k) −z(2)0)T ˆHi, 23U(k), (4.12)
+in order to explicitly ﬁnd U(k) to solve the maximization problem. Hence, with
+ˆG4(k) =
+
+
+
+
+
+
+
+(z(1)(k) −z(1)0)T ˆH1, 13(k)
+(z(1)(k) −z(1)0)T ˆH2, 13(k)
+.
+.
+.
+(z(1)(k) −z(1)0)T ˆH18, 13(k)
+
+
+
+
+
+
+
+(4.13)
+ˆG5(k) =
+
+
+
+
+
+
+
+(z(2)(k) −z(2)0)T ˆH1, 23(k)
+(z(2)(k) −z(2)0)T ˆH2, 23(k)
+.
+.
+.
+(z(2)(k) −z(2)0)T ˆH18, 23(k)
+
+
+
+
+
+
+
+(4.14)
+for the 3-robot case, we have the adaptive model
+z(2)(k + 1) = ˆA21(k)(z(1)(k) −z(1)0) + ˆA22(k)(z(2)(k) −z(2)0) + ˆf0(k) + ˆΦT
+1 (k)g1(z(1)(k) −z(1)0)
++ ˆΦT
+2 (k)g2(z(2)(k) −z(2)0,z (1)(k) −z(1)0) + ˆΦT
+3 (k)g3(z(2)(k) −z(2)0)
++( ˆB2(k) + ˆG4(k) + ˆG5(k))U(k), (4.15)
+for solving the linear programming version of the problem (4.6):
+U ∗(k) = arg max U (k)∈Uc ωTz(2)(k + 1). (4.16)
+Hence, with either a linear model or a bilinear model of the utility funct ions z(2)(k + 1), the
+optimal control solution procedure becomes much simpler than tha t with maximizing the original
+nonlinear utility functions, as both models are either linear or aﬃne in t he control signal U(k).
+5 Concluding Remarks
+In this paper we have studied some key techniques for Koopman sys tem approximation based op-
+timal control of multiple robots with nonlinear utility functions which a re to be maximized to
+generate the control signal for desired system tracking perfor mance. Essentially, the Koopman op-
+erator, when applied on a set of observation functions of the stat e vector of a nonlinear dynamic
+31
+===== PAGE 32 =====
+system x(k + 1) = f (x(k),u (k)), generates a set of dynamic equations which, through a transf or-
+mation, lead to a set of dynamic system equations which can be appro ximated by linear, bilinear
+or multilinear equations to facilitate designs for application problems.
+In particular, to develop such a framework, we established the fun ctional transformations (2.23)
+which transform the Koopman equations (2.9) to a Koopman dynamic system (2.24); we developed
+an iterative (adaptive) algorithm for updating the linear Koopman sy stem model (2.29), using
+incoming signal measurements (data), to build an online linear Koopma n system model; we proposed
+a bilinear model approximation scheme (3.64) and applied it to the nonlin ear Koopman system
+model (3.67) to derive a parametrized bilinear Koopman system mode l (3.69), and formed an
+iterative (adaptive) bilinear Koopman system (3.84), to be updated using incoming data; and we
+also transferred the original nonlinear programming control prob lem to a linear programming control
+problem, using the linear or bilinear Koopman system model.
+Advantage of a bilinear model over a linear model . The bilinear model (3.84):
+z(2)(k + 1) = ˆA21(k)(z(1)(k) −z(1)0) + ˆA22(k)(z(2)(k) −z(2)0) + ˆB2(k)U(k)
++ ˆf0(k) + ˆΦT
+1 (k)g1(z(1)(k) −z(1)0)
++ ˆΦT
+2 (k)g2(z(2)(k) −z(2)0,z (1)(k) −z(1)0) + ˆΦT
+3 (k)g3(z(2)(k) −z(2)0)
++ ˆΦT
+4 (k)g4(z(1)(k) −z(1)0,U (k)) + ˆΦT
+5 (k)g5(z(2)(k) −z(2)0,U (k)) (5.17)
+is based on the bilinear approximation (3.64):
+fi(x) ≈fi(x0) + (∇fi(x0))T (x −x0) + 1
+2 (x −x0)THfi(x0)(x −x0) without UTHi, 33U, (5.18)
+which has some additional key components than the linear model (3.6 0):
+z(2)(k + 1) = ˆA21z(1)(k) + ˆA22z(2)(k) + ˆB2U(k) (5.19)
+which is based on the linear approximation (3.65):
+fi(x) ≈ (∇fi(x0))T (x −x0). (5.20)
+Thus, a bilinear model has more capacity to capture the signal comp onents to approximate the
+nonlinear function fi(x) which may have a non-zero oﬀset term fi(x0) at x0 (such a term has been
+included in the bilinear model to be compensated, to inclrease the mod el accuracy).
+Advantage of online parameter estimation (adaptation) ove r oﬄine parameter cal-
+culation. The adaptive algorithm (3.37)–(3.40):
+ˆΘ(k + 1) = ˆΘ(k) − P (k − 1)ζ(k)ǫT (k)
+m2(k) , k =k0,k 0 + 1,k 0 + 2,..., (5.21)
+32
+===== PAGE 33 =====
+with ˆΘ(k0) = Θ 0 as a chosen initial estimate of Θ, where
+P (k) = P (k − 1) −P (k − 1)ζ(k)ζT (k)P (k − 1)
+m2(k) , k =k0,k 0 + 1,k 0 + 2,..., (5.22)
+ǫ(k) = ˆΘ T (k)ζ(k) −y(k) (5.23)
+m(k) =
+√
+ρ +ζT (k)P (k − 1)ζ(k), ρ> 0 (5.24)
+generates the estimate ˆΘ(k) of the approximation model parameter matrix Θ in (3.32) for a linear
+model or in (3.81) for a bilinear model, based on the minimization of the c ost function J3 given in
+(3.35) (which contains the accumulative errors ( ˆΘ T (k)ζ(τ ) −y(τ ))T ( ˆΘ T (k)ζ(τ ) −y(τ ))):
+J3 =J3( ˆΘ) = 1
+2
+k−1∑
+τ=k0
+1
+ρ( ˆΘ T (k)ζ(τ ) −y(τ ))T ( ˆΘ T (k)ζ(τ ) −y(τ ))
++ 1
+2tr[( ˆΘ(k) − Θ 0)TP −1
+0 ( ˆΘ(k) − Θ 0)], P0 =PT
+0
+(
+∈R60×60
+)
+> 0, ρ> 0. (5.25)
+The calculation of Θ based on ∇fi(x0) from (2.39 and Hi from (2.40) only captures those local
+approximation terms, without a minimization mechanism.
+Simulation study . Our next research tasks will be focused on two areas of simulation :
+• formulate the simulation systems, conduct the related simulation st udies, and present
+the simulation results, about the parameter estimates ˆΘ(k) from (3.37), estimation error
+ǫ(k) deﬁned in (3.38), model validation error ˜ z(2)(k + 1) deﬁned in (3.53), for both the
+linear model and bilinear model, to evaluate their behaviors; and
+• evaluate the control system performance under a linear program ming control design
+using either a linear or bilinear adaptive (online) Koopman system mode l.
+The outcomes of this simulation study will be reported in a companion p aper [17].
+Acknowledgements
+The authors would like to thank the ﬁnancial support from a Ford Un iversity Research Program
+grant and the collaboration and help from Dr. Suzhou Huang and Dr. Qi Dai of Ford Motor
+Company for this research.
+33
+===== PAGE 34 =====
+References
+[1] B. O. Koopman, “Hamiltonian systems and transformation in Hilber t space,” Proceedings of
+the National Academy of Sciences of the USA: Mathematics , vol. 17, no. 5, pp. 315–318, May
+1931.
+[2] Y. Lan and I. Mezic, “Linearization in the large of nonlinear system s and Koopman operator
+spectrum,” Physica D , vol. 242, pp. 42–53, 2013.
+[3] I. Mezic, “On applications of the spectral theory of the Koopma n operator in dynamical
+systems and control theory,” Proceedings of IEEE 54th Conference on Decision and Control ,
+Osaka, Japan, December 15-18, 2015.
+[4] S. L. Brunton, B. W. Brunton, J. L. Proctor and J. N. Kutz, “K oopman invariant subspaces
+and ﬁnite linear representations of nonlinear dynamical systems fo r control,” PLoS ONE ,
+11(2): e0150171 (https://doi.org/10.1371/journal.pone.015017 1).
+[5] I. Abraham, G. De La Torre and T. D. Murphey, “Model-based co ntrol using Koopman
+operators,” arXiv:1709.01568v1 [cs.RO], 2017 (https://doi.org/10.4 8550/arXiv.1709.01568).
+[6] M. Korda and I. Mezic, “Linear predictors for nonlinear dynamica l systems: Koopman oper-
+ator meets model predictive control,” Automatica, vol. 93, no. 7, pp. 149-160, July 2018.
+[7] B. Lusch, J. N. Kutz and S. L. Brunton, “Deep learning for unive rsal linear embeddings of
+nonlinear dynamics,” Nature Communications, vol. 9, paper 4950, 2018.
+[8] A. L. Bruce, V. M. Zeidan and D. S. Bernstein, “What is the Koopm an operator? A simpli-
+ﬁed treatment for discrete-time systems,” Proceedings of 2019 American Control Conference ,
+Philadelphia, PA, USA, July 10-12, 2019.
+[9] I. Abraham and T. D. Murphey, “Active learning of dynamics for d ata-driven control using
+Koopman operators,” IEEE Transactions on Robotics , vol. 35, no. 5, pp. 1071-1083, October
+2019.
+[10] Y. Han, W. Hao and U. Vaidya, “Deep learning of Koopman repres entation for control,”
+arXiv:2010.07546v1 [cs.LG], 2020 (https://doi.org/10.48550/arXiv.2 010.07546).
+[11] M. Korda and I. Mezic, “Optimal construction of Koopman eigen functions for prediction and
+control,” arXiv:1810.08733v3 [math.OC], 2020 (https://arxiv.org/pd f/1810.08733v3.pdf).
+34
+===== PAGE 35 =====
+[12] A. Mauroy, I. Mezic and Y. Susuki (Eds.), The Koopman Operator in Systems and Control:
+Concepts, Methodologies, and Applications , Springer, 2020.
+[13] P. Bevanda, S. Sosnowskia and S. Hirche, “Koopman operator dynamical models: learning,
+analysis and control,” arXiv:2102.02522 [eess.SY], 2021 (https://arx iv.org/abs/2102.02522).
+[14] D. Bruder, X. Fu and R. Vasudevan, “Advantages of bilinear ko opman realizations for the
+modeling and control of systems with unknown dynamics,” IEEE Robotics and Automation
+Letters, vol. 6, no. 3, pp. 4369–4376, July 2021 .
+[15] A. Isidori, Nonlinear Control Systems , 3rd ed, Springer-Verlag, London, 1995.
+[16] J. Wang, Q. Dai, D. Shen, X. Song, X. Chen, S. Huang, and D. File v, “Multi-agent navigation
+with collision avoidance: game theory approach,” Ford Report, Octo ber 2020.
+[17] Q. H. Zhao and G. Tao, “Koopman system approximation based o ptimal control of multiple
+robots—Part II: Simulations and evaluations,” Manuscript 2023-05 -02, May 2023 (submitted
+to arXiv).
+[18] J. Sarangapani, Neural Network Control of Nonlinear Discrete-Time Systems , CRC press,
+2006.
+[19] J. M. Ortega, Matrix Theory , Plenum Press, New York, 1987.
+[20] G. Tao, Adaptive Control Design and Analysis , John Wiley & Sons, Hoboken, NJ, 2003.
+35

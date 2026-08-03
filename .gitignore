@@ -1,0 +1,17 @@
+# OMC / Claude Code operational artifacts
+.omc/
+.claude/settings.local.json
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*~
+
+# LaTeX build artifacts (for future draft/)
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.bbl
+*.blg
+*.toc

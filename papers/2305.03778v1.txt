@@ -1,0 +1,1828 @@
+
+===== PAGE 1 =====
+arXiv:2305.03778v1  [eess.SY]  5 May 2023
+Koopman System Approximation Based Optimal Control of
+Multiple Robots—Part II: Simulations and Evaluations
+Qianhong Zhao and Gang Tao
+Department of Electrical and Computer Engineering
+University of Virginia
+Charlottesville, V A 22904
+Abstract
+This report presents the results of a simulation study of the linear model and bilinear model
+approximations of the Koopman system model of the nonlinear utility functions in optimal
+control of a 3-robot system. In such a control problem, the no nlinear utility functions are
+maximized to achieve the control objective of moving the rob ots to their target positions and
+avoiding collisions. With the linear and bilinear model app roximations of the utility functions,
+the optimal control problem is solved, based on the approxim ate model state variables rather
+than the original nonlinear utility functions. This transf orms the original nonlinear game
+theory problem to a linear optimization problem. This repor t studies both the centralized
+and decentralized implementations of the approximation mo del based control signals for the
+3-robot system control problem.
+The simulation results show that the posteriori estimation error of the linear approximation
+model has a dramatic tendency of periodic increase in values , which indicates that a linear
+model cannot approximate the nonlinear utility function we ll, and is not suitable for solving
+the optimal control problem (as veriﬁed by simulation resul ts: the control signals from the
+linear model based optimization cannot make the robots move to their targets).
+The simulation results also show that the posteriori estimation error of the bilinear approx-
+imation model shows the error of the bilinear approximation model is much smaller than the
+error of the linear approximation model. Although the tende ncy of periodic increase appears
+again, the maximum value of the posteriori estimation error of the bilinear approximation
+model is several thousand times less than the linear approxi amtion model. This indicates that
+the bilinear model has more capacity to approximate the nonl inear utility functions. Both the
+centralized and decentralized bilinear approximation mod el based control signals can achieve
+the control objective of moving the robots to their target po sitions within a short time. Based
+on the analysis of the simulation time, the bilinear model ba sed optimal control solution is
+fast enough for real-time control implementation.
+Key words: bilinear model, Koopman system model, linear model, linear optimization ,
+nonlinear utility functions, optimal control.
+1
+===== PAGE 2 =====
+1 Introduction
+Approximation of a nonlinear dynamic system by a linear dynamic syste m is a useful approach for
+the control of nonlinear systems. Recently, Koopman operator t heory and Koopman transformation
+techniques have been employed to further develop such an approa ch. The basic idea of the Koopman
+system approach is, for a given dynamic system, to ﬁrst introduce a set of measured signals of
+interest (called the observables or Koopman variables), then gene rate a set of dynamic equations
+using Koopman operator theory and Koopman transformation tec hniques, and ﬁnally form a linear
+system structure and calculate its parameters using some minimizat ion techniques. More details
+about this approach can be found in [2],[3],[4],[6],[7],[8].
+In our study, we consider a 3-robot system with some nonlinear utilit y functions deﬁned from an
+optimal control problem, select the utility functions as the Koopma n variables to deﬁne a Koopman
+dynamic system, form a linear or a bilinear system structure to appr oximate the nonlinear system
+(the augmented robot system), propose an adaptive algorithm to estimate (identify) the unknown
+parameters of the linear model and bilinear model online and the optim al control designs based on
+the estimated linear and bilinear models.
+In this report, we summarize the results of our study: not only the linear model identiﬁcation
+algorithm and the linear model based optimal control design, but als o the bilinear model identiﬁ-
+cation and the bilinear model based optimal control design are simula ted on the 3-robot system.
+However, the simulation results show that only the bilinear approxima tion model is capable to esti-
+mate the nonlinear utility function precisely for both centralized and decentralized control designs
+to the control problem of 3-robot system. The robot trajector ies and program running time of
+simulation results prove the ability of the control design based on th e bilinear model is fast enough
+to solve the real problem.
+This report has the following contents. In Section 2, the multi-robo t simulation system is
+introduced, including the linear motion equations of the robots with s ome nonlinear utility functions
+from an optimal control problem, the deﬁned Koopman system sta te variables, and the optimal
+control design idea based on the linear model or the bilinear model. In Section 3, an adaptive
+(iterative) parameter estimation algorithm (for linear and bilinear mo del identiﬁcation). Section 4
+demonstrates the decentralized implementation of the bilinear appr oximation model based control
+design for the 3-robot system. In Section 5, the simulation results are presented, including the
+parameter estimation (system identiﬁcation) results for the 3-ro bot system, the linear model based
+on control design for the 3-robot system and the bilinear model ba sed on control design for the
+3-robot system. In Section 5, the concluding remarks of the simula tion results are summarized.
+2
+===== PAGE 3 =====
+2 Multi-Robot System with Nonlinear Utility Functions
+In this section, the multi-robot system models with nonlinear utility fu nctions are detailed. Multi-
+robot dynamic system models, nonlinear utility functions, linear Koop man system models, and the
+optimal control problem are introduced in subsections 2.1-2.4 corr espondingly.
+2.1 Multi-Robot System Models
+In this subsection, the multi-robot dynamic system model is introdu ced.
+2.1.1 System with 3 Robots
+The 3-robot system is applied to examine the performance of the es timated model based control
+designs. The 3-robot system models are described as
+vi(k + 1) =vi(k) +ai(k) ∆t
+ri(k + 1) =ri(k) +vi(k) ∆t + 0.5ai(k) (∆t)2, (2.1)
+where ri(k) =
+(
+xi(k)
+yi(k)
+)
+, vi(k) =
+(
+vx
+i (k)
+vy
+i (k)
+)
+, and ai(k) =
+(
+ax
+i (k)
+ay
+i (k)
+)
+,i = 1, 2, 3.
+With the total state vector
+X(k) = [x1(k),y 1(k),...,x 3(k),y 3(k),vx
+1 (k),vy
+1(k),...,v x
+3 (k),vy
+3(k)]T ∈R12, (2.2)
+we can express (2.1) as
+X(k + 1) = AX(k) +BU (k), (2.3)
+where the control vector U(k) is
+U(k) = [ax
+1(k),ay
+1(k),ax
+2(k),ay
+2(k),ax
+3(k),ay
+3(k)]T ∈R6, (2.4)
+and A ∈R12×12 and B ∈R12×6 are some matrices as the controlled system matrices which can be
+directly obtained from the system models (2.1):
+A =
+[
+I6×6 ∆tI 6×6
+06×6 I6×6
+]
+,B =
+[
+0.5(∆t)2I6×6
+∆tI 6×6
+]
+, (2.5)
+where ∆ t is the sampling period.
+2.2 Nonlinear Utility Functions
+In [5], some nonlinear utility functions based on game theory are prop osed to make the robots arrive
+at their targets without collisions. The utility functions of the 3-rob ot system have the form
+ui(k) =
+6∑
+j=1
+ω(j)
+i φ(j)
+i (X(k)),i = 1, 2, 3, (2.6)
+3
+===== PAGE 4 =====
+whereX(k) in (2.2) depends on sl(k) = {rl(k),vl(k)}, (l = 1, 2, 3),ω(j)
+i are constants, andφ(j)
+i (X(k))
+are given in [5], in terms of sl(k) = {rl(k),vl(k)}:
+φ(1)
+i (X(k)) = rT
+i∗(k)vi(k)
+||ri∗(k)||2||vi(k)||2
+, (2.7)
+whereri∗(k) = (xi(k)−xi∗, yi(k)−yi∗) expresses the diﬀerence between current position (xi(k), yi(k))
+and the desired position ( xi∗, yi∗),
+φ(2)
+i (X(k)) = 1 − exp(−( |vi(k)| −v∗(ri∗(k))
+0.8v∗(ri∗(k)) )2), (2.8)
+where v∗(ri∗(k)) = 4
+1+exp(−10(|ri∗ (k)|−0. 2)),
+φ(3)
+i (X(k)) = [exp( −( |ri∗(k)|
+4.0 )2)] × [exp(−( |ri∗(k)|
+6.0 )2)], (2.9)
+φ(4)
+i (X(k)) = [exp( −( |ri∗(k)|
+0.05 )2)] × [exp(−( |vi(k)|
+0.05 )2)], (2.10)
+φ(5)
+i (X(k)) = ln[1 + 6 × exp(−40 ×diw(k))], (2.11)
+wherediw(k) = |riw(k)| −Rr =Rw − ||(xi(k) −xc,yi(k) −yc)||2 −Rr is the shortest distance to the
+wall which can be computed by the circular wall radius Rw, the Robot i current position ( xi,yi),
+the center of the circular wall ( xc,yc) and the robot radius Rr.
+φ(6)
+i (X(k)) = ln[1 + 10 × exp(−20 ×dij(k))], (2.12)
+where dij(k) = |rij(k)| − 2Rr = min ||(xi(k) −xj(k),yi(k) −yj(k))||2 −Rr, i = 1, 2, 3, i̸=j, is the
+shortest distance between Robot i and other robots.
+The Koopman variables are deﬁned as
+zi,j (k) = ψi,j (X(k)) = φ(j)
+i (X(k)), (2.13)
+for i = 1, 2, 3, j = 1, 2,..., 6, and the corresponding Koopman equations are
+ψi,j (X(k + 1)) = ψi,j (AX(k) +BU (k)) = φ(j)
+i (AX(k) +BU (k)). (2.14)
+Our goal of study is to express φ(j)
+i (AX(k) + BU (k)) in terms of ψi,j (X(k)), X(k) and U(k),
+i.e., zi,j (k + 1) = ψi,j (X(k + 1)) in terms of zi,j (k) = ψi,j (X(k)) and X(k) and U(k).
+2.3 Koopman System Models
+This subsection presents the detailed Koopman system models to ac quire a linear representation
+for the multi-robot system with nonlinear utility functions.
+4
+===== PAGE 5 =====
+2.3.1 Koopman System Variables
+It is necessary to select some Koopman variables to apply the Koopm an transformation techniques.
+Natural state variables . We ﬁrst set the original system state variables of the 3-robot sy stem
+in (2.2) as
+zi(k) = ψi(X(k)) = Xi(k), i= 1, 2,..., 12, (2.15)
+where Xi(k) are the components of X(k):
+X(k) = [X1(k),X 2(k),...,X 12(k)]T
+△
+= [x1(k),y 1(k),...,x 3(k),y 3(k),vx
+1 (k),vy
+1(k),...,v x
+3 (k),vy
+3(k)]T ∈R12, (2.16)
+For this choice of zi(k) = ψi(X(k)) = Xi(k), the Koopman equations: ψi(f (x(k),u (k))) =
+ψi(x(k + 1)) = zi(k + 1) for x(k + 1) = f (x(k),u (k)), applied to X(k + 1) = AX(k) + BU (k),
+become
+ψi(AX(k)+BU (k)) = ψi(X(k +1))
+ψ i(X(k))=Xi(k)
+⇒ (AX(k)+BU (k))i =Xi(k +1) = zi(k +1), (2.17)
+where (AX(k) +BU (k))i denotes the ith component of AX(k) +BU (k), or in the vector form,
+AX(k) +BU (k) = X(k + 1) ⇔Az(1)(k) +BU (k) = z(1)(k + 1), (2.18)
+where
+z(1)(k) = [z1(k), · · ·,z 12(k)]T =X(k) ∈R12, (2.19)
+that is, the Koopman subsystem (2.18) for z(1) = [z1(k), · · ·,z 12(k)] is the original system (2.3)
+itself which is already linear.
+Utility function components . We then introduce the nonlinear utility function components
+based on the introduced Koopman variables in (2.15):
+z12+6(i−1)+j(k) = ψ12+6(i−1)+j(X(k))
+=zi,j (k) = ψi,j (X(k)) = φ(j)
+i (X(k)), i= 1, 2, 3, j = 1, 2,..., 6, (2.20)
+(from z13(k) to z30(k)), for φ(j)
+i (X(k)) in the utility function expression (2.6):
+ui(k) =
+6∑
+j=1
+ω(j)
+i φ(j)
+i (X(k)), (2.21)
+to transform the nonlinear utility functions to a linear form:
+ui(k) =
+6∑
+j=1
+ω(j)
+i z12+6(i−1)+j(k), (2.22)
+5
+===== PAGE 6 =====
+in terms of the Koopman system variables z12+6(i−1)+j (k), i = 1, 2, 3, j = 1, 2,..., 6.
+For the utility functions based deﬁnitions of Koopman variables z12+6(i−1)+j(k) calculated from
+(2.20), the Koopman equations:
+ψi(f (x(k),u (k))) = ψi(x(k + 1)) = zi(k + 1), (2.23)
+for x(k + 1) = f (x(k),u (k)), applied to X(k + 1) = AX(k) +BU (k), become
+ψm(AX(k) +BU (k)) = ψm(X(k + 1))
+zi(k)=ψ m(X(k))=φ (j)
+i (X(k))
+⇒ φ(j)
+i (AX(k) +BU (k)) = φ(j)
+i (X(k + 1)) = zm(k + 1),
+(2.24)
+for m = 12 + 6(i − 1) +j (with i = 1, 2, 3,j = 1, 2, · · ·, 6).
+Similar to z(1)(k) in (2.19), we can deﬁne
+z(2)(k) = [z13(k), · · ·,z 30(k)]T ∈R18, (2.25)
+as the second group of Koopman variables. The total system stat e vector is
+z(k) = [(z(1)(k))T, (z(2)(k))T ]T ∈R30. (2.26)
+In a compact form, we have
+z(2)(k) = [(z(2)1(k))T, (z(2)2(k))T, (z(2)3(k))T ]T ∈R18, (2.27)
+where
+z(2)1(k) = [z13(k), · · ·,z 18(k)]T ∈R6, (2.28)
+z(2)2(k) = [z19(k), · · ·,z 24(k)]T ∈R6, (2.29)
+z(2)3(k) = [z25(k), · · ·,z 30(k)]T ∈R6. (2.30)
+2.3.2 Nonlinear Koopman System Model
+According to equations (2.7)-(2.12) and (2.20), we have the nonline ar Koopman system model
+ψi(f (x(k),u (k))) = ψi(x(k + 1)) = zi(k + 1) for x(k + 1) = f (x(k),u (k)) can be expressed as
+z(k +1) = ξ(z(k),u (k)), for some vector function ξ(·, ·). This implies, when applied to φ(j)
+i (AX(k)+
+BU (k)) = φ(j)
+i (X(k + 1)),
+z(2)(k + 1) = ξ(2)(z(2)(k),U (k)) (2.31)
+for some vector function ξ(2)(·, ·) ∈R18, where z(2)(k) is deﬁned in (2.25):
+z(2)(k) = ψ(2)(X(k)) = [ψ13(X(k)), · · ·ψ30(X(k))]T. (2.32)
+For linear system identiﬁcation, our goal is to express or approxima te ξ(2)(z(2)(k),U (k)) by some
+linear functions of z(2)(k) (plus z(1)(k) and likely more Koopman variables to be introduced, to
+reduce the approximation error to make the linear model practically useful) and U(k).
+6
+===== PAGE 7 =====
+2.3.3 Linear Koopman System Model and Parametrization
+This part introduces the linear approximation of the multi-robot sys tem with nonlinear utility
+functions including the linear model and the corresponding paramet rization.
+Linear system model for nonlinear utility functions. With the Koopman state vector for
+3-robot system
+z(k) = [(z(1)(k))T, (z(2)(k))T ]T ∈R30, (2.33)
+where
+z(1)(k) = [z1(k),...,z 12(k)]T =X(k) ∈R12, (2.34)
+z(2)(k) = [z13(k),...,z 30(k)]T ∈R18, (2.35)
+our interest is to ﬁnd some matrices Az ∈R30×30 and Bz ∈R30×6 such that
+z(k + 1) = Azz(k) +BzU(k) +ηz(k), (2.36)
+for some minimized error vector ηz(k) ∈R30. From (2.18), we can see that Az, Bz, and ηz(k) have
+the following structures:
+Az =
+[ A 012×18
+A21 A22
+]
+,Bz =
+[ B
+B2
+]
+,ηz(k) =
+[ 012×1
+η(2)(k)
+]
+, (2.37)
+where A21 ∈R18×12, A22 ∈R18×18 and B2 ∈R18×6 are the parameter matrices to be calculated to
+minimize the error vectorη(2)(k) ∈R18. In other words, our task is to ﬁnd the matrices A21 ∈R18×12,
+A22 ∈R18×18 and B2 ∈R18×6 to express
+z(2)(k + 1) = A21z(1)(k) +A22z(2)(k) +B2U(k) +η(2)(k), (2.38)
+for some minimized error vector η(2)(k) ∈R18.
+Parametrization. To develop an adaptive algorithm for generating the iterative (onlin e) esti-
+mates of A21 ∈R18×12, A22 ∈R18×18 and B2 ∈R18×6, we deﬁne
+y(k) = z(2)(k + 1) ∈R18 (2.39)
+ζ(k) = [zT
+(1)(k),zT
+(2)(k),U T (k)]T ∈R36 (2.40)
+Θ T = [A21,A 22,B 2] ∈R18×36 (2.41)
+and rewrite (2.38) as
+y(k) = Θ Tζ(k) +η(2)(k), Θ T =
+
+
+
+θT
+1
+.
+.
+.
+θT
+18
+
+
+. (2.42)
+7
+===== PAGE 8 =====
+With the estimates
+ˆΘ(k) = [ ˆA21(k), ˆA22(k), ˆB2(k)]T (2.43)
+of the above unknown parameter matrix Θ, the approximated linear model for the nonlinear utility
+function (2.31) is
+ˆz(2)(k + 1) = ˆA21z(1)(k) + ˆA22z(2)(k) + ˆB2U(k), (2.44)
+2.3.4 Bilinear Koopman System Model and Parametrization
+This subsection introduces the bilinear approximation of the 3-robo t system with nonlinear utility
+functions including the bilinear model and the corresponding parame trization.
+Bilinear Model for Nonlinear Utility Functions. Since the simulation results demonstrate
+that the linear approximation Koopman model [3] (Korda and Mezic 20 18) cannot solve nonlinear
+MPC problem, a bilinear model, an expansion of the linear Koopman mode l, is introduced in [9]
+and [11]. The bilinear model of the form
+z(2),i (k + 1) = fi(x0) + (∇fi(x0))T (x −x0) + 1
+2 (x −x0)THfi(x0)(x −x0), (2.45)
+is proposed and estimated for its parameter matrices fi, ∇fi and Hfi, where
+x = [zT
+(1),zT
+(2),U T ]T (2.46)
+x0 = [zT
+(1)0,zT
+(2)0,U T
+0 ]T,U 0 = 0 1×6, (2.47)
+Hfi(x0) =
+
+
+Hi, 11 Hi, 12 Hi, 13
+Hi, 21 Hi, 22 Hi, 23
+Hi, 31 Hi, 32 Hi, 33
+
+. (2.48)
+In equation (2.47), z(1), 0 is the desired state vector of the robot system, and z(2)0 is the desired
+state vector of the Koopman system when the desired z(1)0 is achieved by z(1). Since U −U0 = U
+is expected to converge to 0 1×6, we may ignore the term UTHi, 33U in (x −x0)THfi(x0)(x −x0).
+The expansion of ( x −x0)THfi(x0)(x −x0) can be rewritten as
+(x −x0)THfi(x0)(x −x0)
+=(z(1)(k) −z(1)0)THi, 11(z(1)(k) −z(1)0) + (z(2)(k) −z(2)0)THi, 21(z(1)(k) −z(1)0)
++UT (k)Hi, 31(z(1)(k) −z(1)0) + (z(1)(k) −z(1)0)THi, 12(z(2)(k) −z(2)0)
++ (z(2)(k) −z(2)0)THi, 22(z(2)(k) −z(2)0) +UT (k)Hi, 32(z(2)(k) −z(2)0)
++ (z(1)(k) −z(1)0)THi, 13U(k) + (z(2)(k) −z(2)0)THi, 23U(k) + ✭✭✭✭✭✭✭✭✭
+UT (k)Hi, 33U(k).
+(2.49)
+Since Hi =HT
+i , that is, HT
+i, 21 =Hi, 12, HT
+i, 31 =Hi, 13 and HT
+i, 32 =Hi, 23, we have
+UT (k)Hi, 31(z(1)(k) −z(1)0) = (z(1)(k) −z(1)0)THT
+i, 31U(k) = (z(1)(k) −z(1)0)THi, 13U(k), (2.50)
+8
+===== PAGE 9 =====
+UT (k)Hi, 32(z(2)(k) −z(2)0) = (z(2)(k) −z(2)0)THT
+i, 32U(k) = (z(2)(k) −z(2)0)THi, 23U(k), (2.51)
+(z(2)(k) −z(2)0)THi, 21(z(1)(k) −z(1)0) = (z(1)(k) −z(1)0)THi, 12(z(2)(k) −z(2)0). (2.52)
+For the parametrization, we ﬁnd some colmumn parameter vectors φij, j = 1, 2, 3, 4, 5, and
+column signal vectors gi1(·), gi2(·, ·),gi3(·), gi4(·, ·),gi5(·, ·), express
+(z(1)(k) −z(1)0)THi, 11(z(1)(k) −z(1)0) = φT
+i1gi1(z(1)(k) −z(1)0), (2.53)
+(z(2)(k) −z(2)0)THi, 21(z(1)(k) −z(1)0) = φT
+i2gi2(z(2)(k) −z(2)0,z (1)(k) −z(1)0), (2.54)
+(z(2)(k) −z(2)0)THi, 22(z(2)(k) −z(2)0) = φT
+i3gi3(z(2)(k) −z(2)0), (2.55)
+(z(1)(k) −z(1)0)THi, 13U(k) = φT
+i4gi4(z(1)(k) −z(1)0,U (k)), (2.56)
+(z(2)(k) −z(2)0)THi, 23U(k) = φT
+i5gi5(z(2)(k) −z(2)0,U (k)). (2.57)
+Then, the term ( x −x0)THfi(x0)(x −x0) can be expressed as
+(x −x0)THfi(x0)(x −x0) without UTHi, 33U
+=φT
+i1gi1(z(1)(k) −z(1)0) + 2φT
+i2gi2(z(2)(k) −z(2)0,z (1)(k) −z(1)0) +φT
+i3gi3(z(2)(k) −z(2)0)
++ 2φT
+i4gi4(z(1)(k) −z(1)0,U (k)) + 2φT
+i5gi5(z(2)(k) −z(2)0,U (k)).
+(2.58)
+For the 3-robot system, we have the following expressions 1:
+gi1(z(1)(k) −z(1)0) =
+
+
+
+
+
+(z(1)(k) −z(1)0)1 · (z(1)(k) −z(1)0)
+(z(1)(k) −z(1)0)2 · (z(1)(k) −z(1)0)
+.
+.
+.
+(z(1)(k) −z(1)0)12 · (z(1)(k) −z(1)0)
+
+
+
+
+ ∈R144, (2.59)
+gi2(z(2)(k) −z(2)0,z (1)(k) −z(1)0) =
+
+
+
+
+
+(z(1)(k) −z(1)0)1 · (z(2)(k) −z(2)0)
+(z(1)(k) −z(1)0)2 · (z(2)(k) −z(2)0)
+.
+.
+.
+(z(1)(k) −z(1)0)12 · (z(2)(k) −z(2)0)
+
+
+
+
+ ∈R216, (2.60)
+gi3(z(2)(k) −z(2)0) =
+
+
+
+
+
+(z(2)(k) −z(2)0)1 · (z(2)(k) −z(2)0)
+(z(2)(k) −z(2)0)2 · (z(2)(k) −z(2)0)
+.
+.
+.
+(z(2)(k) −z(2)0)18 · (z(2)(k) −z(2)0)
+
+
+
+
+ ∈R324, (2.61)
+gi4(z(1)(k) −z(1)0,U (k)) =
+
+
+
+
+
+(U(k))1 · (z(1)(k) −z(1)0)
+(U(k))2 · (z(1)(k) −z(1)0)
+.
+.
+.
+(U(k))6 · (z(1)(k) −z(1)0)
+
+
+
+
+ ∈R72, (2.62)
+1(V )l denotes the lth component of vector V . For example ( z(1)(k) − z(1)0)2 denotes the second component of the
+vector z(1)(k) − z(1)0.
+9
+===== PAGE 10 =====
+gi5(z(2)(k) −z(2)0,U (k)) =
+
+
+
+
+
+(U(k))1 · (z(2)(k) −z(2)0)
+(U(k))2 · (z(2)(k) −z(2)0)
+.
+.
+.
+U(k)6 · (z(2)(k) −z(2)0)
+
+
+
+
+ ∈R108. (2.63)
+Then, for (2.59)-(2.63), we have
+φi1 ∈R144,φi2 ∈R216,φi3 ∈R324,φi4 ∈R72,φi5 ∈R108, i∈ {1, 2, 3, · · ·, 18}. (2.64)
+It can be veriﬁed that for all i, we have
+gij(·) = gj(·),j = 1, 3, gij(·, ·) = gj(·, ·),j = 2, 4, 5. (2.65)
+Finally, we obtain the model for the nonlinear utility function compone nts
+z(2)(k + 1) =A21(z(1)(k) −z(1)0) +A22(z(2)(k) −z(2)0) +B2U(k)
++f (z(1)0, z(2)0) + Φ T
+1g1(z(1)(k) −z(1)0) + Φ T
+2g2(z(2)(k) −z(2)0,z (1)(k) −z(1)0)
++ ΦT
+3g3(z(2)(k) −z(2)0) + Φ T
+4g4(z(1)(k) −z(1)0,U (k))
++ ΦT
+5g5(z(2)(k) −z(2)0,U (k)) +η(k)
+(2.66)
+for some error vector η(k) ∈R18, where the rows of Φ T
+1 are 0.5φT
+i1, the rows of Φ T
+2 are φT
+i2, the rows
+of Φ T
+3 are 0.5φT
+i3, the rows of Φ T
+4 are φT
+i4, and the rows of Φ T
+5 are φT
+i5, for i = 1, 2, · · ·, 18 (for the
+3-robot system). Thus, we have that Φ 1 ∈ R144×18, Φ 2 ∈ R216×18, Φ 3 ∈ R324×18, Φ 4 ∈ R72×18 and
+Φ 5 ∈R108×18. Correspondingly, the unknown parameters A21, A22, B2, f0 =f (z(1)0,z (2)0), Φ T
+1 , Φ T
+2 ,
+ΦT
+3 , Φ T
+4 and Φ T
+5 are estimated as ˆA21, ˆA22, ˆB2, ˆf0, ˆΦT
+1 , ˆΦT
+2 , ˆΦT
+3 , ˆΦT
+4 and ˆΦT
+5 by the following iterative
+algorithm.
+Parametrization. To develop an adaptive algorithm for generating the iterative (onlin e) esti-
+mates of A21, A22, B2, f0 =f (z(1)0,z (2)0), Φ T
+1 , Φ T
+2 , Φ T
+3 , Φ T
+4 and Φ T
+5 , we deﬁne
+y(k) = z(2)(k + 1) ∈R18 (2.67)
+ζ(k) = [(z(1)(k) −z(1)0)T, (z(2)(k) −z(2)0)T,U T (k), 1,gT
+1 (·),gT
+2 (·, ·),gT
+3 (·),gT
+4 (·, ·),gT
+5 (·, ·)]T ∈R901.
+(2.68)
+Θ(k) = [A21(k),A 22(k),B 2(k),f (z(1)0, z(2)0)(k), ΦT
+1 (k), ΦT
+2 (k), ΦT
+3 (k), ΦT
+4 (k), ΦT
+5 (k)]T ∈R901×18.
+(2.69)
+and rewrite (2.67) as
+y(k) = Θ Tζ(k) +η(2)(k), Θ T =
+
+
+
+θT
+1
+.
+.
+.
+θT
+18
+
+
+. (2.70)
+With the estimates
+ˆΘ(k) = [ ˆA21(k), ˆA22(k), ˆB2(k), ˆf (z(1)0, z(2)0)(k), ˆΦT
+1 (k), ˆΦT
+2 (k), ˆΦT
+3 (k), ˆΦT
+4 (k), ˆΦT
+5 (k)]T ∈R901×18
+(2.71)
+10
+===== PAGE 11 =====
+of the unknown Θ, the approximated linear model for the nonlinear u tility function (2.31) is
+ˆz(2)(k + 1) = ˆA21(k)(z(1)(k) −z(1)0) + ˆA22(k)(z(2)(k) −z(2)0) + ˆB2(k)U(k)
++ ˆf (z(1)0, z(2)0)(k) + ˆΦT
+1 (k)g1(z(1)(k) −z(1)0)
++ ˆΦT
+2 (k)g2(z(2)(k) −z(2)0,z (1)(k) −z(1)0) + ˆΦT
+3 (k)g3(z(2)(k) −z(2)0)
++ ˆΦT
+4 (k)g4(z(1)(k) −z(1)0,U (k)) + ˆΦT
+5 (k)g5(z(2)(k) −z(2)0,U (k)).
+(2.72)
+2.4 Optimal Control Problems
+In this report, the control objective is to ensure the robots rea ch their respective target positions
+without collisions between robots and robots or between robots an d the circular wall. In this
+subsection, the speciﬁc control design solutions for the control objective are discussed after the
+introduction of the nonlinear programming control problem.
+Nonlinear programming control problem . The game theory based method proposed in [5]
+can achieve the control objective by maximizing the nonlinear utility f unction (2.6),
+u(k) =
+3∑
+i=1
+ui(k),
+where ui(k) = ∑ 6
+j=1ω(j)
+i φ(j)
+i (X(k)),i = 1, 2, 3. As introduced before, the nonlinear utility function
+components φ(j)
+i (X(k)) are computed by equations (2.7)-(2.12) according to the robot state vector
+X(k) depending on sl(k) = {rl(k),vl(k)} (l = 1, 2, 3).
+Although the nonlinear utility function based on control design can a chieve the control objective,
+the nonlinear programming needs quite a long time to ﬁnd the optimal s olution, which indicates
+that the control design cannot be used in practical situations.
+2.4.1 Linear Programming Control Problem Formulations
+In this report, the linear approximation model and the bilinear appro ximation model for the non-
+linear utility function components are proposed to speed up ﬁnding t he optimal control input for
+the system to achieve the control objective. With the approximat ed models, the method to ﬁnd the
+optimal control input, maximizing the utility function, is transforme d into a linear programming
+problem. The solutions based on the linear model approximation and b ilinear model approximation
+are presented in the following.
+Solution with linear model approximation . Based on the linear model approximation,
+ˆz(2)(k), for the linear Koopman system model of the utility function compo nents in the 3-robot
+system z(2)(k + 1) = A21z(1)(k) +A22z(2)(k) +B2U(k) +η(2)(k) ∈ R18, the utility function for the
+whole 3-robot system can be expressed as
+u(k) = wT ˆz(2)(k + 1)
+=wT ( ˆA21z(1)(k) + ˆA22z(2)(k) + ˆB2U(k)),
+(2.73)
+11
+===== PAGE 12 =====
+where w = [w1,w 2,w 3]T , with wi = [w(1)
+i ,w (2)
+i ,w (3)
+i ,w (4)
+i ,w (5)
+i ,w (6)
+i ]T,i = 1, 2, 3, is a chosen constant
+vector, and ˆz(2)(k + 1) is the estimates from the linear model identiﬁcation algorithm. To maxi-
+mize the linear expression of the utility function, the solution for the control input, based on the
+approximate linear model for the utility function components, is den oted as
+U ∗(k) = arg max
+U (k)∈Uc
+wT ˆz(2)(k + 1), (2.74)
+wherew is a chosen constant vector and the Uc = {U(k)|Ui(k) ∈ (−4, 3),i = 1, · · ·, 6} is the upper
+bound and the lower bound of the control input.
+Solution with bilinear model approximation . Similarly, with the estimation, ˆ z(2)(k + 1),
+of the bilinear Koopman system model (2.72), the utility function for the whole 3-robot system can
+be expressed as
+u(k) = wT ˆz(2)(k + 1), (2.75)
+where w = [w1,w 2,w 3]T , with wi = [w(1)
+i ,w (2)
+i ,w (3)
+i ,w (4)
+i ,w (5)
+i ,w (6)
+i ]T,i = 1, 2, 3, is a chosen constant
+vector and ˆz(2)(k + 1) is computed from (2.72). To maximize the linear expression of the utility
+function, the solution for the control input, based on the approx imate linear model for the utility
+function components, is denoted as
+U ∗(k) = arg max
+U (k)∈Uc
+wT ˆz(2)(k + 1), (2.76)
+where w is a chosen constant vector and the Uc = {U(k)|Ui(k) ∈ (−4, 3),i = 1, · · ·6} is the upper
+bound and the lower bound of the control input.
+2.4.2 Matlab Implementations
+In Matlab, there is a built function linprog that can solve linear programming problems. The
+speciﬁc procedures for the linear model based optimal control de sign are listed as an example 2:
+Step 1 : Create the 6-by-1 optimization variable vector ensuring every ele ment belongs to [ −4, 3] by
+the following Matlab codes
+x = optimvar(′x′, 6,′ LowerBound′, −4,′ UpperBound′, 3); (2.77)
+Step 2 : Create the optimization problem and identify the optimization objec tive, which is maximizing
+the linear model based utility function wT ( ˆA21(k)z(1)(k)+ ˆA22(k)z(2)(k)+ ˆB2(k)U(k)), by codes
+prob = optimproblem(′Objective′, w′ ∗ (A21(k) ∗ z(1)(k) + A22(k) ∗ z(2)(k) + B2(k) ∗ x),
+′ObjectiveSense′,′ max′);
+(2.78)
+2https://www.mathworks.com/help/releases/R2020b/optim/ug/linprog.html?lang=en
+12
+===== PAGE 13 =====
+Step 3 : Find the solution by codes
+problem = prob2struct(prob),
+U = linprog(problem),
+(2.79)
+Vectoru is the solution for the created linear programming problem.
+3 Adaptive Parameter Estimation
+This section introduces the adaptive parameter algorithm to estima te the unknown parameters of
+the linear approximation model or the blinear approximation model ba sed on the least-square.
+3.1 Least-Squares Formulation
+According to (2.42) and (2.70), the objective is to ﬁnd the vector ˆΘ(k) to minimize the error vector
+ˆΘ T (k)ζ(τ ) −y(τ ). In [11], J3 (for an iterative (online) algorithm)
+J3 =J3( ˆΘ) = 1
+2
+k−1∑
+τ=k0
+1
+ρ ( ˆΘ T (k)ζ(τ ) −y(τ ))T ( ˆΘ T (k)ζ(τ ) −y(τ ))
++ 1
+2 tr[( ˆΘ(k) − Θ 0)TP −1
+0 ( ˆΘ(k) − Θ 0)], P0 =PT
+0
+(
+∈R36×36)
+> 0, ρ> 0, (3.1)
+is proposed from J2 (for a batch-data algorithm)
+J2 =
+k−1∑
+τ=k0
+( ˆΘ T (k)ζ(τ ) −y(τ ))T ( ˆΘ T (k)ζ(τ ) −y(τ )), (3.2)
+to be our cost function for the iterative parameter estimation algo rithm. Such an adaptive algorithm
+is derived based on a modiﬁed version J3 of the cost function for generating the online estimate
+ˆΘ(k), using the real-time updated measurement data y(k) and ζ(k).
+In this cost function J3, Θ 0 is the initial estimate of Θ: ˆΘ(0) = Θ 0, P0 = PT
+0 > p0I is a
+parameter matrix for some chosen scalar p0 > 0 (which is typically a large number) (the term
+1
+2tr[( ˆΘ(k) − Θ 0)TP −1
+0 ( ˆΘ(k) − Θ 0)] represents a penalty on the initial estimate ˆΘ 0), and ρ >0 is a
+design parameter (which is typically a small number).
+To ﬁnd the vector ˆΘ(k) minimizing the cost function J3, a normalized least-squares algorithm
+is proposed in the next subsection. More details about the least-sq uares algorithm are in [1].
+3.2 Adaptive Parameter Estimation Algorithm
+Minimization of the above J3 leads to the following iterative algorithm to generate the online
+estimate ˆΘ(k), as the new measurements y(k) and ζ(k) are collected, for k = 1,... . This subsection
+presents the adaptive parameter algorithm and its applications to t he linear and the bilinear model.
+13
+===== PAGE 14 =====
+3.2.1 Adaptive Algorithm
+To ﬁnd the desired parameter vector ˆΘ(k), we propose an adaptive algorithm. At ﬁrst, we deﬁne the
+diﬀerence between the linear model outputs and the original nonline ar utility function components
+to be the estimation error
+ǫ(k) = ˆΘ T (k)ζ(k) −y(k), (3.3)
+at ﬁrst, where y(k) = z(2)(k + 1) ∈ R18. Then, the estimate ˆΘ(k) of the parameter matrix is
+generated from the adaptive law
+ˆΘ(k + 1) = ˆΘ(k) − P (k − 1)ζ(k)ǫT (k)
+m2(k) , k = 0, 1, 2,..., (3.4)
+with ˆΘ(0) chosen, where
+m(k) =
+√
+ρ +ζT (k)P (k − 1)ζ(k), ρ> 0, (3.5)
+P (k) = P (k − 1) −P (k − 1)ζ(k)ζT (k)P (k − 1)
+m2(k) , k = 0, 1, 2,..., (3.6)
+with P (−1) = P0 =PT
+0 > 0 chosen.
+Matrix P (k) resetting. To improve the estimation results, we reset the matrix P (k) = P0
+every ﬁxed time interval.
+Remark. The sizes of Θ( k) and P (k) depend on the sizes of ζ(k) in diﬀerent model.
+3.2.2 Application to Linear Model
+For the unknown parameters Θ T = [A21,A 22,B 2] ∈R18×36 in the linear model
+z(2)(k + 1) = A21z(1)(k) +A22z(2)(k) +B2U(k) +η(2)(k)
+= Θ Tζ(k) +η(2)(k),
+where
+ζ(k) = [zT
+(1)(k),zT
+(2)(k),U T (k)]T ∈R36, (3.7)
+we have the estimate of those parameters
+ˆΘ T (k) = [ ˆA21(k), ˆA22(k), ˆB2(k)] ∈R18×36. (3.8)
+Then, the adaptive algorithm for the linear approximation model has the form (3.3)-(3.6) with
+ζ(k) ∈R36, ˆΘ T (k) ∈R18×36 and P ∈R36×36.
+14
+===== PAGE 15 =====
+3.2.3 Application to Bilinear Model
+For the unknown parameters Θ = [ A21,A 22,B 2,f (z(1)0, z(2)0), ΦT
+1, ΦT
+2, ΦT
+3, ΦT
+4, ΦT
+5 ]T ∈R901×18 in the
+bilinear model
+z(2)(k + 1) =A21(z(1)(k) −z(1)0) +A22(z(2)(k) −z(2)0) +B2U(k)
++f (z(1)0, z(2)0) + Φ T
+1g1(z(1)(k) −z(1)0) + Φ T
+2g2(z(2)(k) −z(2)0,z (1)(k) −z(1)0)
++ ΦT
+3g3(z(2)(k) −z(2)0) + Φ T
+4g4(z(1)(k) −z(1)0,U (k))
++ ΦT
+5g5(z(2)(k) −z(2)0,U (k)) +η(2)(k)
+=Θ Tζ(k) +η(2)(k),
+where
+ζ(k) = [(z(1)(k) −z(1)0)T, (z(2)(k) −z(2)0)T,U T (k), 1,gT
+1 (·),gT
+2 (·, ·),gT
+3 (·),gT
+4 (·, ·),gT
+5 (·, ·)]T ∈R901,
+(3.9)
+we have the estimate of those parameters
+ˆΘ(k) = [ ˆA21(k), ˆA22(k), ˆB2(k), ˆf (z(1)0, z(2)0)(k), ˆΦT
+1 (k), ˆΦT
+2 (k), ˆΦT
+3 (k), ˆΦT
+4 (k), ˆΦT
+5 (k)]T ∈R901×18.
+(3.10)
+The iterative algorithm for the parameter estimate matrix ˆΘ(k) ∈ R901×18 to minimize the
+estimation error ǫ(k) has the form (3.3)-(3.6) with ζ(k) ∈R901, ˆΘ(k) ∈R901×18 and P ∈R901×901.
+Then, the approximated linear model for the nonlinear utility functio n components (2.31) can
+be expressed as (2.72).
+4 Decentralized Model Approximation and Control
+Since centralized control strategies cannot solve the state explo sion problem of the system containing
+too many agents, decentralized control strategies are more pro per for these cases. This section
+formulates a decentralized bilinear model approximation and an optim al control design based on the
+approximated bilinear model. The parameters in the approximation mo dels will update separately
+for the three robots. At the same time, every robot shares its ow n position and speed information
+with all other robots. With the approximation models for every robo t, the optimal inputs for each
+robot will be computed separately by maximizing its individual estimate d utility function.
+4.1 Decentralized Bilinear Koopman System Model
+This subsubsection presents the detailed decentralized Koopman s ystem models to acquire a bilinear
+representation for the multi-robot system with nonlinear utility fun ctions.
+Decentralized Koopman System Variables . For the decentralized Koopman system of
+every single robot i, the variables z(1),i (k) and z(2),i (k) are parts of the system variables in the
+15
+===== PAGE 16 =====
+centralized Koopman system introduced (2.19) and (2.25),
+z(1),i (k) = [rT
+i (k),vT
+i (k)]T ∈R4, i= 1, 2, 3, (4.11)
+z(2),i (k) = [φ(1)
+i (X(k)),φ (2)
+i (X(k)),φ (3)
+i (X(k)),φ (4)
+i (X(k)),φ (5)
+i (X(k)),φ (6)
+i (X(k))]T ∈R6, (4.12)
+where rs(k) and vs(k) are the position and the velocity information, deﬁned in (2.1), for R obot s,
+φ(i)
+s (X(k)) denotes the ith utility function component, deﬁned in (2.7)-(2.12), of Robot i, and X(k),
+deﬁned in (2.2), is the vector containing the position and velocity info rmation of all three robots.
+Correspondingly, the input Ui(k) of the decentralized single robot system is also deﬁned in (2.1).
+Decentralized Bilinear Model for Nonlinear Utility Functi ons. The decentralized bilin-
+ear model is similar to the centralized bilinear model (2.66)
+z(2),i (k + 1) =A21(z(1),i (k) −z(1)0,i ) +A22(z(2),i (k) −z(2)0,i ) +B2Ui(k)
++f (z(1)0,i, z(2)0,i ) + Φ T
+1g1(z(1),i (k) −z(1)0,i ) + Φ T
+2g2(z(2),i (k) −z(2)0,i,z (1),i (k) −z(1)0,i )
++ ΦT
+3g3(z(2),i (k) −z(2)0,i ) + Φ T
+4g4(z(1),s (k) −z(1)0,i,Ui(k))
++ ΦT
+5g5(z(2),i (k) −z(2)0,i,Ui(k)) +η(k),
+(4.13)
+for some error vector η(k) ∈R6, where z(1)0,i is the desired state vector of the robot system, z(2)0,i
+is the desired state vector of the Koopman system when the desire d z(1)0,i is achieved by z(1),i , the
+vectorsgi, i∈ 1, 2, 3, 4, 5 are deﬁned as
+g1(z(1),s (k) −z(1)0,i ) =
+
+
+
+
+
+(z(1),s (k) −z(1)0,i )1 · (z(1),s (k) −z(1)0,i )
+(z(1),s (k) −z(1)0,i )2 · (z(1),s (k) −z(1)0,i )
+.
+.
+.
+(z(1),s (k) −z(1)0,i )4 · (z(1),s (k) −z(1)0,i )
+
+
+
+
+ ∈R16, (4.14)
+g2(z(2),i (k) −z(2)0,i,z (1),s (k) −z(1)0,i ) =
+
+
+
+
+
+(z(1),s (k) −z(1)0,i )1 · (z(2),i (k) −z(2)0,i )
+(z(1),s (k) −z(1)0,i )2 · (z(2),i (k) −z(2)0,i )
+.
+.
+.
+(z(1),s (k) −z(1)0,i )4 · (z(2),i (k) −z(2)0,i )
+
+
+
+
+ ∈R24, (4.15)
+g3(z(2),i (k) −z(2)0,i ) =
+
+
+
+
+
+(z(2),i (k) −z(2)0,i )1 · (z(2),i (k) −z(2)0,i )
+(z(2),i (k) −z(2)0,i )2 · (z(2),i (k) −z(2)0,i )
+.
+.
+.
+(z(2),i (k) −z(2)0,i )6 · (z(2),i (k) −z(2)0,i )
+
+
+
+
+ ∈R36, (4.16)
+g4(z(1),s (k) −z(1)0,i,Ui(k)) =
+[
+(Ui(k))1 · (z(1),s (k) −z(1)0,i )
+(Ui(k))2 · (z(1),s (k) −z(1)0,i )
+]
+∈R8, (4.17)
+g5(z(2),i (k) −z(2)0,i,Ui(k)) =
+[
+(Ui(k))1 · (z(2),i (k) −z(2)0,i )
+(Ui(k))2 · (z(2),i (k) −z(2)0,i )
+]
+∈R12, (4.18)
+16
+===== PAGE 17 =====
+and A21 ∈ R6×4, A22 ∈ R6×6, B2 ∈ R6×2, Φ 1 ∈ R16×6, Φ 2 ∈ R24×6, Φ 3 ∈ R36×6, Φ 4 ∈ R8×6 and
+Φ 5 ∈R12×6 are the unknown parameters which are estimated as ˆA21, ˆA22, ˆB2, ˆf0, ˆΦT
+1 , ˆΦT
+2 , ˆΦT
+3 , ˆΦT
+4
+and ˆΦT
+5 by the following iterative algorithm.
+4.2 Adaptive Parameter Estimation for the Decentralized Mo del
+This subsection introduces the model parametrization and the ada ptive parameter estimation algo-
+rithm application for the decentralized bilinear model.
+Parametrization. To develop an adaptive algorithm for generating the iterative (onlin e) esti-
+mates of A21, A22, B2, f0 =f (z(1)0,i,z (2)0,i ), Φ T
+1 , Φ T
+2 , Φ T
+3 , Φ T
+4 and Φ T
+5 , we deﬁne
+yi(k) = z(2),i (k + 1) ∈R6 (4.19)
+ζi(k) = [(z(1),s (k)−z(1)0,i )T, (z(2),i (k)−z(2)0,i )T,U T
+i (k), 1,gT
+1 (·),gT
+2 (·, ·),gT
+3 (·),gT
+4 (·, ·),gT
+5 (·, ·)]T ∈R109.
+(4.20)
+Θ i(k) = [A21(k),A 22(k),B 2(k),f (z(1)0,i, z(2)0,i )(k), ΦT
+1 (k), ΦT
+2 (k), ΦT
+3 (k), ΦT
+4 (k), ΦT
+5 (k)]T ∈R109×6.
+(4.21)
+and rewrite (4.19) as
+yi(k) = Θ T
+iζi(k) +η(2)(k), Θ T
+i =
+
+
+
+θT
+1
+.
+.
+.
+θT
+6
+
+
+. (4.22)
+With the estimates
+ˆΘ i(k) = [ ˆA21(k), ˆA22(k), ˆB2(k), ˆf (z(1)0,i, z(2)0,i )(k), ˆΦT
+1 (k), ˆΦT
+2 (k), ˆΦT
+3 (k), ˆΦT
+4 (k), ˆΦT
+5 (k)]T ∈R109×6
+(4.23)
+of the unknown Θ, the approximated bilinear model for the nonlinear utility function (2.31) is
+ˆz(2),i (k + 1) = ˆΘ T
+i (k)ζi(k). (4.24)
+Adaptive parameter estimation algorithm . In Section 3.2, a least square parameter es-
+timation algorithm (3.4)-(3.6) proposed to ﬁnd the parameter matr ix ˆΘ i(k) which can minimize
+the error vector ǫ(k) = ˆΘ T
+i (k)ζi(k) −yi(k), where yi(k) = z(2),i (k + 1) ∈R6. For the decentralized
+bilinear model, the parameter matrices and the signals are replaced b y (4.23) and (4.20).
+4.3 Optimal Control Based on the Decentralized Model
+The game theory based method proposed in [5] can achieve the cont rol objective by maximizing the
+nonlinear utility function (2.6), ui(k) = ∑ 6
+j=1ω(j)
+i φ(j)
+i (X(k)),i = 1, 2, 3. As introduced before, the
+nonlinear utility function components φ(j)
+i (X(k)) are computed by equations (2.7)-(2.12) according
+to the robot state vector X(k) depending on sl(k) = {rl(k),vl(k)} (l = 1, 2, 3).
+17
+===== PAGE 18 =====
+With the estimation for Robot i from the bilinear Koopman system model (2.72), ˆ z(2),i (k + 1),
+the utility function for the single robot system can be expressed as
+ui(k) = wT
+i ˆz(2),i (k + 1), (4.25)
+where wi is a chosen constant vector and ˆ z(2),i (k + 1) is computed from (2.72). To maximize
+the bilinear expression of the utility function, the solution for the co ntrol input, based on the
+approximate bilinear model for the utility function components, is de noted as
+U ∗
+i (k) = arg max
+Ui(k)∈Uci
+wT
+i ˆz(2),i (k + 1), (4.26)
+where wi is a chosen constant vector and the Uci = {Ui(k)|(Ui(k))l ∈ (−4, 3),l = 1, 2} is the upper
+bound and the lower bound of the control input.
+5 Simulation Studies
+This section presents the simulation study of the proposed system identiﬁcation method and the
+control design. The 3-robot system is applied to examine the linear a nd bilinear model identiﬁca-
+tion performance and the performance of the control designs ba sed on the approximated models.
+Additionally, the decentralized bilinear model based control design is also simulated.
+5.1 Linear Model Identiﬁcation of 3-Robot System
+In this subsection, the simulation system and the simulation results f or the linear model identiﬁca-
+tion of the 3-robot system are demonstrated sequentially. The es timation errors are examined to
+check the performance of the model (system) identiﬁcation. The selected parameter components
+and the norms of the parameter matrices are analyzed for the par ameter results.
+5.1.1 Simulation system
+In this part, the basic simulation construction and data collection log ic are introduced.
+System state variables . System state variables z(k) are constructed with natural state vari-
+ables and utility function components. For the natural state varia bles z(1)(k) ∈ R12, the elements
+zi(k) are expressed as
+zi(k) = ψi(X(k)) = Xi(k), i= 1, 2,..., 12. (5.1)
+Utility functions components z(2)(k) ∈R18 are expressed as
+z(2) =ψ(2)(X(k)) = [ψ13(X(k)),...,ψ 30(X(k))]T. (5.2)
+18
+===== PAGE 19 =====
+Linear model identiﬁcation . To estimated the linear model of the nonlinear 3-robot system
+(2.42), as in (3.3)-(3.6), we have introduced
+ˆΘ(k) = [ ˆA21(k), ˆA22(k), ˆB2(k)]T ∈R36×18, (5.3)
+ζ(k) = [zT
+(1)(k),zT
+(2)(k),U T (k)]T ∈R36. (5.4)
+The iterative algorithm for ˆΘ(k) as the estimate of Θ in (2.42) has been given in (3.3)-(3.6).
+The natural state variables z(1)(k + 1) = [z1(k + 1),...,z 12(k + 1)]T = X(k + 1) ∈ R12 for the
+iterative algorithm is based on
+X(k + 1) = AX(k) +BU (k), (5.5)
+where U(k) is a chosen input vector, and the utility functions components z(2)(k + 1) ∈ R18 are
+updated from
+z(2)(k + 1) = ψ(2)(X(k + 1)). (5.6)
+Error signals . This report considers two error signals mainly.
+• To estimated the unknown parameter matrix Θ, we deﬁne the estima tion error ǫ(k):
+ǫ(k) = ˆΘ T (k)ζ(k) −y(k)
+= ˆΘ T (k)ζ(k) −z(2)(k + 1)
+= ˆA21(k)z(1)(k) + ˆA22(k)z(2)(k) + ˆB2(k)U(k) −z(2)(k + 1).
+(5.7)
+• To check the performance of the parameter estimation algorithm, we deﬁne the posteriori
+estimation error ǫa(k):
+ǫa(k) = ˆΘ T (k + 1)ζ(k) −y(k)
+= ˆΘ T (k + 1)ζ(k) −z(2)(k + 1)
+= ˆA21(k + 1)z(1)(k) + ˆA22(k + 1)z(2)(k) + ˆB2(k + 1)U(k) −z(2)(k + 1).
+(5.8)
+The posteriori estimation error ǫa(k) should converge to ǫ(k) once the estimated matrix ˆΘ(k)
+can converge to a constant matrix. In this case, the posteriori e stimation error ǫa(k) is more
+proper to demonstrate the parameter estimation algorithm perfo rmance since the ˆΘ(k) may
+not converge to a constant matrix.
+Remark. The work space of this system is shown in Figure 1, where the larges t black border
+circle is a circular wall ( radius = 11m), and the three red circles are the three movable disk-like
+robots (radius = 2m). In the processes of linear system identiﬁcations and model valida tions, the
+collisions between robots with robots and robots with the circular wa ll should be avoided.
+19
+===== PAGE 20 =====
+-15 -10 -5 0 5 10 15
+-15
+-10
+-5
+0
+5
+10
+15
+Figure 1: 3-Robot system work space schematic diagram.
+5.1.2 Simulation Results
+In the simulation, we set the sampling time ∆ t = 0.05 s,ρ = 0.0001 as the iterative algorithm design
+parameter, P0 =PT
+0 = 100I36> 03 and Θ 0 = 0 36×18 as the initial values of the iterative algorithm.
+The initial value of the robot state vectorX(0) = z(1)(0) = [x1(0),y 1(0),...,x 3(0),y 3(0),vx
+1 (0),vy
+1(0),
+...,v x
+3 (0),vy
+3(0)]T = [ −7, 3, 0, 7, 7, −4, 0, 0, 0, 0, 0, 0]T, which means Robot 1, Robot 2, and, Robot
+3 are located at ( −7, 3), (0, 7), (7, −4) with zero initial speeds in X-direction and Y-direction at
+k = 0. Correspondingly, the target positions of the three robots ar e (−4.5, 0), (3, 4), and (3, −4). In
+ks = 300 iterations, apply a selected input vector U(k) = [ax
+1,ay
+1,ax
+2,ay
+2,ax
+3,ay
+3]T (as shown in Table
+1) to do the linear model approximation according to [8],[10].
+Matrix P (k) resetting. To improve the estimation results, we reset the matrix P (k) = P0
+every 130 iterations.
+3The matrix I36 denotes the identity matrix of size 36 × 36.
+20
+===== PAGE 21 =====
+System Inputs
+Input Signal
+ax
+1 2 sin(0.075kπ)
+ay
+1 3 cos(0.1833kπ)
+ax
+2 3 sin(0.14kπ)
+ay
+2 3 cos(0.095kπ)
+ax
+3 −2 sin(0.06kπ)
+ay
+3 −3 cos(0.092kπ)
+Table 1: Model identiﬁcation system input components.
+Parameter estimates . Figures 2-3 shows the results of parameter estimates.
+50 100 150 200 250 300
+0
+50
+100
+150
+50 100 150 200 250 300
+0
+100
+200
+50 100 150 200 250 300
+0
+20
+40
+60
+Figure 2: Norms of ˆΘ(k) (linear model identiﬁcation for 3-robot system).
+21
+===== PAGE 22 =====
+50 100 150 200 250 300
+-0.2
+0
+0.2
+50 100 150 200 250 300
+-0.01
+0
+0.01
+0.02
+0.03
+50 100 150 200 250 300
+-0.02
+0
+0.02
+50 100 150 200 250 300
+-1
+-0.5
+0
+50 100 150 200 250 300
+-1
+0
+1
+50 100 150 200 250 300
+-1
+0
+1
+50 100 150 200 250 300
+-50
+0
+50
+50 100 150 200 250 300
+-1
+0
+1
+Figure 3: Components of ˆΘ(k) (linear model identiﬁcation for 3-robot system) 4.
+4In this ﬁgure, the notation ˆΘ(8 , 8) denotes the (8 , 8)th component of the matrix ˆΘ( k) = [ ˆΘ ij(k)] whose ( i, j)th
+components are ˆΘ ij(k). The notation ˆA21(8, 8) denotes the (8 , 8)th component of the matrix ˆA21(k). Other notations
+have similar meanings.
+22
+===== PAGE 23 =====
+Estimation errors . The results of the posteriori estimation error introduced in (5.8), ǫa(k) =
+ˆΘ(k + 1)ζ(k) −z(2)(k + 1) are presented in Figure 4.
+0 50 100 150 200 250 300
+0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+Figure 4: Norm of the posteriori estimation error ǫa(k) (linear model based).
+50 100 150 200 250 300
+-0.5
+0
+0.5
+50 100 150 200 250 300
+-1
+0
+1
+50 100 150 200 250 300
+-0.02
+0
+0.02
+50 100 150 200 250 300
+-1
+0
+1
+50 100 150 200 250 300
+-2
+0
+2 10-3
+Figure 5: Components of the posteriori estimation error ǫa(k) (linear model based) 5.
+5In this ﬁgure, the notation ǫa,1 denotes the ﬁrst component of the vector ǫa(k). Other notations have similar
+meanings.
+23
+===== PAGE 24 =====
+Discussion. The parameter matrix norms and some selected elements of the pa rameter matrix
+are demonstrated in Figures 2-3. The results of the posteriori estimation error introduced in (5.8),
+ǫa(k) = ˆΘ(k + 1)ζ(k) −z(2)(k + 1) are presented in Figure 4. From Figures 4-5, we ﬁnd that
+our iterative algorithm cannot estimate the parameters of the linea r model well although both the
+posteriori estimation error norm and components are quite low. However, the re is a non-ideal
+phenomenon in the simulation, the posteriori estimation error and the parameter estimates always
+have an obvious periodic increment tendency (from 0 to almost 0.9) d uring the iterations between
+two adjacent times we reset the parameter matrix P . This indicates that the estimated model cannot
+always ensure the estimation error within a small range, which may lea d to undesired results while
+using the linear model based control signals.
+Remark. In the above simulation, we also consider the distances between ro bots and the
+circular wall to check whether there are collisions happening. Since a ll the distances are larger than
+zero, no collisions happen during the identiﬁcation process.
+In [10], the linear model approximation simulation is implemented in a 5-ro bot system. Ac-
+cording to the results, both the model validation error (the diﬀere nce between the nonlinear utility
+component vector and the estimated output from the linear model with the ﬁxed parameter ma-
+trix ˆΘ generated by several iterations of the adaptive parameter est imation algorithm) and the
+estimation error (the diﬀerence between the nonlinear utility compo nent vector and the estimated
+output from the linear model with the online updating matrix ˆΘ(k) generated by minimizing the
+cost function J3, deﬁned in (3.1), of the adaptive parameter estimation algorithm) a re quite low.
+However, tendencies of periodic increases in the estimation errors also appear in the 5-robot system
+simulation cases. This further proves the linear model may not be po werful to approximate the
+nonlinear utility functions and cannot be suitable to solve the optimal control problem.
+5.2 Bilinear Model Identiﬁcation of 3-robot System
+In this subsection, the simulation system and the simulation results f or the bilinear model identi-
+ﬁcation of the 3-robot system are demonstrated sequentially. Th e estimation errors are examined
+to check the performance of the model (system) identiﬁcation. T he selected parameter components
+and the norms of the parameter matrices are analyzed for the par ameter results.
+5.2.1 Simulation System
+The basic simulation construction and data collection logic are introdu ced in the following.
+System state variables . System state variables z(k) are constructed with natural state vari-
+ables and utility function components. For the natural state varia bles z(1)(k) ∈ R12, the elements
+zi(k) are expressed as
+zi(k) = ψi(X(k)) = Xi(k), i= 1, 2,..., 12. (5.9)
+24
+===== PAGE 25 =====
+Utility functions components z(2)(k) ∈R18 are expressed as
+z(2) =ψ(2)(X(k)) = [ψ13(X(k)),...,ψ 30(X(k))]T. (5.10)
+Bilinear model identiﬁcation . To estimated the linear model of the nonlinear 3-robot system
+(2.66), as in (2.67)-(2.72), we have introduced
+ˆΘ(k) = [ ˆA21(k), ˆA22(k), ˆB2(k), ˆf (z(1)0, z(2)0), ˆΦT
+1 (k), ˆΦT
+2 (k), ˆΦT
+3 (k), ˆΦT
+4 (k), ˆΦT
+5 (k)]T ∈R901×18,
+(5.11)
+ζ(k) = [(z(1)(k) −z(1)0)T, (z(2)(k) −z(2)0)T,U T (k), 1,gT
+1 (·),gT
+2 (·, ·),gT
+3 (·),gT
+4 (·, ·),gT
+5 (·, ·)]T ∈R901.
+(5.12)
+The iterative algorithm for ˆΘ(k) = [ ˆθ1(k), ˆθ2(k),..., ˆθ18(k)] ∈ R901×18 as the estimate of Θ in
+(2.70) has been given in (3.4)-(3.6).
+Error signals . Similar to the linear model identiﬁcation simulation, we also have two kin ds of
+diﬀerent error signals here:
+• The estimation error ǫ(k) = ˆΘ T (k)ζ(k) −z(2)(k + 1) is deﬁned to estimate the unknown
+parameter matrix Θ.
+• The posteriori estimation error ǫa(k) = ˆΘ T (k + 1)ζ(k) −z(2)(k + 1) is deﬁned to check the
+parameter estimation algorithm performance. The posteriori estimation error ǫa(k) is more
+meaningful for the algorithm performance because the paramete r estimate ˆΘ(k) may not
+converge.
+5.2.2 Simulation Results
+In the simulation, we set the sampling time ∆ t = 0.05 s,ρ = 0.0001 as the iterative algorithm design
+parameter,P0 =PT
+0 = 100I901> 06 and Θ 0 = 0 901×18 as the initial values of the iterative algorithm.
+The initial value of the robot state vectorX(0) = z(1)(0) = [x1(0),y 1(0),...,x 3(0),y 3(0),vx
+1 (0),vy
+1(0),
+...,v x
+3 (0),vy
+3(0)]T = [ −7, 3, 0, 7, 7, −4, 0, 0, 0, 0, 0, 0]T, which means Robot 1, Robot 2, and, Robot
+3 are located at ( −7, 3), (0, 7), (7, −4) with zero initial speeds in X-direction and Y-direction at
+k = 0. Correspondingly, the target positions of the three robots ar e ( −4.5, 0), (3, 4), and (3 , −4).
+In ks = 300 iterations, apply a selected input vector (as shown in Table 1) t o do the linear model
+approximation with the simulation system introduced above.
+Matrix P (k) resetting. To improve the estimation results, we reset the matrix P (k) = P0
+every 75 iterations.
+6The matrix I901 denotes the identity matrix of size 901.
+25
+===== PAGE 26 =====
+Parameter estimates . Figures 6-7 show the results of parameter estimates.
+50 100 150 200 250 300
+-4-20
+10-3
+50 100 150 200 250 300
+-0.500.51
+50 100 150 200 250 300
+-0.1
+0
+0.1
+50 100 150 200 250 300
+-0.1
+0
+0.1
+50 100 150 200 250 300
+-0.02
+0
+0.02
+50 100 150 200 250 300
+-2-10
+50 100 150 200 250 300
+0
+5
+10
+50 100 150 200 250 300
+-202
+50 100 150 200 250 300
+-2
+-1
+0
+Figure 6: Components of ˆΘ(k) (bilinear model identiﬁcation for 3-robot system).
+26
+===== PAGE 27 =====
+50 100 150 200 250 300
+0
+1
+2
+50 100 150 200 250 300
+0
+2
+50 100 150 200 250 300
+0
+1
+2
+50 100 150 200 250 300
+0
+0.05
+0.1
+50 100 150 200 250 300
+0510
+50 100 150 200 250 300
+0
+20
+40
+50 100 150 200 250 300
+0
+10
+20
+50 100 150 200 250 300
+0
+10
+20
+50 100 150 200 250 300
+0
+20
+40
+Figure 7: Norms of ˆΘ(k) (bilinear model identiﬁcation for 3-robot system).
+27
+===== PAGE 28 =====
+Estimation errors . The results of the posteriori estimation error introduced in (5.7), ǫa(k) =
+ˆΘ(k + 1)ζ(k) −z(2)(k + 1) are presented in Figures 8-9.
+0 50 100 150 200 250 300
+0
+0.5
+1
+1.5
+2
+2.5
+3 10-4
+Figure 8: Norm of the posteriori estimation error ǫa(k) (bilinear model based).
+50 100 150 200 250 300
+-2
+0
+2 10-4
+50 100 150 200 250 300
+-1
+0
+1
+50 100 150 200 250 300
+-1012
+10-6
+50 100 150 200 250 300
+-1
+0
+1
+50 100 150 200 250 300
+0
+5
+10
+10-8
+Figure 9: Components of the posteriori estimation error ǫa(k) (bilinear model based).
+28
+===== PAGE 29 =====
+Remark. In the simulation, all the distances between robots and the circula r wall are larger
+than zero, meaning no collisions happen between the robot and othe rs or between the robot and
+the circular wall during this process.
+Discussion. From Figures 8-9, we can ﬁnd that our iterative algorithm can estim ate the
+parameters of the bilinear model well since the norm of the posteriori estimation error ǫa(k) is
+always less than 3 × 10−4 and the components of the posteriori estimation error ǫa(k) are also
+quite small. Figures 6-7 indicate that all the parameter estimate nor ms and selected components
+change within a quite small range, although they do not converge. T hus, the bilinear model can
+better approximate the 3-robot system with the nonlinear utility fu nctions since the posteriori
+estimation error of the bilinear model is much smaller than the posteriori estimation error of the
+linear model. Therefore, this bilinear model has a better performan ce to approximate the nonlinear
+utility functions although the tendency for periodic changes also ap pears in the corresponding results
+of the estimation error from the bilinear approximation model.
+5.3 Linear and Bilinear Model Based Optimal Control for the 3 -Robot
+System
+In this subsection, the simulation system and the simulation results f or evaluating the linear model
+based control design and the bilinear model based control design o f the 3-robot system are demon-
+strated sequentially. The robot trajectories are presented to c heck whether the desired tracking
+objectives are achieved. During the feedback control phase, th e distances between robots with
+others and robots with the wall are analyzed to check whether collis ions happen.
+5.3.1 Simulation Conditions
+Before testing the performance of the proposed baseline contro l input, we need to use some iterations
+to estimate the linear approximation for the nonlinear model. Thus, t here are two phases in the
+simulations for the baseline control input:
+• Phase I (System Identiﬁcation Phase) : Initially, we set the sampling time ∆ t = 0.05
+s, ρ = 0 .0001 as the iterative algorithm design parameter, P0 = PT
+0 = 100 Ia > 0 and
+Θ 0 = 0a×18 as the initial values of the iterative algorithm 78. The initial value of the robot
+state vector X(0) = z(1)(0) = [ x1(0),y 1(0),...,x 3(0),y 3(0),vx
+1 (0),vy
+1(0),...,v x
+3 (0),vy
+3(0)]T =
+[−7, 3, 0, 7, 7, −4, 0, 0, 0, 0, 0, 0]T, which means Robot 1, Robot 2, and, Robot 3 are located
+at ( −7, 3), (0, 7), (7, −4) with zero initial speeds in X-direction and Y-direction at k = 0.
+Correspondingly, the target positions of the three robots are ( −4.5, 0), (3, 4), and (3, −4). In
+7The values of a are vary for diﬀerent models. For the linear model, the value of a is 36. For the bilinear model,
+the value of a is 901.
+8The matrix Ia denotes the identity matrix of size a.
+29
+===== PAGE 30 =====
+the ﬁrst ks = 300 iterations, apply a selected proper input vector to do the linea r or bilinear
+model approximation according to [8],[10]. The detailed steps for eac h system identiﬁcation
+iteration are listed in the following:
+Step 1 : Compute the input U(k), whose components are listed in Table 1.
+Step 2 : For the linear model identiﬁcation, update the robots state z(1)(k) based on the robots
+dynamic equation (2.3). For the bilinear model identiﬁcation, update the vectorz(1)(k)−
+z(1)0 according to (2.3) and (2.47).
+Step 3 : For the linear model identiﬁcation, calculate the utility components z(2)(k) based on
+equations (2.7)-(2.12) and (2.20). For the bilinear model identiﬁcat ion, calculate the
+vectorz(2)(k) −z(2)0 based on equations (2.7)-(2.12), (2.20) and (2.47).
+Step 4 : Update the approximations ˆ z(2)(k + 1) = ˆΘ T (k)ζ(k), with ˆΘ T (k), ζ(k) for the nonlinear
+utility functions based on equations (3.3)-(3.6). For the linear mode l identiﬁcation, the
+signal vector ζ(k) and the parameter matrix ˆΘ(k) are deﬁned in equations (2.40) and
+(2.43). Correspondingly, the the signal vector ζ(k) and the parameter matrix ˆΘ(k) of
+the bilinear model identiﬁcation are deﬁned in equations (2.68) and (2 .71).
+Matrix P (k) resetting. To improve the estimation results, we reset the matrix P (k) = P0
+every 130 iterations for linear model identiﬁcation cases. Similarly, t he matrix P (k) is reset
+to be P0 every 75 iterations in the bilinear model identiﬁcation cases.
+• Phase II (Feedback Control Phase) : From the (ks + 1) = 301th iteration, reset the initial
+and target positions of the robots and replace the input vector wit h the results of the linear
+programming problem to test the baseline control input performan ce and keep the updating
+of the model approximation results. Table 2 demonstrates the det ailed robot initial and target
+position settings of the selected three cases 9. The details are listed in the following:
+Step 1 : Generate the input U(k), which is the solution for the linear programming problem shown
+in equation (2.74) or (2.76).
+Step 2 : For the linear model identiﬁcation, update the robots state z(1)(k) based on the robots
+dynamic equation (2.3). For the bilinear model identiﬁcation, update the vectorz(1)(k)−
+z(1)0 according to (2.3) and (2.47).
+Step 3 : For the linear model identiﬁcation, calculate the utility components z(2)(k) based on
+equations (2.7)-(2.12) and (2.20). For the bilinear model identiﬁcat ion, calculate the
+vectorz(2)(k) −z(2)0 based on equations (2.7)-(2.12), (2.20) and (2.47).
+9Since the linear approximation model does not contain enough inform ation to estimate the nonlinear utility
+functions of the 3-robot system, the linear model based control design cannot achieve the objectives. Thus, we only
+present the result of the linear model based control designs in Cas e I here to save space.
+30
+===== PAGE 31 =====
+Step 4 : Update the approximations ˆ z(2)(k + 1) = ˆΘ T (k)ζ(k), with ˆΘ T (k), ζ(k) for the nonlinear
+utility functions based on equations (3.3)-(3.6). For the linear mode l identiﬁcation, the
+signal vector ζ(k) and the parameter matrix ˆΘ(k) are deﬁned in equations (2.40) and
+(2.43). Correspondingly, the the signal vector ζ(k) and the parameter matrix ˆΘ(k) of
+the bilinear model identiﬁcation are deﬁned in equations (2.68) and (2 .71).
+Case Settings
+Case number Robot number Initial position Target position
+Case I
+Robot 1 (−4.48, 3.3) ( −4.5, 0)
+Robot 2 (2.98, 7.11) (3 , 4)
+Robot 3 (3.65, −5.70) (3 , −4)
+Case II
+Robot 1 (−3.1, 3.3) ( −3, 0.5)
+Robot 2 (4.9, 4.6) (5 , 2)
+Robot 3 (0.9, −5) (0 .5, −3.5)
+Case III
+Robot 1 (7.5, 2.5) (7 .5, 0)
+Robot 2 (−5.1, −2.5) ( −5, −5)
+Robot 3 (−5.2, 3.5) ( −5, 5)
+Case IV
+Robot 1 (−3.1, −0.6) ( −3.5, −3.5)
+Robot 2 (0, 2.5) (0 .2, 0)
+Robot 3 (4.8, 3) (5 .3, 5)
+Case V
+Robot 1 (−6.4, 5.3) ( −6, 2.4)
+Robot 2 (−2.5, 1.8) ( −2.5, −1.4)
+Robot 3 (3, −2.7) (2 .5, −1.4)
+Table 2: Settings of the feedback control phase.
+5.3.2 Simulation Results
+The linear model based control design and the bilinear based contro l design simulation results are
+presented in Figure 10. The plot of the robot trajectories contro lled by the linear model based
+control design during the corresponding control evaluation phas e is shown in Figure 10a. Then,
+Figures 10b-10f show the robot trajectories controlled by the bilin ear model based control design
+during the control evaluation phase in all ﬁve cases.
+31
+===== PAGE 32 =====
+-15 -10 -5 0 5 10 15
+-15
+-10
+-5
+0
+5
+10
+15
+Robot1
+Robot2
+Robot3
+(a) Case I (linear model based control design)
+-15 -10 -5 0 5 10 15
+-15
+-10
+-5
+0
+5
+10
+15
+Robot1
+Robot2
+Robot3
+(b) Case I (bilinear model based control design)
+-15 -10 -5 0 5 10 15
+-15
+-10
+-5
+0
+5
+10
+15
+Robot1
+Robot2
+Robot3
+(c) Case II (bilinear model based control design)
+-15 -10 -5 0 5 10 15
+-15
+-10
+-5
+0
+5
+10
+15
+Robot1
+Robot2
+Robot3
+(d) Case III (bilinear model based control design)
+-15 -10 -5 0 5 10 15
+-15
+-10
+-5
+0
+5
+10
+15
+Robot1
+Robot2
+Robot3
+-0.2 0 0.2
+2.2
+2.4
+2.6
+2.8
+4.8 4.9
+2.9
+3
+(e) Case IV (bilinear model based control design)
+-15 -10 -5 0 5 10 15
+-15
+-10
+-5
+0
+5
+10
+15
+Robot1
+Robot2
+Robot3
+-6.8 -6.4
+5
+5.5
+-2.6 -2.4 -2.2
+1.5
+2
+(f) Case V (bilinear model based control design)
+The asterisk markers ∗ in diﬀerent colors indicate the initial positions of the robo ts, and the
+ﬁve-point-star markers ⋆ represent the target positions of the robots. The lines in di ﬀerent colors are the
+trajectories of the robots and the big black circle is the cir cular wall of the workspace for the robots.
+Figure 10: Robot trajectories in diﬀerent cases.
+32
+===== PAGE 33 =====
+Remark. According to the analysis of the distances between the robots an d the circular wall in
+all cases, the control evaluation is collision-free since all the distan ces are larger than zero indicating
+that the robots do not collide with others or with the wall in all ﬁve cas es.
+Discussion. From Figure 10, only the bilinear model based control design can ac hieve the
+control objective to make all the robots arrive at their targets w ithout collisions. According to
+Figure 10a, only Robot3 passes by the vicinal positions of its corres ponding target. The other two
+robots cannot move toward the desired positions. Thus, although the linear model based control can
+achieve part of the control objective, a more elaborate approxim ation model should be considered
+to achieve the control objective.
+Figures 10b-10f demonstrate the robots can reach the corresp onding targets (or vicinal positions)
+simultaneously controlled by the baseline control input based on the estimated bilinear model for
+the 3 −robot system with the nonlinear utility functions in all ﬁve cases. This proves that the
+proposed optimal design based on the bilinear approximation model f or the multi-robot system
+with the nonlinear utility functions can achieve the control objectiv e which is reaching the target
+positions and collision-free.
+Additionally, in Figure 10e, the blue robot (Robot1) moves down to its left initially. The red
+robot (Robot2) moves toward our right-hand side direction at ﬁrs t. Then, it moves downward.
+The yellow robot (Robot3) also moves towards our right-hand side a t ﬁrst. This happens because
+the three robots interact with each other to avoid possible collisions since their initial distances
+are too short. Similarly, in Figure 10f, we can see that both the blue r obot (Robot1) and the red
+robot (Robot2) do not move directly toward their targets. Inste ad, the blue robot (Robot1) moves
+away from the wall (the lower right direction of their initial direction) at ﬁrst to avoid the possible
+collision between itself and the wall. At the same time, the red robot (R obot2) moves toward our
+right-hand side at ﬁrst to keep a safe distance from the approach ing Robot1. The reason for this
+phenomenon is that the initial distance between the blue robot and t he red robot and the initial
+distance between the blue robot and the wall are too close. These t wo cases show that the algorithm
+can make robots interact with each other to avoid possible collisions.
+For the bilinear model based optimal control simulations of the selec ted ﬁve cases, the control
+evaluation phase lasts 30 iterations, which indicates 1.5 seconds in th e actual situation based on the
+sampling time ∆ t = 0.05 seconds. The simulation program for the control evaluation pha se costs
+1.30 seconds for Case 1, 1.29 seconds for Case 2, 1.31 seconds for Case 3, 1.35 seconds for Case 4,
+and 1.33 seconds for Case 5 based on i7-8700k CPU. Thus, the ability of the control algorithm to
+solve the real problem is further proved. However, this control a lgorithm may not be global. In
+some cases, the robots’ initial positions are far away from their ta rgets, the robots cannot reach the
+target positions (or vicinal target positions).
+33
+===== PAGE 34 =====
+5.4 Simulations Results of Decentralized Control
+In this subsection, the simulation system and the simulation results f or evaluating the bilinear model
+based decentralized control design of the 3-robot system are de monstrated sequentially. The robot
+trajectories are presented to check whether the desired track ing objectives are achieved. During
+the feedback control phase, the distances between robots with others and robots with the wall are
+analyzed to check whether collisions happen.
+5.4.1 Simulation Conditions
+Similar to previous simulations, the simulation of the decentralized cas es includes two phases too:
+• Phase I (System Identiﬁcation Phase) : Initially, we set the sampling time ∆ t = 0.05s,
+ρ = 0.0001 as the iterative algorithm design parameter, Pi(−1) = PT
+i (−1) = 100 I109 >
+0,i = 1 , 2, 3 and Θ i(0) = 0 109×6 as the initial values of the iterative algorithm for ev-
+ery single robot. The initial value of the robot state vectors are de ﬁned as z(1), 1(0) =
+[x1(0),y 1(0),vx
+1 (0),vy
+1(0)]T = [−8.5, −1, 0, 0]T , z(1), 2(0) = [x2(0),y 2(0),vx
+2 (0),vy
+2(0)]T = [0, 8.5,
+0, 0]T , z(1), 3(0) = [ x3(0),y 3(0),vx
+3 (0),vy
+3(0)]T = [8.5, 0, 0, 0]T which means Robot 1, Robot 2,
+and Robot 3 are located at ( −8.5, −1), (0, 8.5), and (8 .5, 0) with zero initial speeds in X-
+direction and Y-direction at k = 0. Correspondingly, the target positions of the three robots
+are ( −6.5, 0), (0, 6.5), and (6.5, 0). In the ﬁrst ks = 300 iterations, apply a selected proper in-
+put vector to do the linear or bilinear model approximation according to [8],[10]. The detailed
+steps for each system identiﬁcation iteration are listed in the followin g:
+Step 1 : Compute the input Ui(k), whose components are listed in Table 1.
+Step 2 : Update all the vectors for every robot z(1),i (k),i = 1, 2, 3, according to (4.11).
+Step 3 : Calculate all the vectors for every robot z(2),i (k),i = 1, 2, 3, based on equation (4.12).
+Step 4 : Update the approximations for each robot ˆ z(2),i (k + 1) = ˆΘ T
+i (k)ζi(k),i = 1, 2, 3, with
+ˆΘ T
+i (k),ζi(k) for the nonlinear utility functions based on equations (3.3)-(3.6). The signal
+vectorζi(k) and the parameter matrix ˆΘ i(k) are deﬁned in equations (4.20) and (4.23).
+• Phase II (Feedback Control Phase) : From the (ks + 1) = 301th iteration, reset the initial
+and target positions of the robots and replace the input vector wit h the results of the linear
+programming problem to test the baseline control input performan ce and keep the updating
+of the model approximation results. Table 3 demonstrates the det ailed robot initial and target
+position settings of the selected two cases. The details are listed in t he following:
+Step 1 : Generate the input Ui(k), which is the solution for the linear programming problem
+shown in equation (4.26).
+Step 2 : Update all the vectors for every robot z(1),i (k),i = 1, 2, 3, according to (4.11).
+34
+===== PAGE 35 =====
+Step 3 : Calculate all the vectors for every robot z(2),i (k),i = 1, 2, 3, based on equation (4.12).
+Step 4 : Update the approximations for each robot ˆ z(2),i (k + 1) = ˆΘ T
+i (k)ζi(k),i = 1, 2, 3, with
+ˆΘ T
+i (k),ζi(k) for the nonlinear utility functions based on equations (3.3)-(3.6). The signal
+vectorζi(k) and the parameter matrix ˆΘ i(k) are deﬁned in equations (4.20) and (4.23).
+Case Settings
+Case number Robot number Initial position Target position
+Case I
+Robot 1 (−2.5, 7.1) ( −3.5, 5)
+Robot 2 (2.7, 3.3) (3 .5, 5)
+Robot 3 (−0.8, −3.5) (0 , −5.5)
+Case II
+Robot 1 (−6.5, −2.9) ( −4.5, 0)
+Robot 2 (1.7, 2.3) (3 , 4)
+Robot 3 (2.4, −5.2) (3 , −4)
+Table 3: Settings of the feedback control phase.
+5.4.2 Simulation Results
+The bilinear based decentralized control design simulation results ar e presented in Figure 11.
+Model identiﬁcation results . The results of the model identiﬁcation phases are almost
+the same as the results in Section 5.2. The posteriori estimation error in the case applying the
+decentralized bilinear model identiﬁcation algorithm is always small with out any periodical changes.
+Optimal control results . In Figure 11, (a)-(b) demonstrate the robots can reach the co r-
+responding targets (or vicinal positions) simultaneously controlled by the decentralized generated
+control input based on the estimated bilinear model for the 3 robot system with the nonlinear
+utility functions in both cases. This proves that the decentralized v ersion optimal design based on
+the bilinear approximation model for the multi-robot system with the nonlinear utility functions
+can achieve the control objective which is reaching the target pos itions and collision-free.
+For the simulations of the selected two cases, the control evaluat ion phase lasts 30 iterations,
+which indicates 1.5 seconds in the actual situation based on the samp ling time ∆ t = 0.05 seconds.
+The simulation program of the control evaluation phase for the thr ee robots costs 1.73 seconds for
+Case I, and 1.71 seconds for Case II based on i7-8700k CPU. Since t he control inputs for each
+robot are generated decentralized, we can use three computers to ﬁnd the optimal control input
+simultaneously. Thus, the running time of the control evaluation ph ase for every single robot can
+35
+===== PAGE 36 =====
+be decreased to one-third of the listed running time for all three ro bots. This proves that not only
+the decentralized bilinear model based control design is fast enoug h to be implemented for real-time
+control, but also that the algorithm can be accelerated by applying it s decentralized version with
+more computation resources.
+-15 -10 -5 0 5 10 15
+-15
+-10
+-5
+0
+5
+10
+15
+Robot1
+Robot2
+Robot3
+(a) Case I
+-15 -10 -5 0 5 10 15
+-15
+-10
+-5
+0
+5
+10
+15
+Robot1
+Robot2
+Robot3
+(b) Case II
+The asterisk markers ∗ in diﬀerent colors indicate the initial positions of the robo ts, and the
+ﬁve-point-star markers ⋆ represent the target positions of the robots. The lines in di ﬀerent colors are the
+trajectories of the robots and the big black circle is the cir cular wall of the workspace for the robots.
+Figure 11: Robot trajectories in diﬀerent cases (Bilinear model bas ed decentralized control).
+5.5 Additional Parameter Estimation Algorithm: Normalize d Adap-
+tive Gradient Algorithm
+The least-squares algorithm (3.4)-(3.6) has a big matrix P (k) to calculate. We also simulated the
+cases that applied another parameter estimation algorithm called th e normalized adaptive gradient
+algorithm to see whether it can make the results better.
+With the same deﬁnition of the estimation error ǫ(k) = ˆΘ T (k)ζ(k) −y(k) as the least squares
+algorithm and the measured vector signals y(k) ∈ R18 and ζ(k) ∈ Rq 10, the adaptive law of the
+gradient algorithm is deﬁned as
+ˆΘ(k + 1) = ˆΘ(k) − Γζ(k)ǫT (k)
+m2(k) ,k =k0, k0 + 1, k0 + 2, · · ·, (5.13)
+where 0 < Γ = Γ T < 2Iq 11, and
+m(k) =
+√
+ρ +ζT (k)ζ(k), ρ> 0. (5.14)
+10For the linear model, the value of q is 36. For the bilinear model, the value of q is 901.
+11The matrix Iq denotes the identity matrix of size q × q.
+36
+===== PAGE 37 =====
+5.5.1 Simulation Results
+In the simulation, We replace the least squares parameter estimatio n algorithm of Step 4 in both of
+the system identiﬁcation phase and the feedback control phase o f the bilinear model based control
+evaluation simulation procedures in Section 5.3 with the gradient algor ithm.
+With the application of the gradient algorithm as parameter estimatio n method, the robot
+trajectories in the simulation results for all the cases in Section 5.3 s how the robots cannot reach
+their targets. Although diﬀerent values of Γ lead to diﬀerent traje ctories, most trajectories are even
+almost straight lines without any collision avoidance behaviors or movin g direction adjustment
+toward the corresponding target behaviors.
+6 Concluding Remarks
+In this report, we have ﬁnished the simulation studies of the Koopma n system approximation
+based optimal control of multiple robots with nonlinear utility functio ns, which is detailed in [11].
+The desired robot tracking performance is ensured by maximizing th e nonlinear utility function.
+In [11], an algorithm to ﬁnd the linear or bilinear approximations of the n onlinear utility function
+components and the optimal control design based on the estimate d linear or bilinear approximations.
+In this report, the simulation results of the linear or bilinear approxim ation algorithm and the control
+designs based on the approximations are reported and analyzed.
+Speciﬁcally, we formulate a 3-robot system to examine the perform ance of the control designs
+based on the linear approximation model and bilinear approximation mo del. According to the linear
+and bilinear model identiﬁcation simulation results in Section 5.1-5.2, on ly the centralized bilinear
+model can approximate the nonlinear utility functions well since only t he bilinear model identiﬁ-
+cation can ensure the posteriori estimation error within a smaller range, i.e. |ǫa| = (0, 3 × 10−4).
+Simulation results in Section 5.3 show that the centralized linear model based control design can
+only achieve parts of the tracking objectives, which means the linea r model does not contain rich
+enough information to construct the optimal control design. Aft er that, other results in Section
+5.3 prove that the centralized bilinear model based optimal control design can achieve the desired
+tracking objectives in all three listed cases under the computation time restriction for the real-
+time control. Lastly, Section 5.4 shows the decentralized bilinear mod el based control signals can
+also achieve the desired tracking objectives faster. The success of the simulation for the decentral-
+ized bilinear model based control inputs infers the proposed bilinear model based optimal control
+algorithm owns the potential to be applied to more complex application s, like autonomous driving.
+In the future, the performance of the bilinear model based optima l control design can be im-
+proved to ensure the desired global tracking performance within a shorter computation time.
+37
+===== PAGE 38 =====
+Acknowledgements
+The authors would like to thank the ﬁnancial support from a Ford Un iversity Research Program
+grant and the collaboration and help from Dr. Suzhou Huang and Dr. Qi Dai of Ford Motor
+Company for this research.
+References
+[1] G. Tao, Adaptive Control Design and Analysis , John Wiley & Sons, Hoboken, NJ, 2003.
+[2] M. O. Williams, I. G. Kevrekidis, and C. W. Rowley, “A data–driven ap proximation of the
+Koopman operator: extending dynamic mode decomposition,” Journal of Nonlinear Science,
+vol. 25, pp. 1307–1346, 2015.
+[3] M. Korda and I. Mezic, “Linear predictors for nonlinear dynamica l systems: Koopman oper-
+ator meets model predictive control,” Automatica, vol. 93, no. 7, pp. 149-160, July 2018.
+[4] E. Yeung, S. Kundu, and N. O. Hodas, “Learning deep neural ne twork representations for
+Koopman operators of nonlinear dynamical systems,” Proceedings of 2019 American Control
+Conference, pp. 4832-4839, 2019.
+[5] J. Wang, Q. Dai, D. Shen, X. Song, X. Chen, S. Huang, and D. Filev , “Multi-agent navigation
+with collision avoidance: game theory approach,” Ford Report 2020- X, October 2020.
+[6] P. Bevanda, S. Sosmowski, and S. Hirche, “Koopman operator d ynamical models: learning,
+analysis and control,” arXiv:2102.02522 [eess.SY], 2021 (https://arx iv.org/abs/2102.02522).
+[7] M. Mazouchi, S. Nageshrao, and H. Modares, “Finite-time Koopm an identiﬁer: a uniﬁed
+batch-online learning framework for joint learning of Koopman stru cture and parameters,”
+arXiv:2105.05903 [eess.SY], 2021 (https://arxiv.org/abs/2105.059 03).
+[8] G. Tao, “Koopman transformations for nonlinear dynamic syste ms,” Ford URP Report 2021-
+6, December 2021.
+[9] G. Tao, “Linear control formulation for multi-robot systems wit h nonlinear utility function,”
+Ford URP Report 2022-2, March 2022.
+[10] Q. H. Zhao and G. Tao, “Simulation study of linear model approxim ation for a 5-robot system
+with nonlinear utility functions,” Ford URP Report 2022-1, January 2 021.
+[11] G. Tao and Q. H. Zhao, “Koopman system approximation based o ptimal control of multiple
+robots—Part I: concepts and formulations,” Manuscript 2023-05 -01, May 2023 (submitted to
+arXiv).
+38
