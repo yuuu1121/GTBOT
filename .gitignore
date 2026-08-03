@@ -1,5 +1,6 @@
 # OMC / Claude Code operational artifacts
 .omc/
+.sp/
 .claude/settings.local.json
 
 # OS / editor cruft
