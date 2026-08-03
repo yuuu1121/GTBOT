@@ -17,3 +17,10 @@ Thumbs.db
 *.bbl
 *.blg
 *.toc
+
+# Python bytecode and caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
