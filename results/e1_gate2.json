@@ -1,0 +1,66 @@
+{
+  "I": {
+    "final_target_dists": [
+      7.364265280732357,
+      4.397719046562662,
+      5.376046555090457
+    ],
+    "reached": false,
+    "min_robot_surf": 4.3489978814825445,
+    "min_wall_surf": -1.4805130182162358,
+    "collision_free": false,
+    "lp_events": []
+  },
+  "II": {
+    "final_target_dists": [
+      6.884084906507185,
+      4.428109782966093,
+      5.18693671640594
+    ],
+    "reached": false,
+    "min_robot_surf": 4.016944944927587,
+    "min_wall_surf": -0.1044288673150735,
+    "collision_free": false,
+    "lp_events": []
+  },
+  "III": {
+    "final_target_dists": [
+      6.5456231798431554,
+      4.128663524677206,
+      4.941542332612359
+    ],
+    "reached": false,
+    "min_robot_surf": -2.351530065484967,
+    "min_wall_surf": 1.049983392312944,
+    "collision_free": false,
+    "lp_events": []
+  },
+  "IV": {
+    "final_target_dists": [
+      6.244927191328974,
+      4.491521352782377,
+      6.004812262885492
+    ],
+    "reached": false,
+    "min_robot_surf": 0.18102895529318275,
+    "min_wall_surf": 2.3401114404969228,
+    "collision_free": true,
+    "lp_events": []
+  },
+  "V": {
+    "final_target_dists": [
+      6.651621630286856,
+      4.027568279992286,
+      4.553346468532787
+    ],
+    "reached": false,
+    "min_robot_surf": 1.239575662684909,
+    "min_wall_surf": -3.315724514315022,
+    "collision_free": false,
+    "lp_events": []
+  },
+  "gate2": {
+    "pass_conditions_1_2": false,
+    "condition3": "Case IV/V \uadf8\ub9bc \uc721\uc548 \ud655\uc778 \ud544\uc694 \u2014 \uc790\ub3d9 \ud310\uc815 \uc544\ub2d8 (\uc2a4\ud399 \uac8c\uc774\ud2b8 2 \u2462)"
+  }
+}

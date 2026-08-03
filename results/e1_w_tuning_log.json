@@ -1,0 +1,737 @@
+{
+  "budget": 10,
+  "trials_used": 10,
+  "any_pass": false,
+  "best_trial": "8",
+  "best_w_robot": [
+    -1,
+    -1,
+    320,
+    2,
+    -2,
+    -6
+  ],
+  "note": "10\ud68c \uc608\uc0b0 \uc18c\uc9c4, \uc870\uac74 \u2460\u2461(\ubaa9\ud45c\ub3c4\ub2ec+\ubb34\ucda9\ub3cc) \ud1b5\uacfc \uc2dc\ub3c4 \uc5c6\uc74c. phi3(w[2])\ub294 exp(-(nr/4)^2)*exp(-(nr/6)^2) \ud615\ud0dc\ub85c nr>~5m\uc5d0\uc11c \uadf8\ub798\ub514\uc5b8\ud2b8\uac00 \uac70\uc758 0\uc73c\ub85c \uc18c\uba78 -> Table2 \ucf00\uc774\uc2a4\uc758 3~7m \uc6d0\uac70\ub9ac \ucd08\uae30\uc870\uac74\uc5d0\uc11c\ub294 w[2] \uc99d\ud3ed\uc774 \uc6d0\uac70\ub9ac \uacac\uc778\ub825\uc744 \ub9cc\ub4e4\uc9c0 \ubabb\ud568 (\uad00\uce21: w2=5->80, reached \ubd88\ubcc0). phi1(heading)/phi2(velocity) \ud56d\uc774 \uc2e4\uc9c8\uc801 \uc6d0\uac70\ub9ac \uacac\uc778\uc744 \ub2f4\ub2f9\ud574\uc57c \ud558\ub098 \uc2a4\ud399 \ud5c8\uc6a9 \ud29c\ub2dd \ucd95(w1,w2,w5)\ub9cc\uc73c\ub85c\ub294 \ubbf8\ud574\uacb0. \ucf54\ub4dc(control.py/experiment.py/utility.py) \ubbf8\uc218\uc815 \u2014 \uc2a4\ud399 \uc900\uc218. scenario.py \uae30\ubcf8 w_robot\ub3c4 \ubbf8\uc218\uc815 (\ud0c8\ucd9c \uacbd\ub85c\ub294 \ucee8\ud2b8\ub864\ub7ec \uacb0\uc815 \ub300\uae30).",
+  "trials": [
+    {
+      "trial": "1",
+      "w_robot": [
+        -1,
+        -1,
+        5,
+        2,
+        -2,
+        -2
+      ],
+      "rationale": "\ubca0\uc774\uc2a4\ub77c\uc778 (Scenario \uae30\ubcf8\uac12)",
+      "n_reached": 0,
+      "n_collision_free": 1,
+      "pass_conditions_1_2": false,
+      "cases": {
+        "I": {
+          "final_target_dists": [
+            7.364,
+            4.398,
+            5.376
+          ],
+          "reached": false,
+          "min_robot_surf": 4.349,
+          "min_wall_surf": -1.481,
+          "collision_free": false
+        },
+        "II": {
+          "final_target_dists": [
+            6.884,
+            4.428,
+            5.187
+          ],
+          "reached": false,
+          "min_robot_surf": 4.017,
+          "min_wall_surf": -0.104,
+          "collision_free": false
+        },
+        "III": {
+          "final_target_dists": [
+            6.546,
+            4.129,
+            4.942
+          ],
+          "reached": false,
+          "min_robot_surf": -2.352,
+          "min_wall_surf": 1.05,
+          "collision_free": false
+        },
+        "IV": {
+          "final_target_dists": [
+            6.245,
+            4.492,
+            6.005
+          ],
+          "reached": false,
+          "min_robot_surf": 0.181,
+          "min_wall_surf": 2.34,
+          "collision_free": true
+        },
+        "V": {
+          "final_target_dists": [
+            6.652,
+            4.028,
+            4.553
+          ],
+          "reached": false,
+          "min_robot_surf": 1.24,
+          "min_wall_surf": -3.316,
+          "collision_free": false
+        }
+      }
+    },
+    {
+      "trial": "2",
+      "w_robot": [
+        -1,
+        -1,
+        10,
+        2,
+        -2,
+        -2
+      ],
+      "rationale": "\ubaa9\ud45c \ubbf8\ub3c4\ub2ec -> w[2](phi3) 2\ubc30",
+      "n_reached": 0,
+      "n_collision_free": 1,
+      "pass_conditions_1_2": false,
+      "cases": {
+        "I": {
+          "final_target_dists": [
+            6.575,
+            6.005,
+            5.818
+          ],
+          "reached": false,
+          "min_robot_surf": 4.349,
+          "min_wall_surf": -1.601,
+          "collision_free": false
+        },
+        "II": {
+          "final_target_dists": [
+            6.884,
+            4.428,
+            5.187
+          ],
+          "reached": false,
+          "min_robot_surf": 4.017,
+          "min_wall_surf": -0.104,
+          "collision_free": false
+        },
+        "III": {
+          "final_target_dists": [
+            6.546,
+            4.129,
+            4.942
+          ],
+          "reached": false,
+          "min_robot_surf": -2.352,
+          "min_wall_surf": 1.05,
+          "collision_free": false
+        },
+        "IV": {
+          "final_target_dists": [
+            6.469,
+            4.492,
+            6.014
+          ],
+          "reached": false,
+          "min_robot_surf": 0.181,
+          "min_wall_surf": 2.305,
+          "collision_free": true
+        },
+        "V": {
+          "final_target_dists": [
+            4.647,
+            4.326,
+            3.956
+          ],
+          "reached": false,
+          "min_robot_surf": 1.24,
+          "min_wall_surf": -1.833,
+          "collision_free": false
+        }
+      }
+    },
+    {
+      "trial": "3",
+      "w_robot": [
+        -1,
+        -1,
+        20,
+        2,
+        -2,
+        -2
+      ],
+      "rationale": "\ubaa9\ud45c \ubbf8\ub3c4\ub2ec \uc9c0\uc18d -> w[2] 4\ubc30",
+      "n_reached": 0,
+      "n_collision_free": 1,
+      "pass_conditions_1_2": false,
+      "cases": {
+        "I": {
+          "final_target_dists": [
+            6.575,
+            6.005,
+            5.818
+          ],
+          "reached": false,
+          "min_robot_surf": 4.349,
+          "min_wall_surf": -1.601,
+          "collision_free": false
+        },
+        "II": {
+          "final_target_dists": [
+            6.811,
+            4.428,
+            5.158
+          ],
+          "reached": false,
+          "min_robot_surf": 4.017,
+          "min_wall_surf": -0.073,
+          "collision_free": false
+        },
+        "III": {
+          "final_target_dists": [
+            6.591,
+            4.095,
+            4.906
+          ],
+          "reached": false,
+          "min_robot_surf": -2.272,
+          "min_wall_surf": 1.05,
+          "collision_free": false
+        },
+        "IV": {
+          "final_target_dists": [
+            6.413,
+            4.492,
+            6.028
+          ],
+          "reached": false,
+          "min_robot_surf": 0.181,
+          "min_wall_surf": 2.218,
+          "collision_free": true
+        },
+        "V": {
+          "final_target_dists": [
+            5.759,
+            5.502,
+            5.092
+          ],
+          "reached": false,
+          "min_robot_surf": 1.24,
+          "min_wall_surf": -2.895,
+          "collision_free": false
+        }
+      }
+    },
+    {
+      "trial": "4",
+      "w_robot": [
+        -1,
+        -1,
+        40,
+        2,
+        -2,
+        -2
+      ],
+      "rationale": "\ubaa9\ud45c \ubbf8\ub3c4\ub2ec \uc9c0\uc18d -> w[2] 8\ubc30",
+      "n_reached": 0,
+      "n_collision_free": 2,
+      "pass_conditions_1_2": false,
+      "cases": {
+        "I": {
+          "final_target_dists": [
+            6.374,
+            5.869,
+            5.761
+          ],
+          "reached": false,
+          "min_robot_surf": 4.349,
+          "min_wall_surf": -1.486,
+          "collision_free": false
+        },
+        "II": {
+          "final_target_dists": [
+            5.722,
+            3.635,
+            5.536
+          ],
+          "reached": false,
+          "min_robot_surf": 4.004,
+          "min_wall_surf": 0.013,
+          "collision_free": true
+        },
+        "III": {
+          "final_target_dists": [
+            5.459,
+            4.138,
+            5.502
+          ],
+          "reached": false,
+          "min_robot_surf": -1.753,
+          "min_wall_surf": 1.05,
+          "collision_free": false
+        },
+        "IV": {
+          "final_target_dists": [
+            6.613,
+            4.359,
+            5.663
+          ],
+          "reached": false,
+          "min_robot_surf": 0.181,
+          "min_wall_surf": 2.175,
+          "collision_free": true
+        },
+        "V": {
+          "final_target_dists": [
+            5.103,
+            5.348,
+            5.939
+          ],
+          "reached": false,
+          "min_robot_surf": 1.24,
+          "min_wall_surf": -2.165,
+          "collision_free": false
+        }
+      }
+    },
+    {
+      "trial": "5",
+      "w_robot": [
+        -1,
+        -1,
+        80,
+        2,
+        -2,
+        -2
+      ],
+      "rationale": "\ubaa9\ud45c \ubbf8\ub3c4\ub2ec \uc9c0\uc18d -> w[2] 16\ubc30",
+      "n_reached": 0,
+      "n_collision_free": 2,
+      "pass_conditions_1_2": false,
+      "cases": {
+        "I": {
+          "final_target_dists": [
+            6.712,
+            5.925,
+            5.937
+          ],
+          "reached": false,
+          "min_robot_surf": 4.341,
+          "min_wall_surf": -1.771,
+          "collision_free": false
+        },
+        "II": {
+          "final_target_dists": [
+            4.739,
+            5.407,
+            5.544
+          ],
+          "reached": false,
+          "min_robot_surf": 3.032,
+          "min_wall_surf": 0.103,
+          "collision_free": true
+        },
+        "III": {
+          "final_target_dists": [
+            5.399,
+            3.797,
+            4.428
+          ],
+          "reached": false,
+          "min_robot_surf": -1.987,
+          "min_wall_surf": 1.05,
+          "collision_free": false
+        },
+        "IV": {
+          "final_target_dists": [
+            5.552,
+            5.759,
+            5.983
+          ],
+          "reached": false,
+          "min_robot_surf": 0.157,
+          "min_wall_surf": 2.572,
+          "collision_free": true
+        },
+        "V": {
+          "final_target_dists": [
+            4.972,
+            5.085,
+            5.215
+          ],
+          "reached": false,
+          "min_robot_surf": 1.24,
+          "min_wall_surf": -1.987,
+          "collision_free": false
+        }
+      }
+    },
+    {
+      "trial": "6",
+      "w_robot": [
+        -1,
+        -1,
+        160,
+        2,
+        -2,
+        -4
+      ],
+      "rationale": "w[2] 32\ubc30 + \ucda9\ub3cc \uadfc\uc811 -> |w[5]| 2\ubc30",
+      "n_reached": 0,
+      "n_collision_free": 1,
+      "pass_conditions_1_2": false,
+      "cases": {
+        "I": {
+          "final_target_dists": [
+            4.614,
+            6.105,
+            4.57
+          ],
+          "reached": false,
+          "min_robot_surf": 4.345,
+          "min_wall_surf": -1.994,
+          "collision_free": false
+        },
+        "II": {
+          "final_target_dists": [
+            6.509,
+            4.027,
+            5.135
+          ],
+          "reached": false,
+          "min_robot_surf": 4.075,
+          "min_wall_surf": -0.003,
+          "collision_free": false
+        },
+        "III": {
+          "final_target_dists": [
+            6.067,
+            3.379,
+            3.663
+          ],
+          "reached": false,
+          "min_robot_surf": -0.943,
+          "min_wall_surf": 1.05,
+          "collision_free": false
+        },
+        "IV": {
+          "final_target_dists": [
+            6.441,
+            4.538,
+            4.536
+          ],
+          "reached": false,
+          "min_robot_surf": 0.22,
+          "min_wall_surf": 2.072,
+          "collision_free": true
+        },
+        "V": {
+          "final_target_dists": [
+            6.054,
+            5.438,
+            3.813
+          ],
+          "reached": false,
+          "min_robot_surf": 1.24,
+          "min_wall_surf": -2.773,
+          "collision_free": false
+        }
+      }
+    },
+    {
+      "trial": "7",
+      "w_robot": [
+        -3,
+        -1,
+        160,
+        2,
+        -2,
+        -4
+      ],
+      "rationale": "\uc9c4\ub3d9/\uacfc\uc18d \ub300\uc751 -> |w[1]| 3\ubc30 (w[0]=phi1 \uc870\uc815)",
+      "n_reached": 0,
+      "n_collision_free": 2,
+      "pass_conditions_1_2": false,
+      "cases": {
+        "I": {
+          "final_target_dists": [
+            6.569,
+            5.886,
+            5.641
+          ],
+          "reached": false,
+          "min_robot_surf": 4.341,
+          "min_wall_surf": -1.492,
+          "collision_free": false
+        },
+        "II": {
+          "final_target_dists": [
+            5.93,
+            5.441,
+            5.49
+          ],
+          "reached": false,
+          "min_robot_surf": 4.081,
+          "min_wall_surf": 0.013,
+          "collision_free": true
+        },
+        "III": {
+          "final_target_dists": [
+            6.315,
+            4.852,
+            5.348
+          ],
+          "reached": false,
+          "min_robot_surf": -3.394,
+          "min_wall_surf": 1.05,
+          "collision_free": false
+        },
+        "IV": {
+          "final_target_dists": [
+            6.333,
+            3.438,
+            5.989
+          ],
+          "reached": false,
+          "min_robot_surf": 0.095,
+          "min_wall_surf": 2.109,
+          "collision_free": true
+        },
+        "V": {
+          "final_target_dists": [
+            5.766,
+            6.077,
+            5.939
+          ],
+          "reached": false,
+          "min_robot_surf": 1.24,
+          "min_wall_surf": -3.066,
+          "collision_free": false
+        }
+      }
+    },
+    {
+      "trial": "8",
+      "w_robot": [
+        -1,
+        -1,
+        320,
+        2,
+        -2,
+        -6
+      ],
+      "rationale": "w[2] 64\ubc30 + |w[5]| 3\ubc30",
+      "n_reached": 0,
+      "n_collision_free": 3,
+      "pass_conditions_1_2": false,
+      "cases": {
+        "I": {
+          "final_target_dists": [
+            2.082,
+            3.53,
+            1.696
+          ],
+          "reached": false,
+          "min_robot_surf": 4.21,
+          "min_wall_surf": 0.67,
+          "collision_free": true
+        },
+        "II": {
+          "final_target_dists": [
+            6.203,
+            5.448,
+            3.325
+          ],
+          "reached": false,
+          "min_robot_surf": 3.513,
+          "min_wall_surf": 0.692,
+          "collision_free": true
+        },
+        "III": {
+          "final_target_dists": [
+            6.752,
+            3.898,
+            4.938
+          ],
+          "reached": false,
+          "min_robot_surf": -0.155,
+          "min_wall_surf": 1.05,
+          "collision_free": false
+        },
+        "IV": {
+          "final_target_dists": [
+            6.575,
+            3.516,
+            3.428
+          ],
+          "reached": false,
+          "min_robot_surf": 0.031,
+          "min_wall_surf": 2.871,
+          "collision_free": true
+        },
+        "V": {
+          "final_target_dists": [
+            3.914,
+            5.035,
+            2.242
+          ],
+          "reached": false,
+          "min_robot_surf": 1.012,
+          "min_wall_surf": -1.138,
+          "collision_free": false
+        }
+      }
+    },
+    {
+      "trial": "9",
+      "w_robot": [
+        -5,
+        -1,
+        320,
+        2,
+        -2,
+        -6
+      ],
+      "rationale": "w[0](phi1 heading) 5\ubc30 \ucd94\uac00",
+      "n_reached": 0,
+      "n_collision_free": 1,
+      "pass_conditions_1_2": false,
+      "cases": {
+        "I": {
+          "final_target_dists": [
+            6.13,
+            5.923,
+            5.693
+          ],
+          "reached": false,
+          "min_robot_surf": 4.341,
+          "min_wall_surf": -1.533,
+          "collision_free": false
+        },
+        "II": {
+          "final_target_dists": [
+            4.827,
+            5.995,
+            5.648
+          ],
+          "reached": false,
+          "min_robot_surf": 3.478,
+          "min_wall_surf": -0.173,
+          "collision_free": false
+        },
+        "III": {
+          "final_target_dists": [
+            5.399,
+            4.033,
+            4.819
+          ],
+          "reached": false,
+          "min_robot_surf": -2.509,
+          "min_wall_surf": 1.05,
+          "collision_free": false
+        },
+        "IV": {
+          "final_target_dists": [
+            5.588,
+            5.035,
+            6.142
+          ],
+          "reached": false,
+          "min_robot_surf": 0.248,
+          "min_wall_surf": 2.847,
+          "collision_free": true
+        },
+        "V": {
+          "final_target_dists": [
+            5.766,
+            6.101,
+            5.939
+          ],
+          "reached": false,
+          "min_robot_surf": 1.24,
+          "min_wall_surf": -3.066,
+          "collision_free": false
+        }
+      }
+    },
+    {
+      "trial": "10",
+      "w_robot": [
+        -1,
+        -3,
+        80,
+        2,
+        -2,
+        -4
+      ],
+      "rationale": "w[1](phi2 velocity) 3\ubc30 + w[2] 16\ubc30 + |w[5]| 2\ubc30",
+      "n_reached": 0,
+      "n_collision_free": 1,
+      "pass_conditions_1_2": false,
+      "cases": {
+        "I": {
+          "final_target_dists": [
+            5.907,
+            5.912,
+            5.623
+          ],
+          "reached": false,
+          "min_robot_surf": 4.349,
+          "min_wall_surf": -1.207,
+          "collision_free": false
+        },
+        "II": {
+          "final_target_dists": [
+            7.14,
+            3.643,
+            3.455
+          ],
+          "reached": false,
+          "min_robot_surf": 4.004,
+          "min_wall_surf": -0.376,
+          "collision_free": false
+        },
+        "III": {
+          "final_target_dists": [
+            5.214,
+            3.797,
+            4.428
+          ],
+          "reached": false,
+          "min_robot_surf": -1.987,
+          "min_wall_surf": 1.05,
+          "collision_free": false
+        },
+        "IV": {
+          "final_target_dists": [
+            5.61,
+            5.66,
+            6.018
+          ],
+          "reached": false,
+          "min_robot_surf": 0.157,
+          "min_wall_surf": 2.46,
+          "collision_free": true
+        },
+        "V": {
+          "final_target_dists": [
+            5.103,
+            4.849,
+            5.277
+          ],
+          "reached": false,
+          "min_robot_surf": 1.24,
+          "min_wall_surf": -2.165,
+          "collision_free": false
+        }
+      }
+    }
+  ]
+}

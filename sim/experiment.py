@@ -82,3 +82,44 @@ def open_loop_eval(sc, model, rls, X_log, U_log, start, horizon):
         z2_hat = rls.theta.T @ zeta
         err[t] = np.abs(z2_hat - z2_vector(X_log[k + 1], sc))
     return err
+
+@dataclass
+class Phase2Result:
+    X_log: np.ndarray; U_log: np.ndarray
+    min_robot_surf: float; min_wall_surf: float
+    final_target_dists: np.ndarray; lp_events: list
+
+def run_phase2(sc, rls, model, init_pos, targets, iters):
+    """제어 평가 (:1450~1453): 초기·목표 재설정, 동작점 재계산, LP 입력, RLS 갱신 지속."""
+    import dataclasses
+    from .control import input_objective, solve_input
+    sc2 = dataclasses.replace(sc, targets=np.asarray(targets))
+    A, B = ab_matrices(sc2.n_robots, sc2.dt)
+    z10, z20 = operating_point(sc2)
+    n_in = 2 * sc2.n_robots
+    X = np.zeros(4 * sc2.n_robots); X[:n_in] = np.asarray(init_pos).ravel()
+    X_log = np.zeros((iters + 1, 4 * sc2.n_robots)); X_log[0] = X
+    U_log = np.zeros((iters, n_in))
+    min_dr, min_dw, events = np.inf, np.inf, []
+    for k in range(1, iters + 1):
+        z2 = z2_vector(X, sc2)
+        if model == "bilinear":
+            c, _ = input_objective(rls.theta, X - z10, z2 - z20, sc2.w_full, n_in)
+        else:   # linear도 U-affine — 평가 추출 동일 패턴 (1회 사용, 인라인)
+            base = rls.theta.T @ build_zeta_linear(X, z2, np.zeros(n_in))
+            eye = np.eye(n_in)
+            c = np.array([sc2.w_full @ (rls.theta.T @ build_zeta_linear(X, z2, eye[l]) - base)
+                          for l in range(n_in)])
+        U, status = solve_input(c, sc2.u_min, sc2.u_max)
+        if status != "ok":
+            events.append((k, status))
+        zeta = _zeta(sc2, model, X, z2, U, z10, z20)
+        X_next = A @ X + B @ U
+        rls.update(zeta, z2_vector(X_next, sc2))       # 갱신 지속 (:1453)
+        dr, dw = surface_distances(X_next, sc2)
+        min_dr, min_dw = min(min_dr, dr), min(min_dw, dw)
+        X_log[k] = X_next; U_log[k - 1] = U
+        X = X_next
+    pos = X[:n_in].reshape(-1, 2)
+    dists = np.linalg.norm(pos - np.asarray(targets), axis=1)
+    return Phase2Result(X_log, U_log, float(min_dr), float(min_dw), dists, events)

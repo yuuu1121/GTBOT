@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from .scenario import e1_scenario
-from .experiment import run_phase1, open_loop_eval, frozen_1step_eval
+from .scenario import e1_scenario, TABLE2_CASES
+from .experiment import run_phase1, run_phase2, open_loop_eval, frozen_1step_eval
 
 RESULTS = pathlib.Path(__file__).resolve().parent.parent / "results"
 
@@ -46,8 +46,42 @@ def gate1():
     fig.savefig(RESULTS / "e1_gate1_errors.png", dpi=150)
     print(json.dumps(out["gate1"], indent=2))
 
+def _plot_traj(X_log, targets, sc, path):
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.add_patch(plt.Circle((0, 0), sc.wall_radius, fill=False))
+    n = sc.n_robots
+    for i in range(n):
+        xs, ys = X_log[:, 2 * i], X_log[:, 2 * i + 1]
+        ax.plot(xs, ys)
+        ax.add_patch(plt.Circle((xs[-1], ys[-1]), sc.robot_radius, alpha=0.3))
+        ax.plot(*targets[i], "x")
+    ax.set_aspect("equal"); ax.set_xlim(-12, 12); ax.set_ylim(-12, 12)
+    fig.savefig(path, dpi=150); plt.close(fig)
+
+def gate2():
+    import copy
+    sc = e1_scenario()
+    base = run_phase1(sc, "bilinear")
+    report = {}
+    for case, (init, tgt) in TABLE2_CASES.items():   # 식별 1회, 케이스별 deepcopy (:1450~1453)
+        r = run_phase2(sc, copy.deepcopy(base.rls), "bilinear", init, tgt, sc.control_iters)
+        report[case] = {"final_target_dists": r.final_target_dists.tolist(),
+                        "reached": bool((r.final_target_dists < 0.5).all()),     # 스펙: 0.5m
+                        "min_robot_surf": r.min_robot_surf, "min_wall_surf": r.min_wall_surf,
+                        "collision_free": bool(r.min_robot_surf > 0 and r.min_wall_surf > 0),
+                        "lp_events": r.lp_events}
+        _plot_traj(r.X_log, tgt, sc, RESULTS / f"e1_case_{case}_traj.png")
+    report["gate2"] = {
+        "pass_conditions_1_2": all(v["reached"] and v["collision_free"]
+                                   for k, v in report.items() if k != "gate2"),
+        "condition3": "Case IV/V 그림 육안 확인 필요 — 자동 판정 아님 (스펙 게이트 2 ③)"}
+    (RESULTS / "e1_gate2.json").write_text(json.dumps(report, indent=2))
+    print(json.dumps(report["gate2"], indent=2))
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(); p.add_argument("--phase", type=int, default=1)
     args = p.parse_args()
     if args.phase == 1:
         gate1()
+    elif args.phase == 2:
+        gate2()
