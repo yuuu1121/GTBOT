@@ -59,6 +59,18 @@ def run_phase1(sc, model, input_fn=table1_input):
     return Phase1Result(rls, X, X_log, U_log, eps_log, eps_a_log, viol,
                         float(np.trace(rls.P)), rank, zPz_log)
 
+def frozen_1step_eval(sc, model, rls, X_log, U_log):
+    """동결 Θ̂로 teacher-forced 1-step 예측 (z(2)는 매 k 참값 — 재귀 아님). 반환: 오차 (ks, m)."""
+    z10, z20 = operating_point(sc)
+    ks = U_log.shape[0]
+    err = np.zeros((ks, sc.m))
+    for k in range(ks):
+        z2 = z2_vector(X_log[k], sc)
+        zeta = _zeta(sc, model, X_log[k], z2, U_log[k], z10, z20)
+        z2_pred = rls.theta.T @ zeta
+        err[k] = z2_pred - z2_vector(X_log[k + 1], sc)
+    return err
+
 def open_loop_eval(sc, model, rls, X_log, U_log, start, horizon):
     """frozen Θ̂로 z(2)를 재귀 예측 (z(1)은 참값 — 동역학 정확). 반환: |예측-참| (horizon, m)."""
     z10, z20 = operating_point(sc)

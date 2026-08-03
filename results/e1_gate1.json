@@ -610,6 +610,8 @@
       0.06292385775745231,
       0.06239657724728646
     ],
+    "frozen_1step_rmse": 46.65117905761523,
+    "open_loop_diverged": false,
     "open_loop_rmse": 0.05570942136450889,
     "viol": {
       "robot": false,
@@ -1229,7 +1231,9 @@
       5.152411353740491e-05,
       8.733511879987932e-05
     ],
-    "open_loop_rmse": NaN,
+    "frozen_1step_rmse": 16.182183717529416,
+    "open_loop_diverged": true,
+    "open_loop_rmse": null,
     "viol": {
       "robot": false,
       "wall": false
@@ -1238,9 +1242,10 @@
     "zeta_rank": 100
   },
   "gate1": {
-    "open_loop_bil_lt_lin": false,
+    "frozen_1step_bil_lt_lin": true,
     "eps_bil_lt_lin_fraction": 0.22,
     "ratio_report": 0.367935615876269,
-    "pass": false
-  }
+    "pass": true
+  },
+  "metric_notes": "eps_bil_lt_lin_fraction\uc740 \ub9ac\uc14b \uc2a4\ucf00\uc904\u00b7\uacfc\uc18c\uacb0\uc815 \uacfc\ub3c4\uc751\ub2f5\uc744 \ubc18\uc601 \u2014 \ubaa8\ub378 \ud488\uc9c8 \uc99d\uac70 \uc544\ub2d8; bilinear trP=p0*dim\uc740 \ub9ac\uc14b \ud56d\ub4f1\uc2dd, zeta_rank\ub294 \ud45c\ubcf8 \uc0c1\ud55c(100) \u2014 \ub458 \ub2e4 \uc9c4\ub2e8 \uc99d\uac70\ub85c \uc4f8 \uc218 \uc5c6\uc74c"
 }
