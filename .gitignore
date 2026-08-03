@@ -1,5 +1,6 @@
 # OMC / Claude Code operational artifacts
 .omc/
+.oms/
 .sp/
 .claude/settings.local.json
 
