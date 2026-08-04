@@ -25,11 +25,11 @@ def make_rls(sc, model):
     dim = (4 * sc.n_robots + sc.m + 2 * sc.n_robots) if model == "linear" else zeta_dim(sc.n_robots, sc.m)
     return RLS(dim, sc.m, sc.rls_rho, sc.p0)
 
-def run_phase1(sc, model, input_fn=table1_input):
+def run_phase1(sc, model, input_fn=table1_input, episodes=None, p_reset=True):
     A, B = ab_matrices(sc.n_robots, sc.dt)
     z10, z20 = operating_point(sc)
     rls = make_rls(sc, model)
-    X = sc.phase1_init_state()
+    X = sc.phase1_init_state() if episodes is None else episodes[0]
     ks, m = sc.ks, sc.m
     X_log = np.zeros((ks + 1, 4 * sc.n_robots)); X_log[0] = X
     U_log = np.zeros((ks, 2 * sc.n_robots))
@@ -37,6 +37,9 @@ def run_phase1(sc, model, input_fn=table1_input):
     viol = {"robot": False, "wall": False}
     zeta_samples = []
     for k in range(1, ks + 1):                      # 1-based (스펙)
+        if episodes is not None and k > 1 and (k - 1) % 75 == 0:
+            X = episodes[((k - 1) // 75) % len(episodes)]      # 에피소드 경계 순간이동 리셋
+            X_log[k - 1] = X
         U = input_fn(k)
         z2 = z2_vector(X, sc)
         zeta = _zeta(sc, model, X, z2, U, z10, z20)
@@ -46,7 +49,7 @@ def run_phase1(sc, model, input_fn=table1_input):
         eps, eps_a = rls.update(zeta, z2_next)
         eps_log[k - 1] = eps
         eps_a_log[k - 1] = eps_a if eps_a is not None else np.nan
-        if k % sc.p_reset[model] == 0:
+        if p_reset and k % sc.p_reset[model] == 0:
             rls.reset_P()                            # linear 130 / bilinear 75 (:1448)
         dr, dw = surface_distances(X_next, sc)
         viol["robot"] = viol["robot"] or dr <= 0

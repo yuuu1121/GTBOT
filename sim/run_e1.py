@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from .scenario import e1_scenario, TABLE2_CASES
-from .experiment import run_phase1, run_phase2, open_loop_eval, frozen_1step_eval
+from .experiment import run_phase1, run_phase2, open_loop_eval, frozen_1step_eval, operating_point
 
 RESULTS = pathlib.Path(__file__).resolve().parent.parent / "results"
 
@@ -81,10 +81,64 @@ def gate2():
     (RESULTS / "e1_gate2.json").write_text(json.dumps(report, indent=2))
     print(json.dumps(report["gate2"], indent=2))
 
+def sign_agreement(rls, sc, probe_states, w_full, h=1e-4, tol=1e-9):
+    """모델 c vs 유한차분 참 1-step 그래디언트의 부호 일치율 (검증 전용 — 제어에 미사용)."""
+    from .dynamics import ab_matrices
+    from .control import input_objective
+    from .utility import z2_vector
+    A, B = ab_matrices(sc.n_robots, sc.dt)
+    z10, z20 = operating_point(sc)
+    n_in = 2 * sc.n_robots
+    match, total = 0, 0
+    for X in probe_states:
+        z2 = z2_vector(X, sc)
+        c_model, _ = input_objective(rls.theta, X - z10, z2 - z20, w_full, n_in)
+        base = w_full @ z2_vector(A @ X, sc)
+        for l in range(n_in):
+            U = np.zeros(n_in); U[l] = h
+            c_true = (w_full @ z2_vector(A @ X + B @ U, sc) - base) / h
+            if abs(c_true) > tol:
+                total += 1
+                match += int(np.sign(c_true) == np.sign(c_model[l]))
+    return match / max(total, 1)
+
+def gate2_improved():
+    import copy, dataclasses
+    from .scenario import IMPROVED_EPISODES, improved_episode_state, e3_input
+    sc = dataclasses.replace(e1_scenario(), ks=600)
+    episodes = [improved_episode_state(i) for i in range(len(IMPROVED_EPISODES))]
+    p1 = run_phase1(sc, "bilinear", input_fn=lambda k: e3_input(k, sc.n_robots),
+                    episodes=episodes, p_reset=False)     # 시불변계 — P 리셋 없음, P0=100I가 ridge
+    probes = episodes + [np.concatenate([np.array(init).ravel(), np.zeros(6)])
+                         for init, _ in TABLE2_CASES.values()]
+    sa = sign_agreement(p1.rls, sc, probes, sc.w_full)
+    tail_rmse = float(np.sqrt((p1.eps_log[-75:] ** 2).mean()))
+    ident = {"sign_agreement": sa, "tail_eps_rmse": tail_rmse, "viol": p1.viol_flags,
+             "gate8b_pass": bool(sa >= 0.8 and tail_rmse < 0.1)}
+    (RESULTS / "e1_ident_improved.json").write_text(json.dumps(ident, indent=2))
+    print(json.dumps(ident, indent=2))
+    if not ident["gate8b_pass"]:
+        return                                            # 폴백(ζ 축소)은 컨트롤러 결정 — 여기서 멈춤
+    report = {}
+    for case, (init, tgt) in TABLE2_CASES.items():
+        r = run_phase2(sc, copy.deepcopy(p1.rls), "bilinear", init, tgt, sc.control_iters)
+        report[case] = {"min_target_dists": r.min_target_dists.tolist(),
+                        "reached": bool((r.min_target_dists < 0.5).all()),
+                        "min_robot_surf": r.min_robot_surf, "min_wall_surf": r.min_wall_surf,
+                        "collision_free": bool(r.min_robot_surf > 0 and r.min_wall_surf > 0)}
+        _plot_traj(r.X_log, tgt, sc, RESULTS / f"e1_case_{case}_traj_improved.png")
+    report["gate2"] = {"pass_conditions_1_2": all(v["reached"] and v["collision_free"]
+                                                  for v in report.values() if isinstance(v, dict) and "reached" in v),
+                       "identification": "improved (episodic, no P reset, ks=600)"}
+    (RESULTS / "e1_gate2_improved.json").write_text(json.dumps(report, indent=2))
+    print(json.dumps(report["gate2"], indent=2))
+
 if __name__ == "__main__":
-    p = argparse.ArgumentParser(); p.add_argument("--phase", type=int, default=1)
+    p = argparse.ArgumentParser(); p.add_argument("--phase", default="1")
     args = p.parse_args()
-    if args.phase == 1:
+    if args.phase == "1":
         gate1()
-    elif args.phase == 2:
+    elif args.phase == "2":
         gate2()
+    elif args.phase == "2b":
+        gate2_improved()
