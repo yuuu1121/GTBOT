@@ -87,20 +87,24 @@ def open_loop_eval(sc, model, rls, X_log, U_log, start, horizon):
 class Phase2Result:
     X_log: np.ndarray; U_log: np.ndarray
     min_robot_surf: float; min_wall_surf: float
-    final_target_dists: np.ndarray; lp_events: list
+    final_target_dists: np.ndarray; min_target_dists: np.ndarray; lp_events: list
 
 def run_phase2(sc, rls, model, init_pos, targets, iters):
-    """제어 평가 (:1450~1453): 초기·목표 재설정, 동작점 재계산, LP 입력, RLS 갱신 지속."""
+    """제어 평가 (:1450~1453): 초기·목표 재설정, 동작점 재계산, LP 입력, RLS 갱신 지속.
+    reached 판정은 지평 내 최소 거리 기준(스펙 "제어 지평 내 0.5m 이내") — 그리디 1-step LP는
+    감속항이 없어 목표를 지나쳐 관통하는 것이 정상 거동이므로 최종 스텝만으로는 과소평가된다."""
     import dataclasses
     from .control import input_objective, solve_input
     sc2 = dataclasses.replace(sc, targets=np.asarray(targets))
     A, B = ab_matrices(sc2.n_robots, sc2.dt)
     z10, z20 = operating_point(sc2)
     n_in = 2 * sc2.n_robots
+    tgt_arr = np.asarray(targets)
     X = np.zeros(4 * sc2.n_robots); X[:n_in] = np.asarray(init_pos).ravel()
     X_log = np.zeros((iters + 1, 4 * sc2.n_robots)); X_log[0] = X
     U_log = np.zeros((iters, n_in))
     min_dr, min_dw, events = np.inf, np.inf, []
+    min_target_dists = np.linalg.norm(X[:n_in].reshape(-1, 2) - tgt_arr, axis=1)
     for k in range(1, iters + 1):
         z2 = z2_vector(X, sc2)
         if model == "bilinear":
@@ -118,8 +122,10 @@ def run_phase2(sc, rls, model, init_pos, targets, iters):
         rls.update(zeta, z2_vector(X_next, sc2))       # 갱신 지속 (:1453)
         dr, dw = surface_distances(X_next, sc2)
         min_dr, min_dw = min(min_dr, dr), min(min_dw, dw)
+        min_target_dists = np.minimum(min_target_dists,
+                                       np.linalg.norm(X_next[:n_in].reshape(-1, 2) - tgt_arr, axis=1))
         X_log[k] = X_next; U_log[k - 1] = U
         X = X_next
     pos = X[:n_in].reshape(-1, 2)
-    dists = np.linalg.norm(pos - np.asarray(targets), axis=1)
-    return Phase2Result(X_log, U_log, float(min_dr), float(min_dw), dists, events)
+    dists = np.linalg.norm(pos - tgt_arr, axis=1)
+    return Phase2Result(X_log, U_log, float(min_dr), float(min_dw), dists, min_target_dists, events)
