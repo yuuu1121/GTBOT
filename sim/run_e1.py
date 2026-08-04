@@ -139,14 +139,18 @@ def gate2_local():
     from .scenario import local_episodes, e3_input
     report = {}
     for case, (init, tgt) in TABLE2_CASES.items():
-        sc_c = dataclasses.replace(e1_scenario(), targets=np.asarray(tgt), ks=600, reduced_lifting=True)
-        p1 = run_phase1(sc_c, "bilinear", input_fn=lambda k: 0.5 * e3_input(k, 3),
-                        episodes=local_episodes(init, tgt), episode_len=25, p_reset=False)
+        sc_c = dataclasses.replace(e1_scenario(), targets=np.asarray(tgt), ks=1200, reduced_lifting=True)
+        p1 = run_phase1(sc_c, "bilinear", input_fn=lambda k: 0.3 * e3_input(k, 3),
+                        episodes=local_episodes(init, tgt), episode_len=15, p_reset=False)
         init_a, tgt_a = np.array(init), np.array(tgt)
-        probe_pos = [init_a, tgt_a] + [init_a + f * (tgt_a - init_a) for f in (0.25, 0.5, 0.75)]
+        direction = tgt_a - init_a
+        unit = direction / np.linalg.norm(direction, axis=1, keepdims=True)
+        probe_pos = [init_a, tgt_a] + [init_a + f * direction for f in (0.25, 0.5, 0.75)]
         probes = [np.concatenate([p.ravel(), np.zeros(6)]) for p in probe_pos]
+        for f in (0.25, 0.75):        # 목표 방향 2 m/s 속도 중간점 — 제어 상태 분포 커버 (라운드 4)
+            probes.append(np.concatenate([(init_a + f * direction).ravel(), (2.0 * unit).ravel()]))
         sa = sign_agreement(p1.rls, sc_c, probes, sc_c.w_full)
-        tail_rmse = float(np.sqrt((p1.eps_log[-25:] ** 2).mean()))
+        tail_rmse = float(np.sqrt((p1.eps_log[-15:] ** 2).mean()))
         ident_pass = bool(sa >= 0.8 and tail_rmse < 0.1)
         entry = {"sign_agreement": sa, "tail_rmse": tail_rmse, "ident_pass": ident_pass}
         if ident_pass:                                        # 국소 게이트 통과 케이스만 Phase II 진행

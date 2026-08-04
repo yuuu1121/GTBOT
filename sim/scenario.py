@@ -86,16 +86,23 @@ def improved_episode_state(idx, n_robots=3):
     X[:2 * n_robots] = np.array(pos).ravel(); X[2 * n_robots:] = np.array(vel).ravel()
     return X
 
-def local_episodes(case_init, case_targets, n_episodes=24, n_robots=3):
-    """케이스 회랑(init~target) 근방 커버 — 국소 식별용(Task 8b 라운드 3, 결정론적)."""
+def local_episodes(case_init, case_targets, n_episodes=80, n_robots=3):
+    """케이스 회랑(init~target) 근방 커버 — 국소 식별용(Task 8b 라운드 4, 결정론적).
+    절반(짝수 j)은 저속(위상 오프셋), 절반(홀수 j)은 목표 방향 1/2/3 m/s 이동 속도 —
+    제어 궤적의 실제 속도 분포(bang-bang 가속으로 3~4 m/s 도달)를 커버."""
     init = np.array(case_init, dtype=float); tgt = np.array(case_targets, dtype=float)
+    direction = tgt - init
+    unit = direction / np.linalg.norm(direction, axis=1, keepdims=True)
     eps = []
     for j in range(n_episodes):
         frac = (j % 8) / 7.0
-        off = 0.4 * np.array([[np.cos(j + i), np.sin(1.7 * j + i)] for i in range(n_robots)])
-        vel = 0.3 * np.array([[np.sin(j + i), np.cos(j - i)] for i in range(n_robots)])
+        off = 0.25 * np.array([[np.cos(j + i), np.sin(1.7 * j + i)] for i in range(n_robots)])
+        if j % 2 == 0:
+            vel = 0.3 * np.array([[np.sin(j + i), np.cos(j - i)] for i in range(n_robots)])
+        else:
+            vel = (1 + (j % 3)) * unit
         X = np.zeros(4 * n_robots)
-        X[:2 * n_robots] = (init + frac * (tgt - init) + off).ravel()
+        X[:2 * n_robots] = (init + frac * direction + off).ravel()
         X[2 * n_robots:] = vel.ravel()
         eps.append(X)
     return eps

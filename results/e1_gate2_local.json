@@ -1,27 +1,27 @@
 {
   "I": {
-    "sign_agreement": 0.7333333333333333,
-    "tail_rmse": 0.14136537819321185,
+    "sign_agreement": 0.8095238095238095,
+    "tail_rmse": 0.10324910828931255,
     "ident_pass": false
   },
   "II": {
-    "sign_agreement": 0.6,
-    "tail_rmse": 0.175909673640117,
+    "sign_agreement": 0.6666666666666666,
+    "tail_rmse": 0.14345413633281437,
     "ident_pass": false
   },
   "III": {
-    "sign_agreement": 0.7666666666666667,
-    "tail_rmse": 0.16225547094486661,
+    "sign_agreement": 0.7380952380952381,
+    "tail_rmse": 0.07641496934541875,
     "ident_pass": false
   },
   "IV": {
-    "sign_agreement": 0.7,
-    "tail_rmse": 0.3333517402705254,
+    "sign_agreement": 0.6904761904761905,
+    "tail_rmse": 0.07804461800237794,
     "ident_pass": false
   },
   "V": {
-    "sign_agreement": 0.6333333333333333,
-    "tail_rmse": 0.20062323375541397,
+    "sign_agreement": 0.6428571428571429,
+    "tail_rmse": 0.10180010370457339,
     "ident_pass": false
   },
   "gate2": {
