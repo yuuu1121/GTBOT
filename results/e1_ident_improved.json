@@ -1,6 +1,6 @@
 {
-  "sign_agreement": 0.4358974358974359,
-  "tail_eps_rmse": 11.348121871396094,
+  "sign_agreement": 0.5128205128205128,
+  "tail_eps_rmse": 2.7373929039038267,
   "viol": {
     "robot": true,
     "wall": false

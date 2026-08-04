@@ -19,10 +19,11 @@ def operating_point(sc):
 def _zeta(sc, model, X, z2, U, z10, z20):
     if model == "linear":
         return build_zeta_linear(X, z2, U)
-    return build_zeta(X - z10, z2 - z20, U)
+    return build_zeta(X - z10, z2 - z20, U, reduced=sc.reduced_lifting)
 
 def make_rls(sc, model):
-    dim = (4 * sc.n_robots + sc.m + 2 * sc.n_robots) if model == "linear" else zeta_dim(sc.n_robots, sc.m)
+    dim = (4 * sc.n_robots + sc.m + 2 * sc.n_robots) if model == "linear" \
+        else zeta_dim(sc.n_robots, sc.m, reduced=sc.reduced_lifting)
     return RLS(dim, sc.m, sc.rls_rho, sc.p0)
 
 def run_phase1(sc, model, input_fn=table1_input, episodes=None, p_reset=True):
@@ -111,7 +112,7 @@ def run_phase2(sc, rls, model, init_pos, targets, iters):
     for k in range(1, iters + 1):
         z2 = z2_vector(X, sc2)
         if model == "bilinear":
-            c, _ = input_objective(rls.theta, X - z10, z2 - z20, sc2.w_full, n_in)
+            c, _ = input_objective(rls.theta, X - z10, z2 - z20, sc2.w_full, n_in, reduced=sc2.reduced_lifting)
         else:   # linear도 U-affine — 평가 추출 동일 패턴 (1회 사용, 인라인)
             base = rls.theta.T @ build_zeta_linear(X, z2, np.zeros(n_in))
             eye = np.eye(n_in)

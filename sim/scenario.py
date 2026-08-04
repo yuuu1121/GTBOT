@@ -47,6 +47,7 @@ class Scenario:
     w_robot: np.ndarray = field(default_factory=lambda: np.array([-1.0, -1.0, 5.0, 2.0, -2.0, -2.0]))
     formation: dict = field(default_factory=dict)   # {(i,j): d_star}, i<j
     sigma: float = 3.0
+    reduced_lifting: bool = False   # Task 8b 폴백: bilinear ζ에서 g1·g3 제거(a=433, 결정계)
 
     @property
     def n_phi(self): return len(self.phi_terms)

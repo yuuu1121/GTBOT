@@ -92,7 +92,7 @@ def sign_agreement(rls, sc, probe_states, w_full, h=1e-4, tol=1e-9):
     match, total = 0, 0
     for X in probe_states:
         z2 = z2_vector(X, sc)
-        c_model, _ = input_objective(rls.theta, X - z10, z2 - z20, w_full, n_in)
+        c_model, _ = input_objective(rls.theta, X - z10, z2 - z20, w_full, n_in, reduced=sc.reduced_lifting)
         base = w_full @ z2_vector(A @ X, sc)
         for l in range(n_in):
             U = np.zeros(n_in); U[l] = h
@@ -105,7 +105,7 @@ def sign_agreement(rls, sc, probe_states, w_full, h=1e-4, tol=1e-9):
 def gate2_improved():
     import copy, dataclasses
     from .scenario import IMPROVED_EPISODES, improved_episode_state, e3_input
-    sc = dataclasses.replace(e1_scenario(), ks=600)
+    sc = dataclasses.replace(e1_scenario(), ks=600, reduced_lifting=True)   # 폴백: g1·g3 제거 ζ(a=433) — 600샘플 대비 결정계
     episodes = [improved_episode_state(i) for i in range(len(IMPROVED_EPISODES))]
     p1 = run_phase1(sc, "bilinear", input_fn=lambda k: e3_input(k, sc.n_robots),
                     episodes=episodes, p_reset=False)     # 시불변계 — P 리셋 없음, P0=100I가 ridge
