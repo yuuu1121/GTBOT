@@ -2,29 +2,76 @@
   "I": {
     "sign_agreement": 0.8095238095238095,
     "tail_rmse": 0.10324910828931255,
-    "ident_pass": false
+    "ident_pass": false,
+    "min_target_dists": [
+      1.8170825689824883,
+      2.8757743522397607,
+      1.7647414824840495
+    ],
+    "reached": false,
+    "min_robot_surf": 4.388389483387142,
+    "min_wall_surf": 0.6439383903061078,
+    "collision_free": true,
+    "control_traj_sign_agreement": 0.5161290322580645
   },
   "II": {
     "sign_agreement": 0.6666666666666666,
     "tail_rmse": 0.14345413633281437,
-    "ident_pass": false
+    "ident_pass": false,
+    "min_target_dists": [
+      0.5468389273817348,
+      2.601922366251537,
+      0.512057736002493
+    ],
+    "reached": false,
+    "min_robot_surf": -0.3493808316259579,
+    "min_wall_surf": 0.2519684356993732,
+    "collision_free": false
   },
   "III": {
     "sign_agreement": 0.7380952380952381,
     "tail_rmse": 0.07641496934541875,
-    "ident_pass": false
+    "ident_pass": false,
+    "min_target_dists": [
+      1.962982822772528,
+      2.1961251387386858,
+      1.5086138090976098
+    ],
+    "reached": false,
+    "min_robot_surf": 1.9585369429080481,
+    "min_wall_surf": 0.16888234352525622,
+    "collision_free": true
   },
   "IV": {
     "sign_agreement": 0.6904761904761905,
     "tail_rmse": 0.07804461800237794,
-    "ident_pass": false
+    "ident_pass": false,
+    "min_target_dists": [
+      2.840860895045726,
+      0.5645462779967657,
+      0.1773635038557834
+    ],
+    "reached": false,
+    "min_robot_surf": -0.2008642018874891,
+    "min_wall_surf": 0.9675858820339656,
+    "collision_free": false
   },
   "V": {
     "sign_agreement": 0.6428571428571429,
     "tail_rmse": 0.10180010370457339,
-    "ident_pass": false
+    "ident_pass": false,
+    "min_target_dists": [
+      1.516756922680755,
+      1.8590341074063184,
+      0.7658430811856963
+    ],
+    "reached": false,
+    "min_robot_surf": 1.2467443774687563,
+    "min_wall_surf": 0.5635965527364686,
+    "collision_free": true
   },
   "gate2": {
-    "pass_conditions_1_2": false
+    "pass_conditions_1_2": false,
+    "note": "diagnostic run \u2014 gate8b not passed (proxy thresholds), end-to-end evidence for breaker adjudication"
   }
 }

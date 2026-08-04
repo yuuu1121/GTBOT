@@ -134,7 +134,9 @@ def gate2_improved():
     print(json.dumps(report["gate2"], indent=2))
 
 def gate2_local():
-    """국소 식별(라운드 3): 케이스별 전개점=목표, 회랑 근방 에피소드로 식별 → 케이스별 국소 게이트 판정."""
+    """국소 식별(라운드 3~5): 케이스별 전개점=목표, 회랑 근방 에피소드로 식별.
+    라운드 5(최종): 국소 게이트(gate8b 프록시) 통과 여부와 무관하게 5케이스 전부 Phase II를
+    진단 실행 — 게이트 통과 주장이 아니라 실제 제어 성능을 판정 근거로 수집(브리프 라운드 5)."""
     import copy, dataclasses
     from .scenario import local_episodes, e3_input
     report = {}
@@ -153,16 +155,18 @@ def gate2_local():
         tail_rmse = float(np.sqrt((p1.eps_log[-15:] ** 2).mean()))
         ident_pass = bool(sa >= 0.8 and tail_rmse < 0.1)
         entry = {"sign_agreement": sa, "tail_rmse": tail_rmse, "ident_pass": ident_pass}
-        if ident_pass:                                        # 국소 게이트 통과 케이스만 Phase II 진행
-            r = run_phase2(sc_c, copy.deepcopy(p1.rls), "bilinear", init, tgt, 30)
-            entry.update({"min_target_dists": r.min_target_dists.tolist(),
-                         "reached": bool((r.min_target_dists < 0.5).all()),
-                         "min_robot_surf": r.min_robot_surf, "min_wall_surf": r.min_wall_surf,
-                         "collision_free": bool(r.min_robot_surf > 0 and r.min_wall_surf > 0)})
-            _plot_traj(r.X_log, tgt, sc_c, RESULTS / f"e1_case_{case}_traj_local.png")
+        r = run_phase2(sc_c, copy.deepcopy(p1.rls), "bilinear", init, tgt, 30)   # 라운드 5: 게이트 무관 진단 실행
+        entry.update({"min_target_dists": r.min_target_dists.tolist(),
+                     "reached": bool((r.min_target_dists < 0.5).all()),
+                     "min_robot_surf": r.min_robot_surf, "min_wall_surf": r.min_wall_surf,
+                     "collision_free": bool(r.min_robot_surf > 0 and r.min_wall_surf > 0)})
+        _plot_traj(r.X_log, tgt, sc_c, RESULTS / f"e1_case_{case}_traj_local.png")
+        if case == "I":   # 보너스 진단: 정지 프로브(게이트) vs 제어 궤적 실측(p1.rls는 Phase II 미변경 — deepcopy 전달)
+            entry["control_traj_sign_agreement"] = sign_agreement(p1.rls, sc_c, list(r.X_log), sc_c.w_full)
         report[case] = entry
-    report["gate2"] = {"pass_conditions_1_2": all(v.get("ident_pass") and v.get("reached") and v.get("collision_free")
-                                                  for v in report.values())}
+    report["gate2"] = {"pass_conditions_1_2": all(v["ident_pass"] and v["reached"] and v["collision_free"]
+                                                  for v in report.values() if isinstance(v, dict) and "ident_pass" in v),
+                       "note": "diagnostic run — gate8b not passed (proxy thresholds), end-to-end evidence for breaker adjudication"}
     (RESULTS / "e1_gate2_local.json").write_text(json.dumps(report, indent=2))
     print(json.dumps(report, indent=2))
 
