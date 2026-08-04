@@ -86,6 +86,20 @@ def improved_episode_state(idx, n_robots=3):
     X[:2 * n_robots] = np.array(pos).ravel(); X[2 * n_robots:] = np.array(vel).ravel()
     return X
 
+def local_episodes(case_init, case_targets, n_episodes=24, n_robots=3):
+    """케이스 회랑(init~target) 근방 커버 — 국소 식별용(Task 8b 라운드 3, 결정론적)."""
+    init = np.array(case_init, dtype=float); tgt = np.array(case_targets, dtype=float)
+    eps = []
+    for j in range(n_episodes):
+        frac = (j % 8) / 7.0
+        off = 0.4 * np.array([[np.cos(j + i), np.sin(1.7 * j + i)] for i in range(n_robots)])
+        vel = 0.3 * np.array([[np.sin(j + i), np.cos(j - i)] for i in range(n_robots)])
+        X = np.zeros(4 * n_robots)
+        X[:2 * n_robots] = (init + frac * (tgt - init) + off).ravel()
+        X[2 * n_robots:] = vel.ravel()
+        eps.append(X)
+    return eps
+
 E2_TARGETS   = [(0.0, 3.464), (-3.0, -1.732), (3.0, -1.732)]   # 정삼각형 변 d*=6 (d*-2Rr=2 >= 0.5 충족)
 E2_INIT      = [(-6.0, 5.0), (-7.0, -4.0), (6.0, -5.0)]        # 형상 이탈 배치 — J(0)≈151 유의미
 E2_FORMATION = {(0, 1): 6.0, (0, 2): 6.0, (1, 2): 6.0}

@@ -133,6 +133,35 @@ def gate2_improved():
     (RESULTS / "e1_gate2_improved.json").write_text(json.dumps(report, indent=2))
     print(json.dumps(report["gate2"], indent=2))
 
+def gate2_local():
+    """국소 식별(라운드 3): 케이스별 전개점=목표, 회랑 근방 에피소드로 식별 → 케이스별 국소 게이트 판정."""
+    import copy, dataclasses
+    from .scenario import local_episodes, e3_input
+    report = {}
+    for case, (init, tgt) in TABLE2_CASES.items():
+        sc_c = dataclasses.replace(e1_scenario(), targets=np.asarray(tgt), ks=600, reduced_lifting=True)
+        p1 = run_phase1(sc_c, "bilinear", input_fn=lambda k: 0.5 * e3_input(k, 3),
+                        episodes=local_episodes(init, tgt), episode_len=25, p_reset=False)
+        init_a, tgt_a = np.array(init), np.array(tgt)
+        probe_pos = [init_a, tgt_a] + [init_a + f * (tgt_a - init_a) for f in (0.25, 0.5, 0.75)]
+        probes = [np.concatenate([p.ravel(), np.zeros(6)]) for p in probe_pos]
+        sa = sign_agreement(p1.rls, sc_c, probes, sc_c.w_full)
+        tail_rmse = float(np.sqrt((p1.eps_log[-25:] ** 2).mean()))
+        ident_pass = bool(sa >= 0.8 and tail_rmse < 0.1)
+        entry = {"sign_agreement": sa, "tail_rmse": tail_rmse, "ident_pass": ident_pass}
+        if ident_pass:                                        # 국소 게이트 통과 케이스만 Phase II 진행
+            r = run_phase2(sc_c, copy.deepcopy(p1.rls), "bilinear", init, tgt, 30)
+            entry.update({"min_target_dists": r.min_target_dists.tolist(),
+                         "reached": bool((r.min_target_dists < 0.5).all()),
+                         "min_robot_surf": r.min_robot_surf, "min_wall_surf": r.min_wall_surf,
+                         "collision_free": bool(r.min_robot_surf > 0 and r.min_wall_surf > 0)})
+            _plot_traj(r.X_log, tgt, sc_c, RESULTS / f"e1_case_{case}_traj_local.png")
+        report[case] = entry
+    report["gate2"] = {"pass_conditions_1_2": all(v.get("ident_pass") and v.get("reached") and v.get("collision_free")
+                                                  for v in report.values())}
+    (RESULTS / "e1_gate2_local.json").write_text(json.dumps(report, indent=2))
+    print(json.dumps(report, indent=2))
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(); p.add_argument("--phase", default="1")
     args = p.parse_args()
@@ -142,3 +171,5 @@ if __name__ == "__main__":
         gate2()
     elif args.phase == "2b":
         gate2_improved()
+    elif args.phase == "2c":
+        gate2_local()

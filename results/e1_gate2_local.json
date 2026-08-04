@@ -1,0 +1,30 @@
+{
+  "I": {
+    "sign_agreement": 0.7333333333333333,
+    "tail_rmse": 0.14136537819321185,
+    "ident_pass": false
+  },
+  "II": {
+    "sign_agreement": 0.6,
+    "tail_rmse": 0.175909673640117,
+    "ident_pass": false
+  },
+  "III": {
+    "sign_agreement": 0.7666666666666667,
+    "tail_rmse": 0.16225547094486661,
+    "ident_pass": false
+  },
+  "IV": {
+    "sign_agreement": 0.7,
+    "tail_rmse": 0.3333517402705254,
+    "ident_pass": false
+  },
+  "V": {
+    "sign_agreement": 0.6333333333333333,
+    "tail_rmse": 0.20062323375541397,
+    "ident_pass": false
+  },
+  "gate2": {
+    "pass_conditions_1_2": false
+  }
+}

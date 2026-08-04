@@ -26,7 +26,7 @@ def make_rls(sc, model):
         else zeta_dim(sc.n_robots, sc.m, reduced=sc.reduced_lifting)
     return RLS(dim, sc.m, sc.rls_rho, sc.p0)
 
-def run_phase1(sc, model, input_fn=table1_input, episodes=None, p_reset=True):
+def run_phase1(sc, model, input_fn=table1_input, episodes=None, p_reset=True, episode_len=75):
     A, B = ab_matrices(sc.n_robots, sc.dt)
     z10, z20 = operating_point(sc)
     rls = make_rls(sc, model)
@@ -38,8 +38,8 @@ def run_phase1(sc, model, input_fn=table1_input, episodes=None, p_reset=True):
     viol = {"robot": False, "wall": False}
     zeta_samples = []
     for k in range(1, ks + 1):                      # 1-based (스펙)
-        if episodes is not None and k > 1 and (k - 1) % 75 == 0:
-            X = episodes[((k - 1) // 75) % len(episodes)]      # 에피소드 경계 순간이동 리셋
+        if episodes is not None and k > 1 and (k - 1) % episode_len == 0:
+            X = episodes[((k - 1) // episode_len) % len(episodes)]     # 에피소드 경계 순간이동 리셋
             X_log[k - 1] = X
         U = input_fn(k)
         z2 = z2_vector(X, sc)
