@@ -11,7 +11,7 @@ def phi_robot(X, i, sc):
     nr, nv = float(np.linalg.norm(r_star)), float(np.linalg.norm(v))
     vals = {}
     vals[1] = 0.0 if (nv < sc.eps_guard or nr < sc.eps_guard) else float(r_star @ v) / (nr * nv)
-    v_des = 4.0 / (1.0 + np.exp(-10.0 * (nr - 0.2)))
+    v_des = sc.v_cruise / (1.0 + np.exp(-10.0 * (nr - 0.2)))
     vals[2] = 1.0 - np.exp(-(((nv - v_des) / (0.8 * v_des)) ** 2))
     vals[3] = np.exp(-((nr / 4.0) ** 2)) * np.exp(-((nr / 6.0) ** 2))
     vals[4] = np.exp(-((nr / 0.05) ** 2)) * np.exp(-((nv / 0.05) ** 2))

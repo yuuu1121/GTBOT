@@ -48,6 +48,8 @@ class Scenario:
     formation: dict = field(default_factory=dict)   # {(i,j): d_star}, i<j
     sigma: float = 3.0
     reduced_lifting: bool = False   # Task 8b 폴백: bilinear ζ에서 g1·g3 제거(a=433, 결정계)
+    v_cruise: float = 4.0   # phi2 순항속도 지시(원논문 값). E2는 1.0 — 이웃거리 무관 4m/s 지시와
+                             # phi6 반응거리 0.3m/제동거리 1.0m+ 구조적 불일치를 회피(문서화된 이탈)
 
     @property
     def n_phi(self): return len(self.phi_terms)
@@ -119,6 +121,7 @@ def e2_scenario(use_phi7_weight: bool) -> Scenario:
         targets=np.array(E2_TARGETS),
         formation=dict(E2_FORMATION), sigma=3.0,
         control_iters=300,                       # 스펙: 원논문 이탈(논문에 명시)
+        v_cruise=1.0,                             # 스펙: 원논문 이탈(논문에 명시, control_iters와 동일 문서화)
         w_robot=np.array([-1.0, -1.0, 5.0, 2.0, -2.0, -2.0, w7]))
 
 def e3_scenario(n_robots: int) -> Scenario:
