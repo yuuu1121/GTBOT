@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <scenario>
-	<include file="data/worlds/common/environment.scn"/>
-	<include file="data/worlds/common/materials.scn"/>
-	<include file="data/worlds/common/visual.scn"/>
+	<include file="data/common/environment.scn"/>
+	<include file="data/common/materials.scn"/>
+	<include file="data/common/visual.scn"/>
 
 	<static name="SeaBed" type="plane">
 		<material name="Seabed"/>
@@ -48,5 +48,27 @@
 			</external_part>
 		</base_link>
 		<world_transform rpy="0.0 0.0 0.0" xyz="2.0 0.0 0.0"/>
+	</robot>
+
+	<!-- 고정 관측 카메라: 두 로봇(platform x=0, gtbot x=2, 중간점 x=1) 위에서 수직으로 내려다봄.
+	     active_marker_id10.scn의 fixed robot + base_link type box 패턴을 사용. 회전 없는(rpy=0 0 0)
+	     카메라 기본 광축은 로컬 +Z(NED에서 아래쪽) — blueboat_with_camera.scn의 camera_down 주석
+	     "rpy=0 0 0 = looking DOWN (+Z in NED)"으로 확인된 컨벤션이라 azimuth 추측이 필요 없음. -->
+	<robot name="ObserverCam" fixed="true" self_collisions="false">
+		<base_link name="base_link" type="box" physics="surface" buoyant="false">
+			<dimensions xyz="0.05 0.05 0.05"/>
+			<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+			<material name="Neutral"/>
+			<look name="black"/>
+		</base_link>
+
+		<sensor name="view" rate="10.0" type="camera">
+			<specs resolution_x="1280" resolution_y="720" horizontal_fov="90.0"/>
+			<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+			<link name="base_link"/>
+			<ros_publisher topic="/gtbot_world/view"/>
+		</sensor>
+
+		<world_transform xyz="1.0 0.0 -6.0" rpy="0.0 0.0 0.0"/>
 	</robot>
 </scenario>
