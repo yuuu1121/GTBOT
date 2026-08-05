@@ -18,6 +18,8 @@ Tao & Zhao(2023)의 효용함수-Koopman-linprog 최적제어 프레임워크를
 │   └── deep-research-raw.json   조사 원시 결과
 ├── sim/                   시뮬레이션 스택 (E1 재현·E2 편대유지·E3 확장성)
 ├── src/gtbot_description/ Stonefish 시뮬레이션용 ROS 2 패키지 (씬·런치·메시)
+├── tools/decimate.py      원본 CAD 메시 감량 스크립트
+├── models/                원본 CAD (git 비추적, 이 머신 로컬 전용)
 ├── results/                게이트 판정 JSON·그림
 └── draft/                 논문 원고 (작성 예정)
 ```
@@ -45,8 +47,10 @@ python3 -m sim.run_e3
 
 ## Stonefish 씬 실행
 
+감량 메시는 커밋돼 있어 clone만으로 씬 실행 가능. `tools/decimate.py` 재실행은 원본 `models/*.obj`(git 비추적, 이 머신 로컬 전용)가 필요.
+
 ```
-source /root/home/vlm_ws/install/setup.bash   # Stonefish 언더레이 소싱
+source <Stonefish+stonefish_ros2가 빌드된 워크스페이스>/install/setup.bash   # 이 머신에선 /root/home/vlm_ws
 colcon build --packages-select gtbot_description && source install/setup.bash
 ros2 launch gtbot_description gtbot_world.launch.py
 ```
