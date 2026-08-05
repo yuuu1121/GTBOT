@@ -32,3 +32,15 @@ def test_reduced_zeta_dims_and_affinity():
     lhs = f(U1 + U2) - f(np.zeros(6))
     rhs = (f(U1) - f(np.zeros(6))) + (f(U2) - f(np.zeros(6)))
     assert np.allclose(lhs, rhs)
+
+def test_e2_zeta_dim_is_1075():
+    from sim.scenario import e2_scenario
+    sc = e2_scenario(True)
+    assert zeta_dim(sc.n_robots, sc.m) == 1075
+
+def test_e3_formation_is_minimally_rigid():
+    from sim.scenario import e3_scenario
+    for n in (3, 5, 7):
+        sc = e3_scenario(n)
+        assert len(sc.formation) == (3 if n == 3 else 2 * n - 3)
+        assert all(d - 2 * sc.robot_radius >= 0.5 for d in sc.formation.values())  # phi7-design §5

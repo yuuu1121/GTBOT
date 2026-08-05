@@ -39,3 +39,10 @@ def test_surface_distances():
     X = _state([(0, 0), (9, 0), (0, -8)], [(0, 0)] * 3)
     dr, dw = surface_distances(X, sc)
     assert np.isclose(dr, 8.0 - 4.0) and np.isclose(dw, 11 - 9 - 2)
+
+def test_phi7_peak_at_formation():
+    from sim.scenario import e2_scenario
+    sc = e2_scenario(use_phi7_weight=True)
+    X = np.zeros(12); X[:6] = np.asarray(sc.targets).ravel()   # 목표 = 편대 형상
+    for i in range(3):
+        assert np.isclose(phi_robot(X, i, sc)[6], 2.0, atol=1e-3)   # deg(i)=2, 각 exp(0)=1
