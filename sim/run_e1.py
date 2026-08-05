@@ -170,6 +170,24 @@ def gate2_local():
     (RESULTS / "e1_gate2_local.json").write_text(json.dumps(report, indent=2))
     print(json.dumps(report, indent=2))
 
+def gate2_analytic():
+    sc = e1_scenario()
+    report = {}
+    for case, (init, tgt) in TABLE2_CASES.items():
+        r = run_phase2(sc, None, "bilinear", init, tgt, sc.control_iters, controller="analytic")
+        report[case] = {"min_target_dists": r.min_target_dists.tolist(),
+                        "reached": bool((r.min_target_dists < 0.5).all()),
+                        "min_robot_surf": r.min_robot_surf, "min_wall_surf": r.min_wall_surf,
+                        "collision_free": bool(r.min_robot_surf > 0 and r.min_wall_surf > 0)}
+        _plot_traj(r.X_log, tgt, sc, RESULTS / f"e1_case_{case}_traj_analytic.png")
+    report["gate2"] = {"pass_conditions_1_2": all(v["reached"] and v["collision_free"]
+                                                  for v in report.values()
+                                                  if isinstance(v, dict) and "reached" in v),
+                       "controller": "analytic (finite-difference true 1-step gradient)",
+                       "note": "데이터 기반 식별 기각 후 확정 팔 (스펙 2026-08-05) — E2/E3가 이 팔을 사용"}
+    (RESULTS / "e1_gate2_analytic.json").write_text(json.dumps(report, indent=2))
+    print(json.dumps(report["gate2"], indent=2))
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(); p.add_argument("--phase", default="1")
     args = p.parse_args()
@@ -181,3 +199,5 @@ if __name__ == "__main__":
         gate2_improved()
     elif args.phase == "2c":
         gate2_local()
+    elif args.phase == "2d":
+        gate2_analytic()

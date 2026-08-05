@@ -32,3 +32,13 @@ def test_phase1_episode_len_param():
     res = run_phase1(sc, "linear", input_fn=lambda k: e3_input(k, 3),
                       episodes=eps, episode_len=25, p_reset=False)
     assert np.allclose(res.X_log[25], eps[1])      # k=26 직전 리셋이 X_log[25]에 반영 (25스텝 주기)
+
+def test_analytic_c_points_toward_target():
+    import numpy as np, dataclasses
+    from sim.scenario import e1_scenario
+    from sim.experiment import analytic_c
+    sc = dataclasses.replace(e1_scenario(), w_robot=np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0]))
+    # 로봇1이 목표 (-4.5, 0)의 오른쪽 (-1.5, 0)에 정지 — phi3만 보상하면 -x 가속이 유리
+    X = np.zeros(12); X[:6] = [-1.5, 0.0, 3.0, 4.0, 3.0, -4.0]   # 로봇2·3은 목표 위(기여 0 근방)
+    c = analytic_c(X, sc, sc.w_full)
+    assert c[0] < 0        # ax1 음수 방향(목표 쪽)이 목적함수 증가

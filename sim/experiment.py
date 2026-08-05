@@ -87,16 +87,28 @@ def open_loop_eval(sc, model, rls, X_log, U_log, start, horizon):
         err[t] = np.abs(z2_hat - z2_vector(X_log[k + 1], sc))
     return err
 
+def analytic_c(X, sc, w_full, h=1e-4):
+    """유한차분 참 1-step 그래디언트: c_l = [w·z2(AX+B·h·e_l) − w·z2(AX)]/h (해석적 팔 — 모델 불요)."""
+    A, B = ab_matrices(sc.n_robots, sc.dt)
+    n_in = 2 * sc.n_robots
+    base_X = A @ X
+    base = w_full @ z2_vector(base_X, sc)
+    c = np.zeros(n_in)
+    for l in range(n_in):
+        c[l] = (w_full @ z2_vector(base_X + B[:, l] * h, sc) - base) / h
+    return c
+
 @dataclass
 class Phase2Result:
     X_log: np.ndarray; U_log: np.ndarray
     min_robot_surf: float; min_wall_surf: float
     final_target_dists: np.ndarray; min_target_dists: np.ndarray; lp_events: list
 
-def run_phase2(sc, rls, model, init_pos, targets, iters):
+def run_phase2(sc, rls, model, init_pos, targets, iters, controller="model"):
     """제어 평가 (:1450~1453): 초기·목표 재설정, 동작점 재계산, LP 입력, RLS 갱신 지속.
     reached 판정은 지평 내 최소 거리 기준(스펙 "제어 지평 내 0.5m 이내") — 그리디 1-step LP는
-    감속항이 없어 목표를 지나쳐 관통하는 것이 정상 거동이므로 최종 스텝만으로는 과소평가된다."""
+    감속항이 없어 목표를 지나쳐 관통하는 것이 정상 거동이므로 최종 스텝만으로는 과소평가된다.
+    controller="analytic": 유한차분 참 1-step 그래디언트로 c 산출, rls 불요(None 허용, ζ·갱신 스킵)."""
     import dataclasses
     from .control import input_objective, solve_input
     sc2 = dataclasses.replace(sc, targets=np.asarray(targets))
@@ -111,7 +123,9 @@ def run_phase2(sc, rls, model, init_pos, targets, iters):
     min_target_dists = np.linalg.norm(X[:n_in].reshape(-1, 2) - tgt_arr, axis=1)
     for k in range(1, iters + 1):
         z2 = z2_vector(X, sc2)
-        if model == "bilinear":
+        if controller == "analytic":
+            c = analytic_c(X, sc2, sc2.w_full)
+        elif model == "bilinear":
             c, _ = input_objective(rls.theta, X - z10, z2 - z20, sc2.w_full, n_in, reduced=sc2.reduced_lifting)
         else:   # linear도 U-affine — 평가 추출 동일 패턴 (1회 사용, 인라인)
             base = rls.theta.T @ build_zeta_linear(X, z2, np.zeros(n_in))
@@ -121,9 +135,11 @@ def run_phase2(sc, rls, model, init_pos, targets, iters):
         U, status = solve_input(c, sc2.u_min, sc2.u_max)
         if status != "ok":
             events.append((k, status))
-        zeta = _zeta(sc2, model, X, z2, U, z10, z20)
+        if rls is not None and controller == "model":
+            zeta = _zeta(sc2, model, X, z2, U, z10, z20)
         X_next = A @ X + B @ U
-        rls.update(zeta, z2_vector(X_next, sc2))       # 갱신 지속 (:1453)
+        if rls is not None and controller == "model":
+            rls.update(zeta, z2_vector(X_next, sc2))   # 갱신 지속 (:1453)
         dr, dw = surface_distances(X_next, sc2)
         min_dr, min_dw = min(min_dr, dr), min(min_dw, dw)
         min_target_dists = np.minimum(min_target_dists,

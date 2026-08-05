@@ -1,0 +1,62 @@
+{
+  "I": {
+    "min_target_dists": [
+      0.03204001404493767,
+      0.05275236961502033,
+      0.13015015366875096
+    ],
+    "reached": true,
+    "min_robot_surf": 2.1950408594294206,
+    "min_wall_surf": 1.2939122077087637,
+    "collision_free": true
+  },
+  "II": {
+    "min_target_dists": [
+      0.06020797289396329,
+      0.025124689052805623,
+      0.048621625846940124
+    ],
+    "reached": true,
+    "min_robot_surf": 0.2570942628158903,
+    "min_wall_surf": 2.2798222447244747,
+    "collision_free": true
+  },
+  "III": {
+    "min_target_dists": [
+      0.06920305267832921,
+      0.06654415827102707,
+      0.035200319600819034
+    ],
+    "reached": true,
+    "min_robot_surf": 2.0095820622153084,
+    "min_wall_surf": 0.9998437515258551,
+    "collision_free": true
+  },
+  "IV": {
+    "min_target_dists": [
+      0.09007809112098294,
+      0.06885219676960008,
+      0.042665120414686536
+    ],
+    "reached": true,
+    "min_robot_surf": 0.390253587493552,
+    "min_wall_surf": 0.8738588301396035,
+    "collision_free": true
+  },
+  "V": {
+    "min_target_dists": [
+      0.08500919067959341,
+      0.040350030978921494,
+      0.08381527307119815
+    ],
+    "reached": true,
+    "min_robot_surf": 0.935605649259271,
+    "min_wall_surf": 0.6964441916429553,
+    "collision_free": true
+  },
+  "gate2": {
+    "pass_conditions_1_2": true,
+    "controller": "analytic (finite-difference true 1-step gradient)",
+    "note": "\ub370\uc774\ud130 \uae30\ubc18 \uc2dd\ubcc4 \uae30\uac01 \ud6c4 \ud655\uc815 \ud314 (\uc2a4\ud399 2026-08-05) \u2014 E2/E3\uac00 \uc774 \ud314\uc744 \uc0ac\uc6a9"
+  }
+}
