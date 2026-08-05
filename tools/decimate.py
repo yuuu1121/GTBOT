@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
-"""원본 CAD OBJ → Stonefish용 감량 메시. 사용: python3 tools/decimate.py
+#!/usr/bin/env python3.11
+"""원본 CAD OBJ → Stonefish용 감량 메시. 사용: python3.11 tools/decimate.py
+pymeshlab이 python3.11에만 설치됨 — 시스템 python3(3.10)엔 없음.
 원본은 models/ 에서 읽기만 하고, 산출은 src/gtbot_description/data/ 아래에 쓴다."""
 import pathlib
 import pymeshlab
