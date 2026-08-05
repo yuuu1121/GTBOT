@@ -23,6 +23,7 @@
 4. ~~3-robot 원논문 재현~~ → 게이트 1~4 시뮬레이션 캠페인, `research/sim-results.md` (완료)
 5. **본문 집필** (미착수) — outline.md·phi7-design.md·sim-results.md 기반으로 IMRaD 초안 작성
 6. **투고 직전 관련연구 재검색** (미착수) — 아래 "주의" 절 참조
+7. **리더-팔로워 제어** (미착수)
 
 ## 주의
 
