@@ -1,0 +1,37 @@
+{
+  "phi7": {
+    "J0": 151.4285283957277,
+    "J_final": 0.6909512834943619,
+    "J_peak": 151.4285283957277,
+    "edge_final_abs_err": {
+      "0-1": 0.24810033630224382,
+      "0-2": 0.4626883497043881,
+      "1-2": 0.6444509272775587
+    },
+    "controller": "analytic",
+    "collision_free": false
+  },
+  "baseline": {
+    "J0": 151.4285283957277,
+    "J_final": 13.750296029862664,
+    "J_peak": 187.13452960053837,
+    "edge_final_abs_err": {
+      "0-1": 1.6466088276111712,
+      "0-2": 3.2105457560886084,
+      "1-2": 0.8552025179786682
+    },
+    "controller": "analytic",
+    "collision_free": false
+  },
+  "gate3": {
+    "J_final_lt_10pct_J0": true,
+    "edges_within_0p1_sigma": true,
+    "peak_lt_baseline": true,
+    "collision_free": false,
+    "pass": false
+  },
+  "params": {
+    "sigma": 8.0,
+    "w7": 10.0
+  }
+}

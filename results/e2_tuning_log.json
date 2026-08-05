@@ -1,0 +1,68 @@
+[
+  {
+    "sigma": 3.0,
+    "w7": 3.0,
+    "gate3": {
+      "J_final_lt_10pct_J0": false,
+      "edges_within_0p1_sigma": false,
+      "peak_lt_baseline": true,
+      "collision_free": false,
+      "pass": false
+    }
+  },
+  {
+    "sigma": 8.0,
+    "w7": 10.0,
+    "gate3": {
+      "J_final_lt_10pct_J0": true,
+      "edges_within_0p1_sigma": true,
+      "peak_lt_baseline": true,
+      "collision_free": false,
+      "pass": false
+    }
+  },
+  {
+    "sigma": 6.0,
+    "w7": 20.0,
+    "gate3": {
+      "J_final_lt_10pct_J0": true,
+      "edges_within_0p1_sigma": false,
+      "peak_lt_baseline": true,
+      "collision_free": false,
+      "pass": false
+    }
+  },
+  {
+    "sigma": 10.0,
+    "w7": 20.0,
+    "gate3": {
+      "J_final_lt_10pct_J0": true,
+      "edges_within_0p1_sigma": false,
+      "peak_lt_baseline": true,
+      "collision_free": false,
+      "pass": false
+    }
+  },
+  {
+    "sigma": 5.0,
+    "w7": 15.0,
+    "gate3": {
+      "J_final_lt_10pct_J0": true,
+      "edges_within_0p1_sigma": false,
+      "peak_lt_baseline": true,
+      "collision_free": false,
+      "pass": false
+    }
+  },
+  {
+    "sigma": 8.0,
+    "w7": 12.0,
+    "gate3": {
+      "J_final_lt_10pct_J0": true,
+      "edges_within_0p1_sigma": false,
+      "peak_lt_baseline": true,
+      "collision_free": false,
+      "pass": false
+    }
+  }
+]
