@@ -1,4 +1,6 @@
-[
+{
+  "note": "v_cruise 파라미터화(2026-08-05 스펙 개정) 이전 실행 기록 — 옛 게이트 키(edges_within_0p1_sigma, peak_lt_baseline) 사용, 현재 코드로 재생성 불가. 개정 후 기본값(σ=3, w7=3)은 e2_gate3.json에서 4/4 통과.",
+  "trials": [
   {
     "sigma": 3.0,
     "w7": 3.0,
@@ -65,4 +67,5 @@
       "pass": false
     }
   }
-]
+  ]
+}

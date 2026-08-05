@@ -19,7 +19,7 @@ def measure(n_robots):
     r = run_phase2(sc, None, "bilinear", init, sc.targets, sc.control_iters, controller="analytic")
     t_ctrl = (time.perf_counter() - t0) / sc.control_iters
     J = formation_error(r.X_log, sc.formation, sc.n_robots)
-    return {"N": n_robots, "zeta_dim": a, "per_step_control_s": t_ctrl,
+    return {"N": n_robots, "zeta_dim": a, "P_bytes": 8 * a * a, "per_step_control_s": t_ctrl,
             "realtime_ok": bool(t_ctrl < sc.dt),
             "formation_J0": float(J[0]), "formation_J_final": float(J[-1]),
             "min_robot_surf": float(r.min_robot_surf), "min_wall_surf": float(r.min_wall_surf),

@@ -2,7 +2,8 @@
   {
     "N": 3,
     "zeta_dim": 1075,
-    "per_step_control_s": 0.0008105256780982017,
+    "P_bytes": 9245000,
+    "per_step_control_s": 0.0008036560316880544,
     "realtime_ok": true,
     "formation_J0": 35.999999999999986,
     "formation_J_final": 0.06737031180296457,
@@ -17,7 +18,8 @@
   {
     "N": 5,
     "zeta_dim": 2941,
-    "per_step_control_s": 0.0014352017144362132,
+    "P_bytes": 69195848,
+    "per_step_control_s": 0.001404267946879069,
     "realtime_ok": true,
     "formation_J0": 56.583592135001226,
     "formation_J_final": 0.0007969542113370594,
@@ -32,7 +34,8 @@
   {
     "N": 7,
     "zeta_dim": 5727,
-    "per_step_control_s": 0.002779987255732218,
+    "P_bytes": 262388232,
+    "per_step_control_s": 0.002720365598797798,
     "realtime_ok": true,
     "formation_J0": 71.06040792565068,
     "formation_J_final": 0.0039198924923083585,

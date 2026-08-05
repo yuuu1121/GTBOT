@@ -61,6 +61,8 @@
 
 `e1_w_tuning_log.json`: budget=10회, `any_pass: false`. 10회 전부 조건①②(목표도달+무충돌) 미통과. w[2](φ³ 가중치)를 5→320까지 64배 증폭해도 reached 불변 — φ³은 nr>~5m에서 그래디언트가 거의 0으로 소멸해 원거리 초기조건(Table 2 케이스 3~7m)에서 견인력을 만들지 못함. 튜닝 축(w1,w2,w5)만으로는 미해결로 확정.
 
+이 로그는 커밋되지 않은 임시 스크립트의 산출물(생성 코드 저장소에 없음)이며 reached 판정은 정정 전 기준(최종 스텝)이다. 최종 리뷰에서 최적 시행(trial 8)을 정정 기준(지평 내 최소거리)으로 재실행한 결과 케이스별 최소거리 1.26~3.19m로 결론(어떤 w로도 미도달) 불변 확인.
+
 ---
 
 ## 개선 식별 5라운드 — 데이터 기반 경로 기각 (`e1_ident_improved.json`, `e1_gate2_local.json`)
@@ -107,7 +109,7 @@
 
 `gate3` 판정: `J_final_lt_10pct_J0=true`, `edges_within_0p3m=true`, `sumJ_phi7_lt_baseline=true`, `collision_free=true`, **`pass=true`** (4/4).
 
-**튜닝 이력**(`e2_tuning_log.json`, σ=3/w7=3 기본값 도달 전): 세 σ/w7 조합(8/10, 6/20, 10/20, 5/15, 8/12) 모두 `edges_within_0p1_sigma`·`collision_free` 미충족 — 최종적으로 v_cruise 파라미터화(아래 이탈 목록) 후 σ=3/w7=3 **기본값**에서 4/4 통과로 귀결.
+**튜닝 이력**(`e2_tuning_log.json`, σ=3/w7=3 기본값 도달 전): 다섯 σ/w7 조합(8/10, 6/20, 10/20, 5/15, 8/12) 모두 `edges_within_0p1_sigma`·`collision_free` 미충족 — 최종적으로 v_cruise 파라미터화(아래 이탈 목록) 후 σ=3/w7=3 **기본값**에서 4/4 통과로 귀결. 이 로그는 v_cruise 파라미터화(2026-08-05 스펙 개정) 이전 실행 기록으로 옛 게이트 키(`edges_within_0p1_sigma`, `peak_lt_baseline`)를 쓰며 현재 코드로는 재생성 불가.
 
 **φ⁶/φ⁷ 상충 런**(`e2_conflict_run.json`, d*=4.6): J0=212.51, J_final=5.854, min_robot_surf=1.054 — 지정 거리에서 φ⁶(충돌회피)·φ⁷(편대유지) 상충 미관측.
 
