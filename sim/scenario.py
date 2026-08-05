@@ -140,6 +140,8 @@ def e3_scenario(n_robots: int) -> Scenario:
         formation[(a2, b2)] = float(np.linalg.norm(targets[a2] - targets[b2]))
     sc = Scenario(n_robots=n_robots, phi_terms=(1, 2, 3, 4, 5, 6, 7), targets=targets,
                   formation=formation, sigma=0.5 * min(formation.values()), control_iters=300,
+                  v_cruise=1.0,   # E2와 같은 근거의 문서화된 이탈 — phi2 4m/s 지시와 phi6 반응거리
+                                  # 0.3m/제동거리 1.0m+ 구조적 불일치 회피 (scenario.py:47 참조)
                   w_robot=np.array([-1.0, -1.0, 5.0, 2.0, -2.0, -2.0, 3.0]))
     init = np.zeros(4 * n_robots)
     init[:2 * n_robots] = (8.0 * np.stack([np.cos(ang + 0.4), np.sin(ang + 0.4)], axis=1)).ravel()
