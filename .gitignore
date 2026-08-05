@@ -24,3 +24,9 @@ __pycache__/
 *.pyo
 *.pyd
 .pytest_cache/
+
+# Stonefish scene: 원본 CAD·빌드 산출물 (용량 제한, 로컬 전용)
+models/
+build/
+install/
+log/
