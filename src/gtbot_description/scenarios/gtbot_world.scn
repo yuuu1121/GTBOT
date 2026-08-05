@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<scenario>
+	<include file="data/worlds/common/environment.scn"/>
+	<include file="data/worlds/common/materials.scn"/>
+	<include file="data/worlds/common/visual.scn"/>
+
+	<static name="SeaBed" type="plane">
+		<material name="Seabed"/>
+		<look name="seabed"/>
+		<world_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 10.0"/>
+	</static>
+
+	<!-- 메인: PKRC 부유 플랫폼 (수동 동체 — 액추에이터 없음) -->
+	<robot name="platform" fixed="false" self_collisions="false">
+		<base_link name="base_link" type="compound" physics="submerged">
+			<external_part name="Hull" type="model" physics="submerged" buoyant="true">
+				<physical>
+					<mesh filename="data/objects/platform/meshes/platform_phy.obj" scale="0.01"/>
+					<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+				</physical>
+				<visual>
+					<mesh filename="data/objects/platform/meshes/platform_viz.obj" scale="0.01"/>
+					<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+				</visual>
+				<material name="Fiberglass"/>
+				<look name="orange"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			</external_part>
+		</base_link>
+		<world_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+	</robot>
+
+	<!-- 팔로워: GTBOT (액추에이터 없음 — 씬 로드 범위) -->
+	<robot name="gtbot" fixed="false" self_collisions="false">
+		<base_link name="base_link" type="compound" physics="submerged">
+			<external_part name="Hull" type="model" physics="submerged" buoyant="true">
+				<physical>
+					<mesh filename="data/robots/gtbot/meshes/gtbot_phy.obj" scale="0.01"/>
+					<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+				</physical>
+				<visual>
+					<mesh filename="data/robots/gtbot/meshes/gtbot_viz.obj" scale="0.01"/>
+					<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+				</visual>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			</external_part>
+		</base_link>
+		<world_transform rpy="0.0 0.0 0.0" xyz="2.0 0.0 0.0"/>
+	</robot>
+</scenario>

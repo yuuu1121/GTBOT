@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<scenario>
+	<looks>
+		<look name="black" gray="0.05" roughness="0.2"/>
+		<look name="white" gray="1.0" roughness="0.2"/>
+		<look name="yellow" rgb="1.0 0.9 0.0" roughness="0.3"/>
+		<look name="gray" gray="0.5" roughness="0.4" metalness="0.5"/>
+		<look name="sand" gray="1.0" roughness="0.7" metalness="0.3" texture="data/worlds/meshes/SoilBeach0078_1_350.jpg"/>
+		<look name="dark_sand" rgb="0.55 0.47 0.35" roughness="0.95"/>
+		<look name="seabed" rgb="0.40 0.35 0.25" roughness="0.85"/>
+		<look name="orange" rgb="0.9 0.1 0.0" roughness="0.3"/>
+		<look name="gas_canister" gray="1.0" roughness="0.5" metalness="0.3" texture="data/models/gas_canister/meshes/gas_canister.png"/>
+		<look name="gas_tank" gray="1.0" roughness="0.5" metalness="0.5" texture="data/models/gas_tank/meshes/gas_tank.png"/>
+		<look name="oil_drum" gray="1.0" roughness="0.5" metalness="0.2" texture="data/models/oil_drum/meshes/oil_drum.png"/>
+		<look name="rust_pipe" gray="1.0" roughness="0.5" metalness="0.2" texture="data/models/rust_pipe/meshes/rust_pipe.png"/>
+		<look name="turbine_base" gray="1.0" roughness="0.4" metalness="0.5" texture="data/models/turbines/textures/Turbine_Base_Diffuse.png"/>
+		<look name="turbine_main" gray="1.0" roughness="0.4" metalness="0.5" texture="data/models/turbines/textures/Turbine_Main_Diffuse.png"/>
+
+		<!-- Active ArUco Marker LED looks -->
+		<look name="led_green_on" rgb="0.34 0.84 0.41" roughness="0.1" metalness="0.0" emission="10.0"/>
+		<look name="led_green_off" rgb="0.05 0.15 0.06" roughness="0.4"/>
+		<look name="led_red_on" rgb="1.0 0.1 0.1" roughness="0.1" metalness="0.0" emission="10.0"/>
+		<look name="led_blue_on" rgb="0.1 0.3 1.0" roughness="0.1" metalness="0.0" emission="10.0"/>
+		<look name="led_white_on" rgb="1.0 1.0 1.0" roughness="0.1" metalness="0.0" emission="10.0"/>
+		<look name="marker_frame" rgb="0.25 0.25 0.25" roughness="0.4" metalness="0.3"/>
+	</looks>
+</scenario>
