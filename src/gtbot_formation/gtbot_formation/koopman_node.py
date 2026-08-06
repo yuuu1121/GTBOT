@@ -57,6 +57,7 @@ class KoopmanFormation(Node):
         t = self.now()
         if any(n not in self.odoms or t - self.odoms[n][2] > 0.5 for n in ['platform'] + ROBOTS):
             self.publish_u(np.zeros(6))       # odometry 미비/두절 → 정지 (스펙 에러 처리)
+            self.prev = None                  # 두절 갱을 전이로 오인해 RLS에 주입하지 않도록 무효화
             return
         L = self.odoms['platform'][:2]
         F = [self.odoms[r][:2] for r in ROBOTS]
