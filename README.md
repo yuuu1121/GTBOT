@@ -18,6 +18,7 @@ Tao & Zhao(2023)의 효용함수-Koopman-linprog 최적제어 프레임워크를
 │   └── deep-research-raw.json   조사 원시 결과
 ├── sim/                   시뮬레이션 스택 (E1 재현·E2 편대유지·E3 확장성)
 ├── src/gtbot_description/ Stonefish 시뮬레이션용 ROS 2 패키지 (씬·런치·메시)
+├── src/gtbot_formation/   편대제어 ROS 2 패키지 (koopman_formation·velocity_loop·leader_pilot·게이트 S1~S3)
 ├── tools/decimate.py      원본 CAD 메시 감량 스크립트
 ├── models/                원본 CAD (git 비추적, 이 머신 로컬 전용)
 ├── results/                게이트 판정 JSON·그림
@@ -57,6 +58,17 @@ ros2 launch gtbot_description gtbot_world.launch.py
 
 씬에는 로봇 편대 외에 `ObserverCam`(고정 카메라, `/gtbot_world/view` 토픽) — 씬 로드 검증·스크린샷 확보용 관측 장치이며 편대제어 로직과 무관.
 
+## 게이트 S1~S3 재현 (Stonefish 편대제어)
+
+```
+ros2 launch gtbot_description gtbot_world.launch.py   # 시뮬 기동
+ros2 launch gtbot_formation formation.launch.py        # koopman_formation·velocity_loop×3·leader_pilot 기동
+# koopman_formation 로그에서 "S2: {...}" (제어 전환) 확인 후 30 s 대기
+ros2 run gtbot_formation gate_s3                        # 정상상태 편대유지 판정(180 s)
+```
+
+상세 수치·판정 기준은 `research/sim-results.md` "Stonefish 캠페인" 절 참조.
+
 ## 현재 상태
 
-단계 1~4 완료: ①IMRaD 아웃라인 ②편대유지 효용항 φ⁷ 수식 설계 ③Related Work + BibTeX ④시뮬레이션 캠페인(`research/sim-results.md` 참조). 남은 것은 본문 집필 + 투고 직전 관련연구 재검색.
+단계 1~4 완료: ①IMRaD 아웃라인 ②편대유지 효용항 φ⁷ 수식 설계 ③Related Work + BibTeX ④시뮬레이션 캠페인(`research/sim-results.md` 참조). Stonefish 편대제어 캠페인(게이트 S1~S3 전부 통과, 2026-08-06) 완료. 남은 것은 본문 집필 + 투고 직전 관련연구 재검색.

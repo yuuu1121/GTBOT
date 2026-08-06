@@ -236,6 +236,10 @@
 
 analytic_c 호출 전 X를 τ만큼 전파하는 지연 보상(X_pred = A_d·X + B_d·u_prev, `ab_matrices(3,τ)`, τ=0.16, u_prev=직전 발행 U)을 도입, LP·효용함수 프레임워크는 무변경. 함께 조정한 노브: rate 10→20 Hz + dt 0.1→0.05, u_max ±0.5→±0.3(±0.5는 velocity_loop v_ref가 v_max 클램프에 상시 접촉). 최종 `s3_stonefish.json` = `s3_stonefish_delaycomp-final.json`과 동치(참고: `s3_stonefish_delaycomp-u0.3.json`/`-u0.5.json`/`-u0.3-settled.json`은 u_max·정착 여부를 바꾼 중간 튜닝 시행 보존, τ 대조실험과는 별개).
 
+**min_surface_dist 관측 창의 정의.** 표의 `min_surface_dist` 1.192 m는 정착(제어 전환 후 30 s 대기) 후 관측 창 기준이다. 정착 전 조립 과도구간(제어 전환 직후)에는 접촉이 기록됨(−0.0074 m, `s3_stonefish_delaycomp-u0.3.json`) — 관측을 정착 후로 정의한 근거가 이 접촉이다(task-7-report.md Round 5, 시도 18).
+
+`s3_stonefish_delaycomp-u0.3-settled.json`(tail30 0.589 m)과 `s3_stonefish_delaycomp-final.json`(tail30 0.233 m)의 차이는 설정 변경이 아니라 **동일 구성(보상+u±0.3, S2 후 30 s 수렴 대기 관측)의 재실행 간 산포**다 — gtbot2에서만 나타나는 산발적 버스트(~5 s)가 tail 30 s 창에 걸리는지 여부(task-7-report.md Round 5, 시도 19/21; p50은 두 실행 모두 0.020~0.024 m로 안정).
+
 ### 시뮬레이터 판정 요약
 
 스펙(`.sp/specs/2026-08-06-koopman-stonefish-design.md`) 확정 사항: Stonefish 채택, Isaac Lab 기각. 근거 3가지 — (1) RLS 온라인 식별은 수백~수천 스텝 순차 회귀이지 Isaac Lab의 존재 이유(수천 환경 병렬 RL)가 불필요, (2) Isaac Lab(PhysX)은 부력·유체항력·프로펠러 유입류 등 수중물리가 부재해 커스텀 force로 구현하면 "충실한 동역학에서 식별" 주장이 약해지는데 Stonefish는 이를 네이티브 제공하며 흘수·복원력·추력 비대칭까지 이미 실측 검증됨, (3) 온라인 식별은 실시간 순차 데이터가 본질이라 병렬화 이득 자체가 없음. 재고 조건: 대규모 RL 도입 시 Isaac Lab 재검토.
@@ -248,3 +252,4 @@ analytic_c 호출 전 X를 τ만큼 전파하는 지연 보상(X_pred = A_d·X +
 4. **controller 파라미터**: 기본값 `'analytic'`(참 그래디언트), `'model'`(식별 Θ 기반 LP)은 실험·비교군으로 코드에 보존.
 5. **S3 리더 경로**: 사각 → 직선(waypoints=[60,0])으로 재정의, 정상상태 편대유지를 게이트 정의로 명확화(사용자 승인). 관측은 제어 전환 후 30 s 수렴 대기 뒤 180 s. 턴 과도응답은 `s3_stonefish_square_turns.json`에 별도 보존.
 6. **지연 보상 도입**(사용자 승인): 작동지연 τ=0.16 s 보상을 위해 X를 A_d·X+B_d·u_prev로 전파하는 예측 단계 추가 — LP·효용함수 프레임워크는 무변경.
+7. **Task 3 계열 이탈**(믹서 yaw 예약 ±0.7/±0.3, PI, kpsi 0.1, yaw 부호 반전)은 위 게이트 S1 절 참조.

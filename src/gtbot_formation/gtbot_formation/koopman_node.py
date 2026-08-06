@@ -34,6 +34,7 @@ class KoopmanFormation(Node):
         self.warmup_steps, self.results_dir = int(p('warmup_steps')), p('results_dir')
         self.controller = p('controller')         # 'analytic'(기본, 검증된 팔) | 'model'(식별 Θ 실험용)
         self.sc = make_scenario()
+        assert abs(1.0 / p('rate') - self.sc.dt) < 1e-9, 'rate와 Scenario.dt 불일치'  # analytic_c·지연 보상 dt 정합 봉인
         self.z10, self.z20 = operating_point(self.sc)
         self.rls = {m: make_rls(self.sc, m) for m in ('linear', 'bilinear')}
         # 지연 보상: 실측 작동기 지연 τ(U→실가속 교차상관 0.16 s)만큼 X를 미리 전파해

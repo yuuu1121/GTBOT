@@ -70,7 +70,7 @@ class VelocityLoop(Node):
         e_world = self.v_ref - v_world
         # 적분 기여를 ±i_max로 클램프(안티윈드업). i_max는 정상상태 항력을 이길 setpoint
         # 여유를 정하는 보정 노브 — mixer 병진 캡(±0.7) 아래에 둔다.
-        lim = self.i_max / self.ki
+        lim = self.i_max / self.ki if self.ki else 0.0
         self.ei = np.clip(self.ei + e_world * self.dt, -lim, lim)
         e_body = world_to_body(*(e_world + (self.ki / self.kv) * self.ei), yaw)  # mixer 시그니처 불변 트릭: P+I 합성 오차
         # 실측(2026-08-06): [a,a,a,a] 양의 setpoint -> yaw 감소(sw=+0.1에서 -215deg/4s,

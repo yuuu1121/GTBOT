@@ -1,3 +1,8 @@
+"""게이트 S3 — 편대 형성·유지 판정.
+
+실행 시점: koopman_formation이 S2 완료(제어 전환) 로그를 낸 뒤 30 s 수렴 대기 후 실행 —
+정상상태 편대유지 측정(사용자 승인 정의, research/sim-results.md 참조).
+"""
 import json, os, time
 import numpy as np
 import rclpy
