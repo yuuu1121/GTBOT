@@ -24,14 +24,17 @@ class KoopmanFormation(Node):
         for n, d in [('warmup_steps', 600), ('rate', 20.0), ('results_dir', 'results'),
                      ('controller', 'analytic'), ('log_csv', ''),
                      ('actuation_delay', 0.16), ('state_source', 'odometry'),
-                     ('vel_smooth_alpha', 0.3)]:
+                     ('vel_smooth_alpha', 0.3), ('est_hold', 1.0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         path = p('log_csv')                   # velocity_loop과 같은 계측 패턴 (제어 진단용)
         self.log = open(path, 'w', buffering=1) if path else None
         if self.log:
+            # pub: 이 틱에 accel_cmd를 발행했는지(0=게이트로 침묵). vk: 로봇 k의 추정 유효·신선.
+            # gk: odometry로 조립한 참값 X(추정 오차를 같은 틱에서 직접 재기 위한 진단 열).
             self.log.write('t,' + ','.join(f'x{i}' for i in range(12)) +
-                           ',' + ','.join(f'u{i}' for i in range(6)) + '\n')
+                           ',' + ','.join(f'u{i}' for i in range(6)) +
+                           ',pub,v0,v1,v2,' + ','.join(f'g{i}' for i in range(12)) + '\n')
         self.warmup_steps, self.results_dir = int(p('warmup_steps')), p('results_dir')
         self.controller = p('controller')         # 'analytic'(기본, 검증된 팔) | 'model'(식별 Θ 실험용)
         self.sc = make_scenario()
@@ -54,7 +57,9 @@ class KoopmanFormation(Node):
         self.state_source = p('state_source')
         self.vel_alpha = float(p('vel_smooth_alpha'))
         self.vel_ema = {}                     # k -> 지수평활된 rel_vel2 (10 Hz 유한차분 노이즈 완화)
+        self.est_hold = float(p('est_hold'))
         self.ests = {}                        # k -> (rel_pos2, rel_vel2, valid, t) — lidar 상태원
+        self.ok = {}                          # k -> (rel_pos2, rel_vel2, t) — 마지막 '유효' 추정(홀드)
         if self.state_source == 'lidar':
             for i, r in enumerate(ROBOTS):
                 self.create_subscription(Float64MultiArray, f'/{r}/state_est',
@@ -81,12 +86,28 @@ class KoopmanFormation(Node):
         if valid:                             # invalid 더미(0,0)로 평활 상태를 오염시키지 않음
             v = self.vel_alpha * v + (1 - self.vel_alpha) * self.vel_ema[k] if k in self.vel_ema else v
             self.vel_ema[k] = v
-        self.ests[k] = (np.array(d[0:2]), v, valid, self.now())
+        t = self.now()
+        self.ests[k] = (np.array(d[0:2]), v, valid, t)
+        if valid:
+            self.ok[k] = (np.array(d[0:2]), v, t)
 
-    def publish_u(self, U):
-        self.u_prev = np.asarray(U, dtype=float)   # 지연 보상 전파에 쓰는 '이미 발행된' 입력
+    def publish_u(self, U, mask=(True, True, True)):
+        U = np.asarray(U, dtype=float).copy()
+        for i, ok in enumerate(mask):
+            if not ok:
+                U[2 * i:2 * i + 2] = 0.0       # 침묵한 로봇은 곧 두절 경로로 정지 — 전파도 0
+        self.u_prev = U                        # 지연 보상 전파에 쓰는 '이미 발행된' 입력
         for i, pub in enumerate(self.pubs):
-            pub.publish(Float64MultiArray(data=[float(U[2 * i]), float(U[2 * i + 1])]))
+            if mask[i]:
+                pub.publish(Float64MultiArray(data=[float(U[2 * i]), float(U[2 * i + 1])]))
+
+    def logrow(self, t, X, U, pub):
+        if not self.log:
+            return
+        v = [float(k in self.ests and self.ests[k][2] and t - self.ests[k][3] <= 0.5)
+             for k in range(3)]
+        gt = assemble(self.odoms['platform'][:2], [self.odoms[r][:2] for r in ROBOTS])
+        self.log.write(','.join(f'{x:.4f}' for x in [t, *X, *U, pub, *v, *gt]) + '\n')
 
     def tick(self):
         # 두절/무효 시 발행을 생략한다(zeros 발행 금지) — zeros 발행은 velocity_loop에서
@@ -98,14 +119,26 @@ class KoopmanFormation(Node):
         if any(n not in self.odoms or t - self.odoms[n][2] > 0.5 for n in ['platform'] + ROBOTS):
             self.prev = None                  # 두절 갱을 전이로 오인해 RLS에 주입하지 않도록 무효화
             return
+        mask = (True, True, True)
         if self.state_source == 'lidar':
             # odometry 두절 가드는 위에서 이미 통과 — 상태 조립에는 미사용, lidar 자체 두절만 가드.
-            if any(k not in self.ests or not self.ests[k][2]
-                   or t - self.ests[k][3] > 0.5 for k in range(3)):
+            # 로봇별 홀드: 마지막 '유효' 추정을 est_hold 동안 쓰고, 만료된 로봇만 침묵시킨다.
+            # 전원 침묵(구 동작)은 한 대의 일시 실명이 세 대 전부를 velocity_loop 두절로 정지시켜
+            # 플랫폼이 떠난 뒤 영구 미복구가 된다(S6 실측: 로봇0이 0.34 m 근접 = LiDAR 사각지대
+            # 진입 → 220 s 전원 침묵 → 3대 정지, 편대오차 22 m 발산).
+            if any(k not in self.ok for k in range(3)):
                 self.prev = None
+                self.logrow(t, np.zeros(12), np.zeros(6), 0.0)
                 return
-            X = np.concatenate([np.concatenate([self.ests[k][0] for k in range(3)]),
-                                np.concatenate([self.ests[k][1] for k in range(3)])])
+            mask = tuple(t - self.ok[k][2] <= self.est_hold for k in range(3))
+            if not any(mask):
+                self.prev = None
+                self.logrow(t, np.zeros(12), np.zeros(6), 0.0)
+                return
+            if not all(mask):
+                self.prev = None              # 만료 홀드값이 섞인 전이를 RLS에 주입하지 않음
+            X = np.concatenate([np.concatenate([self.ok[k][0] for k in range(3)]),
+                                np.concatenate([self.ok[k][1] for k in range(3)])])
         else:
             L = self.odoms['platform'][:2]
             F = [self.odoms[r][:2] for r in ROBOTS]
@@ -136,9 +169,8 @@ class KoopmanFormation(Node):
             if status != 'ok':
                 self.get_logger().warn(f'LP {status} @k={self.k}')
         self.prev = (X, z2, U)
-        self.publish_u(U)
-        if self.log:
-            self.log.write(','.join(f'{v:.4f}' for v in [t, *X, *U]) + '\n')
+        self.publish_u(U, mask)
+        self.logrow(t, X, U, float(sum(mask)) / 3.0)
 
     def finish_warmup(self):
         # frozen_1step_eval은 X_log[k+1] 참조 — 마지막 여기 전이는 평가에서 제외(자기복제 편향 방지)

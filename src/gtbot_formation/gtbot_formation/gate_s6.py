@@ -35,7 +35,8 @@ def main():
     log = []                                   # (t, edge_errs[6], min_surf_gg, min_surf_pg)
     os.makedirs('results', exist_ok=True)
     csv = open('results/s6_edges.csv', 'w', buffering=1)
-    csv.write('t,' + ','.join(f'e{i}' for i in range(6)) + ',min_surf_gg,min_surf_pg\n')
+    csv.write('t,' + ','.join(f'e{i}' for i in range(6)) +
+              ',min_surf_gg,min_surf_pg,Lx,Ly\n')   # Lx,Ly: 리더 절대위치(리더 실속도 진단용)
     while time.time() - t0 < 180.0:
         rclpy.spin_once(g, timeout_sec=0.1)
         if len(g.pos) < 4:
@@ -50,7 +51,7 @@ def main():
         t = time.time() - t0
         log.append((t, errs, float(min(surf_gg)), float(min(surf_pg))))
         csv.write(f'{t:.3f},' + ','.join(f'{e:.4f}' for e in signed) +
-                  f',{min(surf_gg):.4f},{min(surf_pg):.4f}\n')
+                  f',{min(surf_gg):.4f},{min(surf_pg):.4f},{pL[0]:.4f},{pL[1]:.4f}\n')
     csv.close()
     tail = [e for (t, e, _, _) in log if t > 150.0]
     max_edge_err = float(np.max(tail))

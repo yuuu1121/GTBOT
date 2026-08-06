@@ -32,3 +32,28 @@ def test_warmup_identifies_bilinear_better():
     rmse = {m: float(np.sqrt(np.mean(frozen_1step_eval(sc, m, rls[m], X_log, U_log) ** 2)))
             for m in ('linear', 'bilinear')}
     assert rmse['bilinear'] < rmse['linear']
+
+
+def test_publish_u_masks_expired_robots():
+    """로봇별 발행: 만료된 로봇에만 침묵(발행 생략) + 지연보상 전파값도 0.
+
+    구 동작(전원 침묵)은 한 대의 일시 실명이 세 대 전부를 velocity_loop 두절로 정지시켜
+    영구 미복구가 됐다(S6 실측, task-5-report fix round 4)."""
+    from gtbot_formation.koopman_node import KoopmanFormation
+
+    class FakePub:
+        def __init__(self):
+            self.sent = []
+
+        def publish(self, msg):
+            self.sent.append(list(msg.data))
+
+    class Stub:
+        pubs = [FakePub(), FakePub(), FakePub()]
+
+    s = Stub()
+    KoopmanFormation.publish_u(s, np.arange(1.0, 7.0), (True, False, True))
+    assert s.pubs[0].sent == [[1.0, 2.0]]
+    assert s.pubs[1].sent == []                  # 침묵
+    assert s.pubs[2].sent == [[5.0, 6.0]]
+    assert list(s.u_prev) == [1.0, 2.0, 0.0, 0.0, 5.0, 6.0]
