@@ -1,5 +1,5 @@
 import numpy as np
-from gtbot_formation.mixer import setpoints, world_to_body, yaw_of, wrap
+from gtbot_formation.mixer import setpoints, world_to_body, yaw_of, wrap, cf_update
 
 
 def test_forward_x():                      # +X 병진 = [0,0,-a,+a]
@@ -38,3 +38,17 @@ def test_yaw_of_identity():
 
 def test_wrap():
     assert abs(abs(wrap(3 * np.pi)) - np.pi) < 1e-12
+
+
+def test_cf_converges_to_measurement():
+    yaw = 0.0
+    for _ in range(200):
+        yaw = cf_update(yaw, 0.0, 0.05, 1.0, True, k_cf=0.1)
+    assert abs(yaw - 1.0) < 0.01
+
+
+def test_cf_integrates_gyro_without_measurement():
+    yaw = 0.0
+    for _ in range(20):
+        yaw = cf_update(yaw, 0.5, 0.1, 0.0, False)
+    assert abs(yaw - 1.0) < 1e-9

@@ -26,5 +26,6 @@ setup(
         'gate_s3 = gtbot_formation.gate_s3:main',
         'platform_perception = gtbot_formation.platform_perception:main',
         'gate_s4 = gtbot_formation.gate_s4:main',
+        'gate_s5 = gtbot_formation.gate_s5:main',
     ]},
 )

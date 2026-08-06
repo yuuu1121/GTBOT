@@ -21,6 +21,14 @@ def world_to_body(vx, vy, yaw):
     return np.array([c * vx + s * vy, -s * vx + c * vy])
 
 
+def cf_update(yaw_hat, gyro_z, dt, yaw_meas, valid, k_cf=0.1):
+    """상보필터 1스텝: 자이로 적분(고주파) + 유효 측정 시 저주파 보정."""
+    yaw_hat = wrap(yaw_hat + gyro_z * dt)
+    if valid:
+        yaw_hat = wrap(yaw_hat + k_cf * wrap(yaw_meas - yaw_hat))
+    return yaw_hat
+
+
 def setpoints(e_body, syaw, kv):
     sx = float(np.clip(kv * e_body[0], -0.7, 0.7))
     sy = float(np.clip(kv * e_body[1], -0.7, 0.7))
