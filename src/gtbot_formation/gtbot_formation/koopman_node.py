@@ -23,7 +23,8 @@ class KoopmanFormation(Node):
         # rate는 make_scenario의 dt와 짝(1/rate == sc.dt) — analytic_c의 A,B가 dt 기반.
         for n, d in [('warmup_steps', 600), ('rate', 20.0), ('results_dir', 'results'),
                      ('controller', 'analytic'), ('log_csv', ''),
-                     ('actuation_delay', 0.16)]:
+                     ('actuation_delay', 0.16), ('state_source', 'odometry'),
+                     ('vel_smooth_alpha', 0.3)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         path = p('log_csv')                   # velocity_loop과 같은 계측 패턴 (제어 진단용)
@@ -50,6 +51,14 @@ class KoopmanFormation(Node):
         for name in ['platform'] + ROBOTS:
             self.create_subscription(Odometry, f'/{name}/odometry',
                                      lambda m, n=name: self.on_odom(n, m), 10)
+        self.state_source = p('state_source')
+        self.vel_alpha = float(p('vel_smooth_alpha'))
+        self.vel_ema = {}                     # k -> 지수평활된 rel_vel2 (10 Hz 유한차분 노이즈 완화)
+        self.ests = {}                        # k -> (rel_pos2, rel_vel2, valid, t) — lidar 상태원
+        if self.state_source == 'lidar':
+            for i, r in enumerate(ROBOTS):
+                self.create_subscription(Float64MultiArray, f'/{r}/state_est',
+                                         lambda m, k=i: self.on_est(k, m), 10)
         self.pubs = [self.create_publisher(Float64MultiArray, f'/{r}/accel_cmd', 10)
                      for r in ROBOTS]
         self.create_timer(1.0 / p('rate'), self.tick)
@@ -65,20 +74,42 @@ class KoopmanFormation(Node):
         self.odoms[name] = (np.array([msg.pose.pose.position.x, msg.pose.pose.position.y]),
                             np.array([c * tw.x - s * tw.y, s * tw.x + c * tw.y]), self.now())
 
+    def on_est(self, k, msg):
+        d = msg.data
+        valid = bool(d[5])
+        v = np.array(d[2:4])
+        if valid:                             # invalid 더미(0,0)로 평활 상태를 오염시키지 않음
+            v = self.vel_alpha * v + (1 - self.vel_alpha) * self.vel_ema[k] if k in self.vel_ema else v
+            self.vel_ema[k] = v
+        self.ests[k] = (np.array(d[0:2]), v, valid, self.now())
+
     def publish_u(self, U):
         self.u_prev = np.asarray(U, dtype=float)   # 지연 보상 전파에 쓰는 '이미 발행된' 입력
         for i, pub in enumerate(self.pubs):
             pub.publish(Float64MultiArray(data=[float(U[2 * i]), float(U[2 * i + 1])]))
 
     def tick(self):
+        # 두절/무효 시 발행을 생략한다(zeros 발행 금지) — zeros 발행은 velocity_loop에서
+        # a_cmd=0 갱신으로 해석돼 "직전 v_ref 유지"가 되어 로봇이 마지막 속도로 계속
+        # 항해한다(범위 이탈 후 재획득 불가의 원인, S6 LiDAR 실측 확인). 침묵하면
+        # velocity_loop의 기존 0.5 s a_cmd 두절 경로가 v_ref를 현재 속도로 리셋하고
+        # 추력을 죽여 항력으로 자연 감속한다(검증된 안전 정지, velocity_loop 무수정).
         t = self.now()
         if any(n not in self.odoms or t - self.odoms[n][2] > 0.5 for n in ['platform'] + ROBOTS):
-            self.publish_u(np.zeros(6))       # odometry 미비/두절 → 정지 (스펙 에러 처리)
             self.prev = None                  # 두절 갱을 전이로 오인해 RLS에 주입하지 않도록 무효화
             return
-        L = self.odoms['platform'][:2]
-        F = [self.odoms[r][:2] for r in ROBOTS]
-        X = assemble(L, F)
+        if self.state_source == 'lidar':
+            # odometry 두절 가드는 위에서 이미 통과 — 상태 조립에는 미사용, lidar 자체 두절만 가드.
+            if any(k not in self.ests or not self.ests[k][2]
+                   or t - self.ests[k][3] > 0.5 for k in range(3)):
+                self.prev = None
+                return
+            X = np.concatenate([np.concatenate([self.ests[k][0] for k in range(3)]),
+                                np.concatenate([self.ests[k][1] for k in range(3)])])
+        else:
+            L = self.odoms['platform'][:2]
+            F = [self.odoms[r][:2] for r in ROBOTS]
+            X = assemble(L, F)
         z2 = z2_vector(X, self.sc)
         if self.prev is not None:             # 전이 (ζ(k-1) → z2(k))로 RLS 갱신 지속
             Xp, z2p, Up = self.prev
