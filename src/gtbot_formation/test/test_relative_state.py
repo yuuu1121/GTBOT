@@ -24,7 +24,10 @@ def test_centered_formation_geometry():
 
 def test_scenario_stonefish_scale():
     sc = make_scenario()
-    assert sc.n_robots == 3 and sc.phi_terms == (1, 2, 3, 4, 5, 6, 7)
-    assert sc.dt == 0.05 and sc.u_max == 0.3 and sc.robot_radius == 0.25
+    assert sc.n_robots == 3 and sc.phi_terms == (1, 2, 3, 4, 5, 6, 7, 8)
+    assert sc.leader_standoff == 0.47 and sc.m == 24   # φ⁸ 추가로 21 -> 24
+    assert len(sc.w_robot) == 8 and sc.w_robot[-1] == -2.0
+    assert sc.dt == 0.05 and sc.u_max == 0.3
+    assert sc.robot_radius == 0.5   # 물리 0.22가 아니라 LiDAR 트랙 분리한계(중심간 0.9 m)를 덮는 값
     assert np.allclose(sc.targets, OFFSETS)
     assert sc.formation == FORMATION and sc.sigma == 1.0

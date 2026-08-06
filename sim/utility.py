@@ -19,6 +19,12 @@ def phi_robot(X, i, sc):
     vals[5] = np.log(1.0 + 6.0 * np.exp(-40.0 * diw))
     dij = min(np.linalg.norm(pos[i] - pos[j]) for j in range(sc.n_robots) if j != i) - 2 * sc.robot_radius
     vals[6] = np.log(1.0 + 10.0 * np.exp(-20.0 * dij))
+    if 8 in sc.phi_terms:
+        # 리더 반발(φ⁶ 동형). 상대좌표계에서 원점이 리더이므로 |pos[i]|가 리더까지의 중심거리.
+        # 리더는 n_robots에 포함되지 않아 φ⁶가 보지 못한다 — 그래서 팔로워가 플랫폼을 관통했다
+        # (S6 실측: rel x 1.29 → -0.37 → -1.69, 이후 LiDAR 근접 사각지대 진입).
+        d_iL = float(np.linalg.norm(pos[i])) - sc.leader_standoff
+        vals[8] = np.log(1.0 + 10.0 * np.exp(-20.0 * d_iL))
     if 7 in sc.phi_terms:
         vals[7] = sum(np.exp(-((np.linalg.norm(pos[a] - pos[b]) - d) ** 2) / sc.sigma ** 2)
                       for (a, b), d in sc.formation.items() if i in (a, b))

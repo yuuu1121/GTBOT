@@ -46,6 +46,7 @@ class Scenario:
     eps_guard: float = 1e-6
     w_robot: np.ndarray = field(default_factory=lambda: np.array([-1.0, -1.0, 5.0, 2.0, -2.0, -2.0]))
     formation: dict = field(default_factory=dict)   # {(i,j): d_star}, i<j
+    leader_standoff: float = 0.0    # φ⁸ 리더 표면거리 기준(반지름 합). 0 = 항 미사용 시 무영향
     sigma: float = 3.0
     reduced_lifting: bool = False   # Task 8b 폴백: bilinear ζ에서 g1·g3 제거(a=433, 결정계)
     v_cruise: float = 4.0   # phi2 순항속도 지시(원논문 값). E2는 1.0 — 이웃거리 무관 4m/s 지시와
