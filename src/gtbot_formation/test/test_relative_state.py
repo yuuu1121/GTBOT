@@ -20,6 +20,6 @@ def test_offsets_form_triangle():
 def test_scenario_stonefish_scale():
     sc = make_scenario()
     assert sc.n_robots == 3 and sc.phi_terms == (1, 2, 3, 4, 5, 6, 7)
-    assert sc.dt == 0.1 and sc.u_max == 0.5 and sc.robot_radius == 0.25
+    assert sc.dt == 0.05 and sc.u_max == 0.3 and sc.robot_radius == 0.25
     assert np.allclose(sc.targets, OFFSETS)
     assert sc.formation == FORMATION and sc.sigma == 1.0

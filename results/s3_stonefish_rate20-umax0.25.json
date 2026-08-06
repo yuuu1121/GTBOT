@@ -1,0 +1,6 @@
+{
+ "max_edge_err_tail30s": 0.47790350603798704,
+ "min_surface_dist": -0.0806150207803858,
+ "n_samples": 7427,
+ "gate_s3_pass": false
+}

@@ -9,6 +9,7 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/launch', ['launch/formation.launch.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -22,5 +23,6 @@ setup(
         'gate_s1 = gtbot_formation.gate_s1:main',
         'leader_pilot = gtbot_formation.leader_pilot:main',
         'koopman_formation = gtbot_formation.koopman_node:main',
+        'gate_s3 = gtbot_formation.gate_s3:main',
     ]},
 )

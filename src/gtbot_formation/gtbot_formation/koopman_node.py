@@ -9,7 +9,8 @@ from .mixer import yaw_of
 from .relative_state import assemble, make_scenario
 from .simpath import ensure
 ensure()
-from sim.experiment import make_rls, _zeta, operating_point, frozen_1step_eval
+from sim.dynamics import ab_matrices
+from sim.experiment import make_rls, _zeta, operating_point, frozen_1step_eval, analytic_c
 from sim.scenario import table1_input
 from sim.control import input_objective, solve_input
 from sim.utility import z2_vector
@@ -19,13 +20,27 @@ ROBOTS = ['gtbot', 'gtbot2', 'gtbot3']
 class KoopmanFormation(Node):
     def __init__(self):
         super().__init__('koopman_formation')
-        for n, d in [('warmup_steps', 600), ('rate', 10.0), ('results_dir', 'results')]:
+        # rate는 make_scenario의 dt와 짝(1/rate == sc.dt) — analytic_c의 A,B가 dt 기반.
+        for n, d in [('warmup_steps', 600), ('rate', 20.0), ('results_dir', 'results'),
+                     ('controller', 'analytic'), ('log_csv', ''),
+                     ('actuation_delay', 0.16)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
+        path = p('log_csv')                   # velocity_loop과 같은 계측 패턴 (제어 진단용)
+        self.log = open(path, 'w', buffering=1) if path else None
+        if self.log:
+            self.log.write('t,' + ','.join(f'x{i}' for i in range(12)) +
+                           ',' + ','.join(f'u{i}' for i in range(6)) + '\n')
         self.warmup_steps, self.results_dir = int(p('warmup_steps')), p('results_dir')
+        self.controller = p('controller')         # 'analytic'(기본, 검증된 팔) | 'model'(식별 Θ 실험용)
         self.sc = make_scenario()
         self.z10, self.z20 = operating_point(self.sc)
         self.rls = {m: make_rls(self.sc, m) for m in ('linear', 'bilinear')}
+        # 지연 보상: 실측 작동기 지연 τ(U→실가속 교차상관 0.16 s)만큼 X를 미리 전파해
+        # analytic_c에 넘긴다. 보상 없으면 τ=0.15 s에서 릴레이 한계 사이클이 터진다(round4 대조실험).
+        self.tau = float(p('actuation_delay'))
+        self.Ad, self.Bd = ab_matrices(len(ROBOTS), self.tau)
+        self.u_prev = np.zeros(2 * len(ROBOTS))   # 지연 구간에 이미 발행돼 반영 중인 입력
         self.k = 0
         self.phase = 'warmup'
         self.X_log, self.U_log = [], []
@@ -50,6 +65,7 @@ class KoopmanFormation(Node):
                             np.array([c * tw.x - s * tw.y, s * tw.x + c * tw.y]), self.now())
 
     def publish_u(self, U):
+        self.u_prev = np.asarray(U, dtype=float)   # 지연 보상 전파에 쓰는 '이미 발행된' 입력
         for i, pub in enumerate(self.pubs):
             pub.publish(Float64MultiArray(data=[float(U[2 * i]), float(U[2 * i + 1])]))
 
@@ -74,7 +90,14 @@ class KoopmanFormation(Node):
             self.U_log.append(U)
             if self.k >= self.warmup_steps:
                 self.finish_warmup()
-        else:
+        elif self.controller == 'analytic':
+            # 참 그래디언트 해석적 팔(식별 Θ 불요) — E1~E4 시뮬레이션 캠페인에서 검증된 경로.
+            # 식별 Θ 기반(model) LP는 워밍업-목표 간 외삽으로 발산(S3 model 기록 참조), 기각.
+            c = analytic_c(self.Ad @ X + self.Bd @ self.u_prev, self.sc, self.sc.w_full)
+            U, status = solve_input(c, self.sc.u_min, self.sc.u_max)
+            if status != 'ok':
+                self.get_logger().warn(f'LP {status} @k={self.k}')
+        else:  # 'model' — 식별 Θ 기반 LP (실험/비교용, S3 기각 경로)
             c, _ = input_objective(self.rls['bilinear'].theta, X - self.z10, z2 - self.z20,
                                    self.sc.w_full, 6, reduced=self.sc.reduced_lifting)
             U, status = solve_input(c, self.sc.u_min, self.sc.u_max)
@@ -82,6 +105,8 @@ class KoopmanFormation(Node):
                 self.get_logger().warn(f'LP {status} @k={self.k}')
         self.prev = (X, z2, U)
         self.publish_u(U)
+        if self.log:
+            self.log.write(','.join(f'{v:.4f}' for v in [t, *X, *U]) + '\n')
 
     def finish_warmup(self):
         # frozen_1step_eval은 X_log[k+1] 참조 — 마지막 여기 전이는 평가에서 제외(자기복제 편향 방지)
