@@ -16,7 +16,10 @@ from .relative_state import OFFSETS
 
 ROBOTS = ['gtbot', 'gtbot2', 'gtbot3']
 
-SPAWN_REL = [(2.0, 0.0), (3.0, 2.0), (3.0, -2.0)]      # 스폰 상대 위치 — 트랙 초기값·재획득 앵커
+SPAWN_REL = [(1.5, 0.0), (-0.75, 1.3), (-0.75, -1.3)]  # 스폰 상대 위치 — 트랙 초기값·재획득 앵커
+# fix round 2: 3.6 m 스폰(구 (3,±2))에서 yaw_meas 오차 40~50°(마커 유효거리 밖, aux 포인트
+# 부족으로 aux 센트로이드 노이즈 큼) 실측 → 전 로봇 1.5 m 반경(gtbot 2 m 실측 시 오차 8.6°와
+# 동급)으로 재배치. 편대 간격(0.87 m 등변삼각형, 변길이 2.6 m)은 유지.
 
 class PlatformPerception(Node):
     def __init__(self):

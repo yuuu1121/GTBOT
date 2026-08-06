@@ -225,7 +225,7 @@
 		</actuator>
 
 		<ros_subscriber thrusters="/gtbot/thrusters"/>
-		<world_transform rpy="0.0 0.0 0.0" xyz="2.0 0.0 0.0"/>
+		<world_transform rpy="0.0 0.0 0.0" xyz="1.5 0.0 0.0"/>
 	</robot>
 
 	<robot name="gtbot2" fixed="false" self_collisions="false">
@@ -327,7 +327,7 @@
 		</actuator>
 
 		<ros_subscriber thrusters="/gtbot2/thrusters"/>
-		<world_transform rpy="0.0 0.0 0.0" xyz="3.0 2.0 0.0"/>
+		<world_transform rpy="0.0 0.0 0.0" xyz="-0.75 1.3 0.0"/>
 	</robot>
 
 	<robot name="gtbot3" fixed="false" self_collisions="false">
@@ -429,7 +429,7 @@
 		</actuator>
 
 		<ros_subscriber thrusters="/gtbot3/thrusters"/>
-		<world_transform rpy="0.0 0.0 0.0" xyz="3.0 -2.0 0.0"/>
+		<world_transform rpy="0.0 0.0 0.0" xyz="-0.75 -1.3 0.0"/>
 	</robot>
 
 	<!-- 고정 관측 카메라: 두 로봇(platform x=0, gtbot x=2, 중간점 x=1) 위에서 수직으로 내려다봄.
