@@ -1,6 +1,7 @@
 import numpy as np
 from gtbot_formation.perception_core import (cluster_2d, lidar_to_world,
-                                             marker_split, marker_heading)
+                                             marker_split, marker_heading,
+                                             marker_center, kf_step)
 
 def synth_pole(cx, cy, h_lo, h_hi, n=30, r=0.015, seed=0):
     rng = np.random.default_rng(seed)
@@ -16,14 +17,19 @@ def test_cluster_2d_separates_three_robots():
     assert len(clusters) == 3
     assert sorted(len(c) for c in clusters) == [30, 30, 30]
 
-def _synth_marker(cx, cy, yaw, main_top=0.442, aux_drop=0.08, seed_c=0, seed_a=3):
+def _synth_marker(cx, cy, yaw, main_top=0.442, aux_drop=0.08, seed_c=0, seed_a=3,
+                  offset=(0.0, 0.0)):
     # round 5 재배치 기하: 두 기둥이 로봇 원점 기준 body ±0.08 m 대칭(간격 0.16), 상단
     # 높이차 0.08(MastMain 스팬 -0.535..-0.225 / MastAux -0.455..-0.225).
     # (cx, cy)는 **로봇 원점**이고 main은 그 뒤쪽(-X), aux는 앞쪽(+X)에 놓인다.
     # 노드 사전필터(h>0.2)를 통과한 구간만 넣는다.
-    dx, dy = 0.08*np.cos(yaw), 0.08*np.sin(yaw)
-    center = synth_pole(cx - dx, cy - dy, 0.20, main_top, seed=seed_c)
-    aux = synth_pole(cx + dx, cy + dy, 0.20, main_top - aux_drop, seed=seed_a)
+    # offset: 마스트 중점의 body 위치(씬 최종본은 (0,-0.10)) — 월드에서는 yaw로 회전해 실린다.
+    ct, st = np.cos(yaw), np.sin(yaw)
+    ox, oy = ct*offset[0] - st*offset[1], st*offset[0] + ct*offset[1]
+    mx, my = cx + ox, cy + oy                       # 두 기둥의 중점(월드)
+    dx, dy = 0.08*ct, 0.08*st
+    center = synth_pole(mx - dx, my - dy, 0.20, main_top, seed=seed_c)
+    aux = synth_pole(mx + dx, my + dy, 0.20, main_top - aux_drop, seed=seed_a)
     return np.vstack([center, aux])
 
 def test_lidar_to_world_frame_convention():
@@ -46,7 +52,7 @@ def test_marker_split_and_heading():
     assert res is not None
     c_xy, a_xy = res
     assert np.linalg.norm(c_xy - [1.0 - 0.08*np.cos(yaw), 0.5 - 0.08*np.sin(yaw)]) < 0.04
-    assert np.linalg.norm(0.5*(c_xy + a_xy) - [1.0, 0.5]) < 0.04    # 중점 = 로봇 원점
+    assert np.linalg.norm(marker_center(c_xy, a_xy, (0.0, 0.0)) - [1.0, 0.5]) < 0.04
     est = marker_heading(c_xy, a_xy)
     assert abs(np.arctan2(np.sin(est - yaw), np.cos(est - yaw))) < np.deg2rad(10)
 
@@ -88,3 +94,63 @@ def test_marker_split_ignores_hull_points():
     res_h = marker_split(np.vstack([xyz, hull]), np.concatenate([xyz[:, 2], hull[:, 2]]))
     assert res is not None and res_h is not None
     assert np.allclose(res[0], res_h[0]) and np.allclose(res[1], res_h[1])
+
+
+def _run_kf(z, dt, q=0.5, r=0.025):
+    x = np.array([z[0][0], z[0][1], 0.0, 0.0])
+    P = np.diag([r**2, r**2, 0.5**2, 0.5**2])
+    out = []
+    for zk in z[1:]:
+        x, P = kf_step(x, P, zk, dt, q, r)
+        out.append(x.copy())
+    return np.array(out)
+
+def test_kf_velocity_converges_and_beats_finite_difference():
+    """상수속도 궤적 + 측정잡음: KF 속도가 참값에 수렴하고 유한차분보다 분산이 훨씬 작아야 한다.
+
+    유한차분은 측정잡음을 1/dt로 증폭한다(sigma ~ r*sqrt(2)/dt). 이것이 rel_vel SNR~1의
+    정체였고 LP 릴레이 부호를 노이즈가 정하게 만들었다(round 4~5 실측)."""
+    dt, r = 0.1, 0.025
+    v_true = np.array([0.20, -0.10])
+    rng = np.random.default_rng(0)
+    n = 300
+    truth = np.array([v_true * (k * dt) for k in range(n)])
+    z = truth + rng.normal(0, r, (n, 2))
+
+    est = _run_kf(z, dt, r=r)
+    fd = np.diff(z, axis=0) / dt                       # 현행 유한차분(EMA 이전 원신호)
+
+    tail = est[len(est)//2:, 2:]                       # 수렴 후 구간
+    assert np.linalg.norm(tail.mean(0) - v_true) < 0.02        # 바이어스 없이 수렴
+    kf_std = tail.std(0).mean()
+    fd_std = fd[len(fd)//2:].std(0).mean()
+    assert kf_std < fd_std / 5, (kf_std, fd_std)               # 분산이 유의하게 작다
+    assert fd_std > 0.2                                        # 유한차분 잡음 규모(~r*sqrt2/dt) 확인
+
+def test_kf_position_tracks_measurement_but_smoother():
+    dt, r = 0.1, 0.025
+    rng = np.random.default_rng(1)
+    n = 200
+    truth = np.array([[1.0 + 0.05*k*dt, -0.5] for k in range(n)])
+    z = truth + rng.normal(0, r, (n, 2))
+    est = _run_kf(z, dt, r=r)
+    pos_err = np.linalg.norm(est[n//2:, :2] - truth[n//2+1:], axis=1)
+    raw_err = np.linalg.norm(z[n//2:] - truth[n//2:], axis=1)
+    assert pos_err.mean() < raw_err.mean()             # 위치도 생측정보다 정확
+
+
+def test_marker_center_undoes_body_offset():
+    """씬 최종본: 두 기둥이 body (±0.08, -0.10)에 실려 중점 != 로봇 원점.
+
+    보정을 빼면 위치 추정에 0.10 m 상수 편향이 남아 S4 예산(0.1 m)을 통째로 먹는다."""
+    off = (0.0, -0.10)
+    for yaw_deg in (0.0, 30.0, -120.0, 175.0):
+        yaw = np.deg2rad(yaw_deg)
+        xyz = _synth_marker(1.2, -0.4, yaw, offset=off)
+        c_xy, a_xy = marker_split(xyz, xyz[:, 2])
+        est = marker_center(c_xy, a_xy, off)
+        assert np.linalg.norm(est - [1.2, -0.4]) < 0.04, (yaw_deg, est)
+        naive = 0.5*(c_xy + a_xy)                              # 보정 누락 시
+        assert np.linalg.norm(naive - [1.2, -0.4]) > 0.08      # 0.10 m 편향이 실제로 생긴다
+        est_yaw = marker_heading(c_xy, a_xy)                   # 헤딩은 오프셋과 무관
+        assert abs(np.arctan2(np.sin(est_yaw - yaw), np.cos(est_yaw - yaw))) < np.deg2rad(10)

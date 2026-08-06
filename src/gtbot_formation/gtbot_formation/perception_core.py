@@ -71,3 +71,45 @@ def marker_split(xyz, h, main_band=(0.0, 0.07), shared_band=(0.10, 0.22), min_se
 def marker_heading(center_xy, aux_xy):
     v = np.asarray(aux_xy) - np.asarray(center_xy)
     return float(np.arctan2(v[1], v[0]))
+
+
+def kf_step(x, P, z, dt, q, r):
+    """트랙별 상수속도 칼만 1스텝. x=[px,py,vx,vy], z=[px,py]. 두 축 등방·독립.
+
+    누적 센트로이드의 유한차분(+EMA)이 내던 rel_vel을 대체한다 — 유한차분은 측정잡음을
+    1/dt로 증폭해(σ≈r·√2/dt ≈ 0.35 m/s @ r=0.025, dt=0.1) LP 릴레이의 부호를 노이즈가
+    정하게 만들었다(round 4~5 실측: rel_vel SNR≈1, 부호일치 75~91%).
+
+    q = 프로세스 가속 표준편차 [m/s²] — **튜닝 노브**. 이산 백색잡음 가속 모델
+    (Bar-Shalom §6.2.2)의 Q를 만든다. 기본 0.5는 상대가속 규모(팔로워 지령 u_max 0.3 +
+    플랫폼 기동)에서 잡은 값이고, 편대가 굼뜨면 낮추고 지연이 보이면 올린다.
+    r = 측정 표준편차 [m] — S4 실측 위치 RMSE(0.024~0.026 m)에서 0.025.
+    """
+    F = np.eye(4)
+    F[0, 2] = F[1, 3] = dt
+    I2 = np.eye(2)
+    Q = q ** 2 * np.block([[I2 * dt ** 4 / 4, I2 * dt ** 3 / 2],
+                           [I2 * dt ** 3 / 2, I2 * dt ** 2]])
+    x = F @ x
+    P = F @ P @ F.T + Q
+    H = np.zeros((2, 4))
+    H[0, 0] = H[1, 1] = 1.0
+    S = H @ P @ H.T + r ** 2 * I2
+    K = P @ H.T @ np.linalg.inv(S)
+    x = x + K @ (np.asarray(z, dtype=float) - H @ x)
+    P = (np.eye(4) - K @ H) @ P
+    return x, P
+
+
+def marker_center(center_xy, aux_xy, offset=(0.0, -0.10)):
+    """두 기둥의 중점 -> **로봇 원점**. 마스트가 body offset에 실려 있으면 헤딩으로 되돌린다.
+
+    씬 최종본에서 두 기둥은 body y=-0.10(중앙 상부구조물 상면)에 얹혀 있으므로 중점은
+    로봇 원점이 아니라 body (0,-0.10)이다. 보정을 빼면 위치 추정에 0.10 m 상수 편향이
+    남아 S4 예산(0.1 m)을 통째로 먹는다. offset은 캘리브레이션 노브 — 마스트를 옮기면
+    여기만 다시 잰다.
+    """
+    c, a = np.asarray(center_xy, dtype=float), np.asarray(aux_xy, dtype=float)
+    yaw = marker_heading(c, a)
+    ct, st = np.cos(yaw), np.sin(yaw)
+    return 0.5 * (c + a) - np.array([[ct, -st], [st, ct]]) @ np.asarray(offset, dtype=float)

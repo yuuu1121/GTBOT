@@ -146,20 +146,20 @@
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
 			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.36"/>
+				<dimensions radius="0.015" height="0.31"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.1"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 0.0 -0.358"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 -0.10 -0.380"/>
 			</external_part>
 			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.28"/>
+				<dimensions radius="0.015" height="0.23"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.07"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 0.0 -0.318"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 -0.10 -0.340"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
@@ -248,20 +248,20 @@
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
 			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.36"/>
+				<dimensions radius="0.015" height="0.31"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.1"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 0.0 -0.358"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 -0.10 -0.380"/>
 			</external_part>
 			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.28"/>
+				<dimensions radius="0.015" height="0.23"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.07"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 0.0 -0.318"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 -0.10 -0.340"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
@@ -350,20 +350,20 @@
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
 			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.36"/>
+				<dimensions radius="0.015" height="0.31"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.1"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 0.0 -0.358"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 -0.10 -0.380"/>
 			</external_part>
 			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.28"/>
+				<dimensions radius="0.015" height="0.23"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.07"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 0.0 -0.318"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 -0.10 -0.340"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->

@@ -11,7 +11,8 @@ from sensor_msgs.msg import PointCloud2, Imu
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Float64MultiArray
 from .mixer import yaw_of
-from .perception_core import cluster_2d, lidar_to_world, marker_split, marker_heading
+from .perception_core import (cluster_2d, lidar_to_world, marker_split, marker_heading,
+                              marker_center, kf_step)
 from .relative_state import OFFSETS
 
 ROBOTS = ['gtbot', 'gtbot2', 'gtbot3']
@@ -26,7 +27,8 @@ class PlatformPerception(Node):
         super().__init__('platform_perception')
         for n, d in [('z_water_offset', 0.198),
                      ('linkage', 0.3), ('track_gate', 0.6), ('n_accum', 10),
-                     ('min_sep', 0.08), ('main_band', [0.0, 0.07]), ('shared_band', [0.10, 0.22])]:
+                     ('min_sep', 0.08), ('main_band', [0.0, 0.07]), ('shared_band', [0.10, 0.22]),
+                     ('kf_q', 0.5), ('kf_r', 0.025), ('marker_offset', [0.0, -0.10])]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         self.z_off = p('z_water_offset')
@@ -39,7 +41,9 @@ class PlatformPerception(Node):
         self.yaw_p = 0.0
         # 초기 트랙 = 스폰 상대 위치(로봇들은 편대 밖에서 출발 — Task 1 실측 반영)
         self.tracks = [np.array(o) for o in SPAWN_REL]
-        self.prev = [None] * 3                          # (rel_xy, t) — 속도 차분용
+        self.kf_q, self.kf_r = p('kf_q'), p('kf_r')
+        self.marker_offset = tuple(p('marker_offset'))   # 마스트 중점의 body 위치(캘리브레이션)
+        self.kf = [None] * 3                            # k -> (x=[px,py,vx,vy], P, t) 트랙별 KF
         self.all_invalid_since = None                   # fix round 1: 전 트랙 invalid 5s 지속 → 스폰 리셋
         self.create_subscription(Imu, '/platform/imu', self.on_imu, 10)
         self.create_subscription(PointCloud2, '/platform/lidar/points', self.on_cloud, 5)
@@ -71,9 +75,9 @@ class PlatformPerception(Node):
                 if sp is None:
                     continue
                 center_xy, aux_xy = sp
-                # 마스트 재배치(round 5)로 두 기둥이 body ±0.08 m 대칭 → **중점 = 로봇 원점**.
-                # 이전 기하(main 0, aux +0.15)에서는 main 기둥 = 원점이었다.
-                rel_w = 0.5 * (np.asarray(center_xy) + np.asarray(aux_xy))
+                # 두 기둥은 body (±0.08, -0.10) — 중점이 body (0,-0.10)이라 헤딩으로 되돌려야
+                # 로봇 원점이 된다(보정 없으면 0.10 m 상수 편향).
+                rel_w = marker_center(center_xy, aux_xy, self.marker_offset)
                 yaw_w = marker_heading(center_xy, aux_xy)
                 k = int(np.argmin([np.linalg.norm(rel_w - tr) for tr in self.tracks]))
                 if np.linalg.norm(rel_w - self.tracks[k]) < self.gate and out[k] is None:
@@ -93,16 +97,18 @@ class PlatformPerception(Node):
                 pub.publish(Float64MultiArray(data=[0.0] * 5 + [0.0]))
                 continue
             rel_w, yaw_w = out[k]
-            v = np.zeros(2)
-            if self.prev[k] is not None:
-                prel, pt = self.prev[k]
-                dt = t - pt
-                if 0.0 < dt < 1.0:                              # 누적 주기 고려 상한 완화
-                    v = (rel_w - prel) / dt
-            self.prev[k] = (rel_w, t)
-            self.tracks[k] = rel_w
+            # 트랙별 상수속도 KF — 발행 위치·속도는 필터 상태다(유한차분 대체). 실종 구간에는
+            # 전파하지 않고(무효 발행), 재획득 시 실제 경과 dt로 한 스텝 돌려 자연히 이어붙인다.
+            dt = t - self.kf[k][2] if self.kf[k] is not None else None
+            if dt is None or not (0.0 < dt < 1.0):              # 초기화·긴 공백 -> 재초기화
+                x = np.array([rel_w[0], rel_w[1], 0.0, 0.0])
+                P = np.diag([self.kf_r ** 2, self.kf_r ** 2, 0.5 ** 2, 0.5 ** 2])
+            else:
+                x, P = kf_step(self.kf[k][0], self.kf[k][1], rel_w, dt, self.kf_q, self.kf_r)
+            self.kf[k] = (x, P, t)
+            self.tracks[k] = rel_w                              # 게이트 앵커는 생측정 유지(트래킹 시맨틱 불변)
             pub.publish(Float64MultiArray(
-                data=[float(rel_w[0]), float(rel_w[1]), float(v[0]), float(v[1]),
+                data=[float(x[0]), float(x[1]), float(x[2]), float(x[3]),
                       float(yaw_w), 1.0]))
 
 def main():

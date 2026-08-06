@@ -24,7 +24,9 @@ class KoopmanFormation(Node):
         for n, d in [('warmup_steps', 600), ('rate', 20.0), ('results_dir', 'results'),
                      ('controller', 'analytic'), ('log_csv', ''),
                      ('actuation_delay', 0.16), ('state_source', 'odometry'),
-                     ('vel_smooth_alpha', 0.3), ('est_hold', 1.0)]:
+                     # 1.0 = 평활 무효(통과). round 6에서 rel_vel이 platform_perception의
+                     # 트랙 KF 출력으로 바뀌어 여기서 또 EMA를 걸면 지연만 더한다.
+                     ('vel_smooth_alpha', 1.0), ('est_hold', 1.0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         path = p('log_csv')                   # velocity_loop과 같은 계측 패턴 (제어 진단용)
