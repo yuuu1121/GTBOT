@@ -100,11 +100,17 @@
 			<noise angle="0.000001745" angular_velocity="0.00001745"/>
 			<ros_publisher topic="/platform/imu"/>
 		</sensor>
-		<!-- 커스텀 rotatinglidar(Mid-360 스타일). 최상단 장착, 틸트 없음(스펙 결정) -->
+		<!-- 커스텀 rotatinglidar(Mid-360 스타일). 최상단 장착, 틸트 없음(스펙 결정).
+		     horizontal_steps 200->480, vertical_steps 100->120: 실물 Livox Mid-360은 비반복
+		     누적 스캔으로 유효 각해상도가 ~0.2°급(수 프레임 누적 시) — 200스텝/360°(1.8°,
+		     2m에서 6.3cm 간격)는 이를 크게 과소평가해 ⌀3cm 마스트 판별실험(round-2)에서
+		     0/20 미검출로 확인됨(원인: 각해상도, cylinder 레이캐스트 인식 자체는 확대실험으로
+		     확정 정상). 720x150(0.5°) 시도 시 퍼블리시율이 10Hz->약 0.1Hz로 붕괴해 480x120
+		     (0.75°, 2m에서 2.6cm 간격)로 1단계 후퇴(사용자 승인된 폴백). -->
 		<sensor name="lidar" type="rotatinglidar" rate="10.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.36"/>
-			<specs horizontal_steps="200" vertical_steps="100" horizontal_fov="360.0"
+			<specs horizontal_steps="480" vertical_steps="120" horizontal_fov="360.0"
 			       vertical_fov="59.0" range_min="0.1" range_max="40.0"/>
 			<noise range_stddev="0.01"/>
 			<ros_publisher topic="/platform/lidar/points"/>
@@ -137,20 +143,20 @@
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
 			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.025" height="0.4"/>
-				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
-				<material name="Neutral"/>
-				<look name="yellow"/>
-				<mass value="0.15"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.435"/>
-			</external_part>
-			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.025" height="0.3"/>
+				<dimensions radius="0.015" height="0.3"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.1"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.15 0.0 -0.385"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.385"/>
+			</external_part>
+			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
+				<dimensions radius="0.015" height="0.22"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+				<mass value="0.07"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.15 0.0 -0.325"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
@@ -239,20 +245,20 @@
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
 			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.025" height="0.4"/>
-				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
-				<material name="Neutral"/>
-				<look name="yellow"/>
-				<mass value="0.15"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.435"/>
-			</external_part>
-			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.025" height="0.3"/>
+				<dimensions radius="0.015" height="0.3"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.1"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.15 0.0 -0.385"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.385"/>
+			</external_part>
+			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
+				<dimensions radius="0.015" height="0.22"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+				<mass value="0.07"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.15 0.0 -0.325"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
@@ -341,20 +347,20 @@
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
 			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.025" height="0.4"/>
-				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
-				<material name="Neutral"/>
-				<look name="yellow"/>
-				<mass value="0.15"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.435"/>
-			</external_part>
-			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.025" height="0.3"/>
+				<dimensions radius="0.015" height="0.3"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.1"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.15 0.0 -0.385"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.385"/>
+			</external_part>
+			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
+				<dimensions radius="0.015" height="0.22"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+				<mass value="0.07"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.15 0.0 -0.325"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
