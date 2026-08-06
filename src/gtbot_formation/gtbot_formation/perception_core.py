@@ -21,14 +21,21 @@ def cluster_2d(xy, linkage=0.3, min_pts=5):
     return [np.nonzero(label == c)[0] for c in range(cur)
             if (label == c).sum() >= min_pts]
 
-def marker_split(xyz, h, main_band=(0.30, 0.40), shared_band=(0.25, 0.30), min_sep=0.08):
-    """기둥 2개 분리: main_band(중앙 기둥 단독 높이)로 중앙 xy, shared_band에서
-    중앙으로부터 min_sep 이상 떨어진 점 평균 = 오프셋 기둥 xy."""
-    top = xyz[(h >= main_band[0]) & (h <= main_band[1])]
+def marker_split(xyz, h, main_band=(0.0, 0.05), shared_band=(0.06, 0.14), min_sep=0.08):
+    """기둥 2개 분리 — 상대 밴딩(캘리브레이션 면역, fix round 1): main_band/shared_band는
+    절대 높이가 아니라 이 클러스터의 최고점 h_max 기준 **하강 오프셋**(m)이다.
+    중앙 기둥(MastMain) 상단 = h in [h_max-main_band[1], h_max-main_band[0]] (기본: 최상단 5cm).
+    오프셋 기둥(MastAux) = h in [h_max-shared_band[1], h_max-shared_band[0]](기본: 6~14cm 아래,
+    두 기둥 높이차 0.08m가 판별 기준) 이면서 중앙에서 min_sep 이상 떨어진 점.
+    h_max 기준이므로 z_water_offset/z_sign의 절대 오차가 그대로 상쇄된다."""
+    if len(h) < 3:
+        return None
+    h_max = h.max()
+    top = xyz[(h >= h_max - main_band[1]) & (h <= h_max - main_band[0])]
     if len(top) < 3:
         return None
     center_xy = top[:, :2].mean(axis=0)
-    low = xyz[(h >= shared_band[0]) & (h <= shared_band[1])]
+    low = xyz[(h >= h_max - shared_band[1]) & (h <= h_max - shared_band[0])]
     if len(low) < 3:
         return None
     d = np.linalg.norm(low[:, :2] - center_xy, axis=1)
