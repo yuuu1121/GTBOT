@@ -182,6 +182,166 @@
 		<world_transform rpy="0.0 0.0 0.0" xyz="2.0 0.0 0.0"/>
 	</robot>
 
+	<robot name="gtbot2" fixed="false" self_collisions="false">
+		<base_link name="base_link" type="compound" physics="floating">
+			<external_part name="Hull" type="model" physics="floating" buoyant="true">
+				<physical>
+					<mesh filename="data/robots/gtbot/meshes/gtbot_phy.obj" scale="0.01"/>
+					<origin rpy="1.5708 0.0 0.0" xyz="0.0 0.0 0.0"/>
+				</physical>
+				<visual>
+					<mesh filename="data/robots/gtbot/meshes/gtbot_viz.obj" scale="0.01"/>
+					<origin rpy="1.5708 0.0 0.0" xyz="0.0 0.0 0.0"/>
+				</visual>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="8.0"/>
+				<!-- CG는 잠긴 부분 CB(0.002, -0.139, -0.093)의 수직 아래(z 큰 쪽)에.
+				     x·y가 CB와 어긋난 만큼 기울어진 채 평형 — 잔여 기울기 노브 = x·y(±0.01). -->
+				<cg rpy="0.0 0.0 0.0" xyz="0.0 -0.139 0.235"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			</external_part>
+		</base_link>
+		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
+		<sensor name="odometry" type="odometry" rate="10.0">
+			<link name="base_link"/>
+			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			<ros_publisher topic="/gtbot2/odometry"/>
+		</sensor>
+
+		<!-- 스러스터 4기: viz 메시의 프로펠러 지오메트리에서 추출한 실제 위치(림 90° 간격,
+		     허브 z=0 = 흘수선 15 cm 아래)에 접선 방향으로 장착. body = NED(X·Y 수평, Z 아래).
+		     추력은 스러스터 로컬 +X (Thruster.cpp thrustV(thrust,0,0)).
+		     setpoint 순서 = 정의 순서 [E, W, N, S]. 믹서:
+		       +X 병진: [0,0,-a,+a] / +Y 병진: [-a,+a,0,0] / yaw: [a,a,a,a]
+		     주의: right="false" 프로펠러는 +setpoint 추력이 로컬 -X — inverted="true"로
+		     상쇄해 부호를 맞춘 상태(W·S). 역추력은 정추력보다 약해(실물과 동일한 비대칭)
+		     병진 시 약간의 yaw 커플링이 남음 — 제어기가 닫을 몫. -->
+		<actuator name="ThrusterE" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.173 -0.162 0.0" rpy="0.0 0.0 -1.5708"/> <!-- +X_local -> body -Y -->
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="false"/>
+			<propeller diameter="0.076" right="true">
+				<mesh filename="data/robots/gtbot/meshes/ccw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+			</propeller>
+		</actuator>
+		<actuator name="ThrusterW" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="-0.171 -0.162 0.0" rpy="0.0 0.0 1.5708"/> <!-- +X_local -> body +Y -->
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="true"/>
+			<propeller diameter="0.076" right="false">
+				<mesh filename="data/robots/gtbot/meshes/cw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+			</propeller>
+		</actuator>
+		<actuator name="ThrusterN" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.025 -0.311 0.0" rpy="0.0 0.0 3.1416"/> <!-- +X_local -> body -X -->
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="false"/>
+			<propeller diameter="0.076" right="true">
+				<mesh filename="data/robots/gtbot/meshes/ccw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+			</propeller>
+		</actuator>
+		<actuator name="ThrusterS" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.025 0.033 0.0" rpy="0.0 0.0 0.0"/> <!-- +X_local -> body +X -->
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="true"/>
+			<propeller diameter="0.076" right="false">
+				<mesh filename="data/robots/gtbot/meshes/cw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+			</propeller>
+		</actuator>
+
+		<ros_subscriber thrusters="/gtbot2/thrusters"/>
+		<world_transform rpy="0.0 0.0 0.0" xyz="3.0 2.0 0.0"/>
+	</robot>
+
+	<robot name="gtbot3" fixed="false" self_collisions="false">
+		<base_link name="base_link" type="compound" physics="floating">
+			<external_part name="Hull" type="model" physics="floating" buoyant="true">
+				<physical>
+					<mesh filename="data/robots/gtbot/meshes/gtbot_phy.obj" scale="0.01"/>
+					<origin rpy="1.5708 0.0 0.0" xyz="0.0 0.0 0.0"/>
+				</physical>
+				<visual>
+					<mesh filename="data/robots/gtbot/meshes/gtbot_viz.obj" scale="0.01"/>
+					<origin rpy="1.5708 0.0 0.0" xyz="0.0 0.0 0.0"/>
+				</visual>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="8.0"/>
+				<!-- CG는 잠긴 부분 CB(0.002, -0.139, -0.093)의 수직 아래(z 큰 쪽)에.
+				     x·y가 CB와 어긋난 만큼 기울어진 채 평형 — 잔여 기울기 노브 = x·y(±0.01). -->
+				<cg rpy="0.0 0.0 0.0" xyz="0.0 -0.139 0.235"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			</external_part>
+		</base_link>
+		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
+		<sensor name="odometry" type="odometry" rate="10.0">
+			<link name="base_link"/>
+			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			<ros_publisher topic="/gtbot3/odometry"/>
+		</sensor>
+
+		<!-- 스러스터 4기: viz 메시의 프로펠러 지오메트리에서 추출한 실제 위치(림 90° 간격,
+		     허브 z=0 = 흘수선 15 cm 아래)에 접선 방향으로 장착. body = NED(X·Y 수평, Z 아래).
+		     추력은 스러스터 로컬 +X (Thruster.cpp thrustV(thrust,0,0)).
+		     setpoint 순서 = 정의 순서 [E, W, N, S]. 믹서:
+		       +X 병진: [0,0,-a,+a] / +Y 병진: [-a,+a,0,0] / yaw: [a,a,a,a]
+		     주의: right="false" 프로펠러는 +setpoint 추력이 로컬 -X — inverted="true"로
+		     상쇄해 부호를 맞춘 상태(W·S). 역추력은 정추력보다 약해(실물과 동일한 비대칭)
+		     병진 시 약간의 yaw 커플링이 남음 — 제어기가 닫을 몫. -->
+		<actuator name="ThrusterE" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.173 -0.162 0.0" rpy="0.0 0.0 -1.5708"/> <!-- +X_local -> body -Y -->
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="false"/>
+			<propeller diameter="0.076" right="true">
+				<mesh filename="data/robots/gtbot/meshes/ccw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+			</propeller>
+		</actuator>
+		<actuator name="ThrusterW" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="-0.171 -0.162 0.0" rpy="0.0 0.0 1.5708"/> <!-- +X_local -> body +Y -->
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="true"/>
+			<propeller diameter="0.076" right="false">
+				<mesh filename="data/robots/gtbot/meshes/cw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+			</propeller>
+		</actuator>
+		<actuator name="ThrusterN" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.025 -0.311 0.0" rpy="0.0 0.0 3.1416"/> <!-- +X_local -> body -X -->
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="false"/>
+			<propeller diameter="0.076" right="true">
+				<mesh filename="data/robots/gtbot/meshes/ccw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+			</propeller>
+		</actuator>
+		<actuator name="ThrusterS" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.025 0.033 0.0" rpy="0.0 0.0 0.0"/> <!-- +X_local -> body +X -->
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="true"/>
+			<propeller diameter="0.076" right="false">
+				<mesh filename="data/robots/gtbot/meshes/cw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+			</propeller>
+		</actuator>
+
+		<ros_subscriber thrusters="/gtbot3/thrusters"/>
+		<world_transform rpy="0.0 0.0 0.0" xyz="3.0 -2.0 0.0"/>
+	</robot>
+
 	<!-- 고정 관측 카메라: 두 로봇(platform x=0, gtbot x=2, 중간점 x=1) 위에서 수직으로 내려다봄.
 	     active_marker_id10.scn의 fixed robot + base_link type box 패턴을 사용. 회전 없는(rpy=0 0 0)
 	     카메라 기본 광축은 로컬 +Z(NED에서 아래쪽) — blueboat_with_camera.scn의 camera_down 주석
