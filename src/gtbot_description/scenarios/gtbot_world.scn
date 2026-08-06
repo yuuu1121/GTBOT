@@ -101,16 +101,17 @@
 			<ros_publisher topic="/platform/imu"/>
 		</sensor>
 		<!-- 커스텀 rotatinglidar(Mid-360 스타일). 최상단 장착, 틸트 없음(스펙 결정).
-		     horizontal_steps 200->480, vertical_steps 100->120: 실물 Livox Mid-360은 비반복
-		     누적 스캔으로 유효 각해상도가 ~0.2°급(수 프레임 누적 시) — 200스텝/360°(1.8°,
-		     2m에서 6.3cm 간격)는 이를 크게 과소평가해 ⌀3cm 마스트 판별실험(round-2)에서
-		     0/20 미검출로 확인됨(원인: 각해상도, cylinder 레이캐스트 인식 자체는 확대실험으로
-		     확정 정상). 720x150(0.5°) 시도 시 퍼블리시율이 10Hz->약 0.1Hz로 붕괴해 480x120
-		     (0.75°, 2m에서 2.6cm 간격)로 1단계 후퇴(사용자 승인된 폴백). -->
+		     200x100으로 원복: RotatingLidar에 비반복 스캔(스캔별 황금비 위상 지터)을
+		     구현해 실물 Mid-360처럼 N스캔 누적 시 유효 각해상도가 N배가 된다 — 단일 스캔은
+		     1.8°/스텝(2m에서 6.3cm)이지만 몇 프레임 누적으로 ⌀3cm 마스트를 잡는다(실측:
+		     30스캔에 마스트별 122/702 포인트). 이전에 480x120이 필요해 보였던 이유는
+		     Polyhedron::BuildCollisionShape()의 optimizeConvexHull()이 주석 처리돼 레이당
+		     비용이 64us였기 때문이고, 이를 되살려 200x100은 물론 480x120도 10Hz가 나온다
+		     (실측 9.96/10.0Hz). 밀도가 더 필요하면 480x120도 지금은 실시간 가능. -->
 		<sensor name="lidar" type="rotatinglidar" rate="10.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.36"/>
-			<specs horizontal_steps="480" vertical_steps="120" horizontal_fov="360.0"
+			<specs horizontal_steps="200" vertical_steps="100" horizontal_fov="360.0"
 			       vertical_fov="59.0" range_min="0.1" range_max="40.0"/>
 			<noise range_stddev="0.01"/>
 			<ros_publisher topic="/platform/lidar/points"/>
