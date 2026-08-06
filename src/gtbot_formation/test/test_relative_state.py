@@ -1,0 +1,25 @@
+import numpy as np
+from gtbot_formation.relative_state import assemble, make_scenario, OFFSETS, FORMATION
+
+def test_assemble_layout():                 # sim/utility._pos_vel 레이아웃: [pos(2N); vel(2N)]
+    L = (np.array([10.0, 5.0]), np.array([0.2, 0.0]))
+    F = [(np.array([8.0, 6.0]), np.array([0.2, 0.1])),
+         (np.array([8.0, 4.0]), np.array([0.0, 0.0])),
+         (np.array([6.3, 5.0]), np.array([0.2, 0.0]))]
+    X = assemble(L, F)
+    assert X.shape == (12,)
+    assert np.allclose(X[:2], [-2.0, 1.0])          # p1 - pL
+    assert np.allclose(X[6:8], [0.0, 0.1])          # v1 - vL
+    assert np.allclose(X[8:10], [-0.2, 0.0])        # v2 - vL
+
+def test_offsets_form_triangle():
+    O = np.array(OFFSETS)
+    for (i, j), d in FORMATION.items():
+        assert abs(np.linalg.norm(O[i] - O[j]) - d) < 0.01
+
+def test_scenario_stonefish_scale():
+    sc = make_scenario()
+    assert sc.n_robots == 3 and sc.phi_terms == (1, 2, 3, 4, 5, 6, 7)
+    assert sc.dt == 0.1 and sc.u_max == 0.5 and sc.robot_radius == 0.25
+    assert np.allclose(sc.targets, OFFSETS)
+    assert sc.formation == FORMATION and sc.sigma == 1.0
