@@ -164,3 +164,86 @@
 **φ⁷ 전 축 검증.** 편대유지 효용항 φ⁷는 게이트 3의 4개 독립 조건(J_final<10%J0, edge<0.3m, ΣJ<베이스라인, 무충돌) 전부 통과. 지정 거리 d*=4.6에서 φ⁶(충돌회피)·φ⁷(편대유지) 상충도 미관측 — 두 효용항이 같은 Koopman 파이프라인에서 공존 가능함을 실증.
 
 **확장성.** N=3/5/7 전부 게이트 4 통과, 스텝당 제어 시간 0.81/1.44/2.78ms로 50ms 실시간 예산 대비 18~62배 여유. v_cruise 파라미터를 누락하면 N=3에서도 충돌이 재현되어(발견 3의 독립 확증) 스케일 불일치가 시나리오 크기와 무관한 구조적 문제임을 뒷받침.
+
+---
+
+## Stonefish 캠페인 (2026-08-06)
+
+`.superpowers/sdd/2026-08-06-koopman-stonefish/` 하 Task 1~8 실행 결과. 수치 시뮬(이중적분기, 위 게이트 1~4)에서 검증된 φ⁷ 편대유지 Koopman 파이프라인을 Stonefish 실선박 동역학(platform 리더 + gtbot 팔로워 3대)으로 이식한 캠페인. 모든 수치는 `results/*.json`에서 직접 복사(기억 서술 금지 원칙).
+
+### 아키텍처 (계층형)
+
+수치 시뮬의 이중적분기 대신 검증된 실선박 동역학을 하위 속도 루프로 정형화해, Koopman/LP는 그 위의 가속도 명령 층으로만 이식했다(계층형 A안, B end-to-end 스러스터 식별·C 이식만은 브레인스토밍 단계에서 기각). `koopman_formation`(10→20 Hz, 최종 20 Hz)이 `/platform/odometry`·`/gtbot{,2,3}/odometry`를 구독해 로봇당 상태 z=[p,v]∈R⁴로 RLS 온라인 식별(sim/koopman.py·rls.py 재사용)과 LP(analytic 팔 기본)를 돌려 `/gtbot{,2,3}/accel_cmd`를 발행하고, `velocity_loop`×3(20 Hz)이 이를 받아 PI 속도 루프 + 검증된 믹서([E,W,N,S], +X=[0,0,-a,+a] / +Y=[-a,+a,0,0] / yaw=[a,a,a,a])로 스러스터 명령을 낸다. leader_pilot은 Koopman 밖 외생 입력으로 `/platform/thrusters`를 직접 구동.
+
+### 리더 상대좌표계
+
+`relative_state.py`가 각 팔로워의 위치·속도를 리더 기준 상대값(pos−pL, vel−vL)으로 조립해 koopman_formation에 넘긴다. 수치 시뮬의 targets·동작점(operating point)이 모두 이 상대좌표계로 상수화돼 있어, sim/ 모듈(koopman.py, rls.py, control.py, utility.py)을 코드 수정 없이 그대로 재사용할 수 있다는 것이 근거다.
+
+### 게이트 S1 — 속도 추종 (`s1_stonefish.json`)
+
+| axis | v_meas | v_expect | rel_err |
+|---|---|---|---|
+| x | [0.482860336491293, 0.002903907180515767] | [0.5, 0.0] | 0.034767843885104704 |
+| y | [-0.0018620665427611972, 0.4796660015108756] | [0.0, 0.5] | 0.04083815795872214 |
+
+`gate_s1_pass: true`.
+
+통과까지 3단 수정 이력(Task 3):
+1. **믹서 yaw 권한 예약**: 병진 오차가 크면 4채널 전부 ±1 포화돼 yaw 성분이 클립에 잘려 yaw 제어 권한이 0이 되고 yaw가 자유 드리프트 → 회전하는 몸체의 월드속도 평균이 "축간 혼입/재현성 붕괴"로 보였다. `mixer.setpoints()`에서 병진(sx,sy) ±0.7, yaw(sw) ±0.3을 각각 클립 후 가산하도록 예약.
+2. **PI 루프**: P 전용 루프의 정상상태 오차(항력 균형점에서 e=0.35/kv 잔류)를 없애려 적분항(ki, 안티윈드업 i_max) 추가.
+3. **yaw 유지 부호 반전(정귀환) 발견·수정**: 벤치 개루프 실측(`[a,a,a,a]` 스텝)에서 양의 setpoint가 yaw를 **감소**시키는데 코드는 반대 부호(`syaw = kpsi*wrap(yaw0-yaw)`)를 가정해 정귀환 루프가 게이트 내내 로봇을 자전시키고 있었다. `syaw = kpsi*wrap(yaw-yaw0)`로 부호 반전 + yaw rate 플랜트 실측(G≈12 rad/s/unit, τ≈0.5s)에 맞춘 kpsi=0.1(ζ≈0.7 감쇠 설계)로 통과.
+
+### 게이트 S2 — 온라인 식별 (`s2_stonefish.json`)
+
+| model | frozen_1step_rmse |
+|---|---|
+| linear | 0.05931626133210375 |
+| bilinear | 0.04235342507017789 |
+
+`gate_s2_pass: true` (`warmup_steps: 600`). 수치 캠페인(위 게이트 1~2)에서는 데이터 기반 bilinear Koopman 식별이 전역·결정계·국소 세 경로 모두에서 기각됐지만, 하위 속도루프로 폐루프 동역학이 정형화된 이 계층형 구조에서는 온라인 bilinear 식별(RLS)이 성립한다 — bilinear frozen 1-step RMSE가 linear보다 작다는 판정 기준을 충족.
+
+### 게이트 S3 — 편대 형성·유지 (`s3_stonefish.json`)
+
+| 지표 | 값 | 기준 |
+|---|---|---|
+| max_edge_err_tail30s | 0.23304293464882475 | < 0.3 |
+| min_surface_dist | 1.1915661299594762 | > 0 |
+| n_samples | 7378 | — |
+
+`gate_s3_pass: true`. p50(전 구간) 0.024 m, LP nan_guard 0건(Task 7 커밋 로그).
+
+통과까지 3단 서사(Task 7, 부정적 결과 포함 보존):
+
+**① 식별모델(LP) 팔은 폐루프에서 발산 — 수치 캠페인의 부정적 결과가 현실 동역학에서 재현.** 워밍업이 초기 위치 근방을 흔드는데 RLS 선형화 기준점은 목표 오프셋이라, 제어 시작 상태에서 bilinear 기울기가 학습 분포 밖 외삽이 된다.
+
+| 실행 | max_edge_err_tail30s | min_surface_dist | gate_s3_pass |
+|---|---|---|---|
+| `s3_stonefish_modelarm_baseline.json` | 65.92041886088734 | -0.1561316367496417 | false |
+| `s3_stonefish_modelarm_sigma-1.5.json` | 54.33083952189884 | 9.795418022723135 | false |
+| `s3_stonefish_modelarm_vlead-0.1.json` | 62.46915402562472 | 3.5691866377846067 | false |
+| `s3_stonefish_modelarm_w3-10.json` | 147.40447560458279 | 3.0258978851016582 | false |
+
+편대가 54~147 m로 발산, 노브(w3/sigma/v_lead) 3종 전부 무효.
+
+**② analytic 팔 전환으로 발산 해소.** `koopman_node`에 `controller` 파라미터(기본 `'analytic'`, 참 그래디언트 — E1~E4에서 검증) 추가, `'model'` 팔은 비교군으로 보존. 리더 경로를 사각 → 직선(waypoints=[60,0], 사용자 승인)으로 재정의해 게이트 의미를 "정상상태 편대유지"로 명확화, 제어 전환 후 30 s 수렴 대기 뒤 180 s 관측. 턴 과도응답은 별도 보존:
+
+| 실행 | max_edge_err_tail30s | min_surface_dist | gate_s3_pass |
+|---|---|---|---|
+| `s3_stonefish_square_turns.json` | 0.818261895920319 | 0.7863431808629333 | false |
+
+**③ 지연 보상(사용자 승인) — 통과의 결정타.** 잔여 오차 0.48 m의 정체를 계측으로 판별: 부호 있는 edge 오차가 0 중심 진동(주기 3.5 s)하고 U는 전 tick \|U\|=u_max(LP 꼭짓점 = bang-bang), U→실가속 교차상관으로 작동지연 τ=0.16 s 실측(브리프 추정 1 s를 정정). 동일 제어기 + 이상적 이중적분기 대조실험(Task 7 커밋 로그 기록, JSON 미보존)에서 τ=0.10 s→0.011 m, τ=0.15 s→0.273 m의 절벽을 확인해 릴레이+지연 한계 사이클로 확정.
+
+analytic_c 호출 전 X를 τ만큼 전파하는 지연 보상(X_pred = A_d·X + B_d·u_prev, `ab_matrices(3,τ)`, τ=0.16, u_prev=직전 발행 U)을 도입, LP·효용함수 프레임워크는 무변경. 함께 조정한 노브: rate 10→20 Hz + dt 0.1→0.05, u_max ±0.5→±0.3(±0.5는 velocity_loop v_ref가 v_max 클램프에 상시 접촉). 최종 `s3_stonefish.json` = `s3_stonefish_delaycomp-final.json`과 동치(참고: `s3_stonefish_delaycomp-u0.3.json`/`-u0.5.json`/`-u0.3-settled.json`은 u_max·정착 여부를 바꾼 중간 튜닝 시행 보존, τ 대조실험과는 별개).
+
+### 시뮬레이터 판정 요약
+
+스펙(`.sp/specs/2026-08-06-koopman-stonefish-design.md`) 확정 사항: Stonefish 채택, Isaac Lab 기각. 근거 3가지 — (1) RLS 온라인 식별은 수백~수천 스텝 순차 회귀이지 Isaac Lab의 존재 이유(수천 환경 병렬 RL)가 불필요, (2) Isaac Lab(PhysX)은 부력·유체항력·프로펠러 유입류 등 수중물리가 부재해 커스텀 force로 구현하면 "충실한 동역학에서 식별" 주장이 약해지는데 Stonefish는 이를 네이티브 제공하며 흘수·복원력·추력 비대칭까지 이미 실측 검증됨, (3) 온라인 식별은 실시간 순차 데이터가 본질이라 병렬화 이득 자체가 없음. 재고 조건: 대규모 RL 도입 시 Isaac Lab 재검토.
+
+### 이탈 목록 (Stonefish 캠페인)
+
+1. **여기(excitation) 입력**: 수치 캠페인 Table 1의 PRBS 대신 멀티사인 신호를 `/8.0` 스케일로 사용(`koopman_node.py`), 첫 시도로 게이트 S2 통과해 `/12.0` 재조정 불필요.
+2. **마지막 여기 전이 평가 제외**: `frozen_1step_eval`은 `X_log[k+1]`을 참조하므로 워밍업 마지막 전이는 자기복제 편향 방지를 위해 평가에서 제외.
+3. **koopman_formation 파라미터**: rate 20 Hz(dt=0.05, analytic_c의 B가 위치감도 dt²/2·속도감도 dt이므로 dt는 감쇠 가중 노브), u_min/u_max=∓0.3(계측 근거 — ±0.5는 v_ref가 v_max 클램프에 상시 접촉).
+4. **controller 파라미터**: 기본값 `'analytic'`(참 그래디언트), `'model'`(식별 Θ 기반 LP)은 실험·비교군으로 코드에 보존.
+5. **S3 리더 경로**: 사각 → 직선(waypoints=[60,0])으로 재정의, 정상상태 편대유지를 게이트 정의로 명확화(사용자 승인). 관측은 제어 전환 후 30 s 수렴 대기 뒤 180 s. 턴 과도응답은 `s3_stonefish_square_turns.json`에 별도 보존.
+6. **지연 보상 도입**(사용자 승인): 작동지연 τ=0.16 s 보상을 위해 X를 A_d·X+B_d·u_prev로 전파하는 예측 단계 추가 — LP·효용함수 프레임워크는 무변경.
