@@ -1,9 +1,9 @@
 """platform LiDAR → gtbot별 상대위치·헤딩 추정 → /gtbotN/state_est.
 rel_*는 platform 기준·월드축 정렬(IMU yaw 회전), yaw는 월드 기준.
-z_water_offset·z_sign 기본값은 Task 1 프로브 실측(0.198) + fix round 1 h_max 잔차 보정(-0.02)
-으로 채운다(diag_h_hist.py 실측: main mast top h_max≈0.399, 설계값 0.38 대비 +0.019 과다 →
-z_water_offset을 그만큼 낮춰 상쇄). marker_split은 h_max 기준 상대 밴딩이라 이 보정에
-민감하지 않지만, 대역 사전필터(h 0.2~0.55)는 절대 기준이라 반영."""
+
+프레임 규약은 `perception_core.lidar_to_world` 도크스트링 참조(round 4 실측으로 확정:
+클라우드는 FLU/z-위, 월드 정렬은 R(+yaw)). z_water_offset = 라이다의 수면 위 높이
+(마운트 0.36 m − platform 흘수 0.162 m = 0.198 m) — 흘수가 바뀌면 여기만 다시 잰다."""
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -11,7 +11,7 @@ from sensor_msgs.msg import PointCloud2, Imu
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Float64MultiArray
 from .mixer import yaw_of
-from .perception_core import cluster_2d, marker_split, marker_heading
+from .perception_core import cluster_2d, lidar_to_world, marker_split, marker_heading
 from .relative_state import OFFSETS
 
 ROBOTS = ['gtbot', 'gtbot2', 'gtbot3']
@@ -21,12 +21,12 @@ SPAWN_REL = [(2.0, 0.0), (3.0, 2.0), (3.0, -2.0)]      # 스폰 상대 위치 �
 class PlatformPerception(Node):
     def __init__(self):
         super().__init__('platform_perception')
-        for n, d in [('z_water_offset', 0.179), ('z_sign', -1.0),
-                     ('linkage', 0.3), ('track_gate', 0.6), ('n_accum', 5),
-                     ('min_sep', 0.08), ('main_band', [0.0, 0.05]), ('shared_band', [0.06, 0.14])]:
+        for n, d in [('z_water_offset', 0.198),
+                     ('linkage', 0.3), ('track_gate', 0.6), ('n_accum', 10),
+                     ('min_sep', 0.08), ('main_band', [0.0, 0.09]), ('shared_band', [0.10, 0.22])]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
-        self.z_off, self.z_sign = p('z_water_offset'), p('z_sign')
+        self.z_off = p('z_water_offset')
         self.linkage, self.gate = p('linkage'), p('track_gate')
         self.n_accum = int(p('n_accum'))
         self.min_sep = p('min_sep')
@@ -53,16 +53,11 @@ class PlatformPerception(Node):
                         point_cloud2.read_points(msg, field_names=('x', 'y', 'z'), skip_nans=True)])
         out = [None] * 3
         if len(pts):
-            h = (pts[:, 2] - self.z_off) * self.z_sign          # 수면 위 높이
+            xy_w, h = lidar_to_world(pts, self.yaw_p, self.z_off)   # 수신 시점 yaw로 월드축 정렬
             r = np.hypot(pts[:, 0], pts[:, 1])
             m = (h > 0.2) & (h < 0.55) & (r > 0.3) & (r < 5.0)  # 마커 대역만 (스폰 3.6 m 커버)
-            sel, hsel = pts[m], h[m]
-            if len(sel):
-                c, s = np.cos(self.yaw_p), np.sin(self.yaw_p)
-                R = np.array([[c, -s], [s, c]])                 # 센서(≈platform body)→월드축, 수신 시점 yaw
-                # Task 1 실측: Stonefish orientation은 world→body 컨벤션 — body→world 변환은
-                # R.T가 아니라 R을 그대로(전치 없이) 적용해야 함(실측 교차검증, task-3-report 참조).
-                self.buf.append((sel[:, :2] @ R, hsel))         # 월드축 정렬 후 누적
+            if m.any():                                         # 선체 상단은 0.147 m — 대역 밖
+                self.buf.append((xy_w[m], h[m]))
         self.buf = self.buf[-self.n_accum:]
         if self.buf:
             xy_w = np.vstack([b[0] for b in self.buf])          # 비반복 스캔 병합 → 유효 해상도 증가
