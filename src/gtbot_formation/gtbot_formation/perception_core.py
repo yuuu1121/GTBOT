@@ -40,14 +40,16 @@ def cluster_2d(xy, linkage=0.3, min_pts=5):
     return [np.nonzero(label == c)[0] for c in range(cur)
             if (label == c).sum() >= min_pts]
 
-def marker_split(xyz, h, main_band=(0.0, 0.09), shared_band=(0.10, 0.22), min_sep=0.08):
+def marker_split(xyz, h, main_band=(0.0, 0.07), shared_band=(0.10, 0.22), min_sep=0.08):
     """기둥 2개 분리 — 상대 밴딩(캘리브레이션 면역, fix round 1): main_band/shared_band는
     절대 높이가 아니라 이 클러스터의 최고점 h_max 기준 **하강 오프셋**(m)이다.
     중앙 기둥(MastMain) 상단 = h in [h_max-main_band[1], h_max-main_band[0]] (기본: 최상단 9cm).
     오프셋 기둥(MastAux) = h in [h_max-shared_band[1], h_max-shared_band[0]](기본: 10~22cm 아래)
     이면서 중앙에서 min_sep 이상 떨어진 점.
-    밴드 폭은 round 4 실측 기하에 맞춘 값이다: MastMain top 0.442 m·MastAux top 0.342 m
-    (높이차 0.10)이므로 최상단 9cm는 MastMain 단독, 10~22cm 아래는 두 기둥 공유 구간.
+    밴드 폭은 마스트 기하에 맞춘다: 재배치(round 5) 후 두 기둥 상단 높이차가 0.10 → **0.08**로
+    줄었으므로(스팬 -0.535..-0.225 vs -0.455..-0.225) main_band 상한을 0.09 → **0.07**로 내린다.
+    0.09를 그대로 두면 MastAux 상단(h_max-0.08)이 main 밴드에 섞여 중앙 추정이 aux 쪽으로 끌린다.
+    10~22cm 아래는 여전히 두 기둥 공유 구간(aux는 h_max-0.08부터 존재).
     h_max 기준이므로 z_offset 절대 오차와 (프리필터를 뚫고 들어온) 선체 점은 밴드 밖으로
     빠져 자동 배제된다 — 선체 상단은 h_max보다 ~0.30 m 낮다."""
     if len(h) < 3:

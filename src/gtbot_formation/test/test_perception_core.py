@@ -16,12 +16,14 @@ def test_cluster_2d_separates_three_robots():
     assert len(clusters) == 3
     assert sorted(len(c) for c in clusters) == [30, 30, 30]
 
-def _synth_marker(cx, cy, yaw, main_top=0.442, aux_drop=0.10, seed_c=0, seed_a=3):
-    # round 4 실측 기하: MastMain top 0.442 m(bottom 0.142), MastAux top 0.342 m(bottom 0.122),
-    # 간격 0.15 m. 노드 사전필터(h>0.2)를 통과한 구간만 넣는다.
-    center = synth_pole(cx, cy, 0.20, main_top, seed=seed_c)
-    aux = synth_pole(cx + 0.15*np.cos(yaw), cy + 0.15*np.sin(yaw),
-                      0.20, main_top - aux_drop, seed=seed_a)
+def _synth_marker(cx, cy, yaw, main_top=0.442, aux_drop=0.08, seed_c=0, seed_a=3):
+    # round 5 재배치 기하: 두 기둥이 로봇 원점 기준 body ±0.08 m 대칭(간격 0.16), 상단
+    # 높이차 0.08(MastMain 스팬 -0.535..-0.225 / MastAux -0.455..-0.225).
+    # (cx, cy)는 **로봇 원점**이고 main은 그 뒤쪽(-X), aux는 앞쪽(+X)에 놓인다.
+    # 노드 사전필터(h>0.2)를 통과한 구간만 넣는다.
+    dx, dy = 0.08*np.cos(yaw), 0.08*np.sin(yaw)
+    center = synth_pole(cx - dx, cy - dy, 0.20, main_top, seed=seed_c)
+    aux = synth_pole(cx + dx, cy + dy, 0.20, main_top - aux_drop, seed=seed_a)
     return np.vstack([center, aux])
 
 def test_lidar_to_world_frame_convention():
@@ -37,14 +39,25 @@ def test_lidar_to_world_frame_convention():
     assert np.isclose(h[0], height)
 
 def test_marker_split_and_heading():
-    yaw = np.deg2rad(30)   # 로봇 (1.0, 0.5), yaw 30° — aux = center + 0.15*(cos,sin)
+    # 로봇 원점 (1.0, 0.5), yaw 30°. 위치 추정은 두 기둥의 **중점**(= 원점), 헤딩은 main→aux.
+    yaw = np.deg2rad(30)
     xyz = _synth_marker(1.0, 0.5, yaw)
     res = marker_split(xyz, xyz[:, 2])
     assert res is not None
     c_xy, a_xy = res
-    assert np.linalg.norm(c_xy - [1.0, 0.5]) < 0.04
+    assert np.linalg.norm(c_xy - [1.0 - 0.08*np.cos(yaw), 0.5 - 0.08*np.sin(yaw)]) < 0.04
+    assert np.linalg.norm(0.5*(c_xy + a_xy) - [1.0, 0.5]) < 0.04    # 중점 = 로봇 원점
     est = marker_heading(c_xy, a_xy)
     assert abs(np.arctan2(np.sin(est - yaw), np.cos(est - yaw))) < np.deg2rad(10)
+
+def test_marker_split_excludes_aux_top_from_main_band():
+    """상단 높이차가 0.08로 줄어 main_band 상한 0.09는 aux 상단을 물어들인다(회귀 가드)."""
+    yaw = 0.0
+    xyz = _synth_marker(0.0, 0.0, yaw)
+    c_ok, _ = marker_split(xyz, xyz[:, 2])                          # 기본 main_band=(0, 0.07)
+    c_bad, _ = marker_split(xyz, xyz[:, 2], main_band=(0.0, 0.09))
+    assert abs(c_ok[0] - (-0.08)) < 0.02                            # main 기둥에 정확히 붙음
+    assert c_bad[0] > c_ok[0] + 0.01                                # aux 쪽으로 끌려감
 
 def test_marker_split_robust_to_z_miscalibration():
     # fix round 1: h_max 기준 상대 밴딩이므로 z_water_offset 오차(전 포인트에 동일 오프셋)가

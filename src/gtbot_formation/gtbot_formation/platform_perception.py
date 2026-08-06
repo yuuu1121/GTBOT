@@ -26,7 +26,7 @@ class PlatformPerception(Node):
         super().__init__('platform_perception')
         for n, d in [('z_water_offset', 0.198),
                      ('linkage', 0.3), ('track_gate', 0.6), ('n_accum', 10),
-                     ('min_sep', 0.08), ('main_band', [0.0, 0.09]), ('shared_band', [0.10, 0.22])]:
+                     ('min_sep', 0.08), ('main_band', [0.0, 0.07]), ('shared_band', [0.10, 0.22])]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         self.z_off = p('z_water_offset')
@@ -71,7 +71,9 @@ class PlatformPerception(Node):
                 if sp is None:
                     continue
                 center_xy, aux_xy = sp
-                rel_w = np.asarray(center_xy)
+                # 마스트 재배치(round 5)로 두 기둥이 body ±0.08 m 대칭 → **중점 = 로봇 원점**.
+                # 이전 기하(main 0, aux +0.15)에서는 main 기둥 = 원점이었다.
+                rel_w = 0.5 * (np.asarray(center_xy) + np.asarray(aux_xy))
                 yaw_w = marker_heading(center_xy, aux_xy)
                 k = int(np.argmin([np.linalg.norm(rel_w - tr) for tr in self.tracks]))
                 if np.linalg.norm(rel_w - self.tracks[k]) < self.gate and out[k] is None:
