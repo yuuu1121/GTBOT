@@ -24,5 +24,7 @@ setup(
         'leader_pilot = gtbot_formation.leader_pilot:main',
         'koopman_formation = gtbot_formation.koopman_node:main',
         'gate_s3 = gtbot_formation.gate_s3:main',
+        'platform_perception = gtbot_formation.platform_perception:main',
+        'gate_s4 = gtbot_formation.gate_s4:main',
     ]},
 )
