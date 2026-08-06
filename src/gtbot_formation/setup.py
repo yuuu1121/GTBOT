@@ -17,5 +17,8 @@ setup(
     description='Koopman formation control on Stonefish (leader-relative RLS+LP)',
     license='MIT',
     tests_require=['pytest'],
-    entry_points={'console_scripts': []},
+    entry_points={'console_scripts': [
+        'velocity_loop = gtbot_formation.velocity_loop:main',
+        'gate_s1 = gtbot_formation.gate_s1:main',
+    ]},
 )
