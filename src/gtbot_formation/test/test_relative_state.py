@@ -17,6 +17,11 @@ def test_offsets_form_triangle():
     for (i, j), d in FORMATION.items():
         assert abs(np.linalg.norm(O[i] - O[j]) - d) < 0.01
 
+def test_centered_formation_geometry():
+    O = np.array(OFFSETS)
+    assert np.allclose(np.linalg.norm(O, axis=1), 0.866, atol=0.001)   # platform 중심 반지름
+    assert set(FORMATION.values()) == {1.5}
+
 def test_scenario_stonefish_scale():
     sc = make_scenario()
     assert sc.n_robots == 3 and sc.phi_terms == (1, 2, 3, 4, 5, 6, 7)

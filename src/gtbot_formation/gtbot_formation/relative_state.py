@@ -3,8 +3,8 @@ from .simpath import ensure
 ensure()
 from sim.scenario import Scenario
 
-OFFSETS = [(-2.0, 1.0), (-2.0, -1.0), (-3.732, 0.0)]      # 리더 상대, 정삼각형 변 2.0
-FORMATION = {(0, 1): 2.0, (0, 2): 2.0, (1, 2): 2.0}
+OFFSETS = [(0.866, 0.0), (-0.433, 0.750), (-0.433, -0.750)]      # platform 중심 정삼각형, gtbot 간 1.5 m
+FORMATION = {(0, 1): 1.5, (0, 2): 1.5, (1, 2): 1.5}
 
 def assemble(leader, followers):
     pL, vL = leader
