@@ -27,7 +27,8 @@ class KoopmanFormation(Node):
                      ('actuation_delay', 0.16), ('state_source', 'odometry'),
                      # 1.0 = 평활 무효(통과). round 6에서 rel_vel이 platform_perception의
                      # 트랙 KF 출력으로 바뀌어 여기서 또 EMA를 걸면 지연만 더한다.
-                     ('vel_smooth_alpha', 1.0), ('est_hold', 1.0)]:
+                     ('vel_smooth_alpha', 1.0), ('est_hold', 1.0),
+                     ('est_stale_stop', 5.0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         path = p('log_csv')                   # velocity_loop과 같은 계측 패턴 (제어 진단용)
@@ -68,6 +69,7 @@ class KoopmanFormation(Node):
         self.vel_alpha = float(p('vel_smooth_alpha'))
         self.vel_ema = {}                     # k -> 지수평활된 rel_vel2 (10 Hz 유한차분 노이즈 완화)
         self.est_hold = float(p('est_hold'))
+        self.est_stale_stop = float(p('est_stale_stop'))
         self.ests = {}                        # k -> (rel_pos2, rel_vel2, valid, t) — lidar 상태원
         self.ok = {}                          # k -> (rel_pos2, rel_vel2, t) — 마지막 '유효' 추정(홀드)
         if self.state_source == 'lidar':
@@ -137,6 +139,16 @@ class KoopmanFormation(Node):
             # 플랫폼이 떠난 뒤 영구 미복구가 된다(S6 실측: 로봇0이 0.34 m 근접 = LiDAR 사각지대
             # 진입 → 220 s 전원 침묵 → 3대 정지, 편대오차 22 m 발산).
             if any(k not in self.ok for k in range(3)):
+                self.prev = None
+                self.logrow(t, np.zeros(12), np.zeros(6), 0.0)
+                return
+            if any(t - self.ok[k][2] > self.est_stale_stop for k in range(3)):
+                # 영구 손실 최후 방어선. mask는 **발행만** 막고 X 조립에는 self.ok[k]의 마지막
+                # 값이 그대로 쓰이므로, 한 대가 영구 손실되면 그 좌표가 관측 시점에 고정된 채
+                # 건강한 두 대의 φ⁶/φ⁷/φ⁸ 그래디언트에 계속 들어간다 — 유령 위치 기준 최적화다.
+                # 편대 상대상태가 무결하지 않으면 최적화 지속이 무의미하므로 전원 침묵으로
+                # 전환한다. est_stale_stop(5 s) > platform_perception의 트랙별 재획득(4 s)이라
+                # 재획득이 먼저 발화할 기회를 준 뒤의 최후 방어선이다.
                 self.prev = None
                 self.logrow(t, np.zeros(12), np.zeros(6), 0.0)
                 return
