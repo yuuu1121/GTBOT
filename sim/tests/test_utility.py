@@ -82,3 +82,30 @@ def test_phi1_v_floor_inactive_at_normal_speed():
     a = phi_robot(fast, 0, Scenario(phi_terms=(1, 2, 3, 4, 5, 6)))
     b = phi_robot(fast, 0, Scenario(phi_terms=(1, 2, 3, 4, 5, 6), phi1_v_floor=0.05))
     assert np.allclose(a, b)
+
+def test_phi9_is_negative_squared_error_and_zero_at_target():
+    sc = Scenario(phi_terms=(1, 2, 3, 4, 5, 6, 9))
+    at = _state([sc.targets[0], (0, 7), (7, -4)], [(0.1, 0)] * 3)
+    assert np.isclose(phi_robot(at, 0, sc)[6], 0.0)              # 목표점에서 0
+    off = np.array(sc.targets[0]) + np.array([0.3, -0.4])       # 오차 0.5
+    st = _state([off, (0, 7), (7, -4)], [(0.1, 0)] * 3)
+    assert np.isclose(phi_robot(st, 0, sc)[6], -0.25)            # -|err|^2
+
+def test_phi9_gradient_is_linear_in_error():
+    """∂φ⁹/∂pos = -2·r* — 오차에 선형. 이것이 QP에 결핍됐던 '크기 있는 복원력'이다."""
+    sc = Scenario(phi_terms=(9,), w_robot=np.array([1.0]))
+    g = []
+    for d in (0.5, 1.0, 2.0):
+        off = np.array(sc.targets[0]) + np.array([d, 0.0])
+        X = _state([off, (0, 7), (7, -4)], [(0.1, 0)] * 3)
+        h = 1e-5
+        Xp = X.copy(); Xp[0] += h
+        g.append((phi_robot(Xp, 0, sc)[0] - phi_robot(X, 0, sc)[0]) / h)
+    assert np.allclose(g, [-1.0, -2.0, -4.0], atol=1e-3)         # -2d, 선형
+    assert abs(g[2] / g[0] - 4.0) < 1e-2                          # 4배 오차 -> 4배 복원력
+
+def test_phi9_absent_when_not_in_phi_terms():
+    """순수 가산: 기존 수치 캠페인(E1~E4) 시나리오의 z2는 비트 불변."""
+    sc = Scenario()                                               # phi_terms=(1..6)
+    X = _state([(3.0, 1.0), (0, 7), (7, -4)], [(0.1, 0)] * 3)
+    assert len(phi_robot(X, 0, sc)) == 6 and z2_vector(X, sc).shape == (18,)

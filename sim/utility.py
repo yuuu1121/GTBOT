@@ -24,6 +24,14 @@ def phi_robot(X, i, sc):
     vals[5] = np.log(1.0 + 6.0 * np.exp(-40.0 * diw))
     dij = min(np.linalg.norm(pos[i] - pos[j]) for j in range(sc.n_robots) if j != i) - 2 * sc.robot_radius
     vals[6] = np.log(1.0 + 10.0 * np.exp(-20.0 * dij))
+    if 9 in sc.phi_terms:
+        # 위치 비례 복원항(round 10). 그래디언트가 ∂(-nr²)/∂pos = -2·r* 로 **오차에 선형**이라
+        # QP(u = c/λ)에 정확히 결핍됐던 '크기 있는 복원력'을 공급한다. round 8 분해에서 위치
+        # 정보는 그래디언트의 0.6~1.8%뿐이었고, φ¹은 정규화 코사인이라 스케일 프리라서 로봇이
+        # 3.5 m 밀려나도 복귀 지령이 ~0이었다(버스트의 정체). round 9는 리더가 정지해도 편대가
+        # |e| 0.38~1.45 m로 진동함을 보여 원인이 루프 내부임을 확인했다.
+        # r*(=pos[i] - sc.targets[i])는 φ³이 쓰는 것과 동일 규약 — 별도 오프셋 필드를 두지 않는다.
+        vals[9] = -float(nr ** 2)
     if 8 in sc.phi_terms:
         # 리더 반발(φ⁶ 동형). 상대좌표계에서 원점이 리더이므로 |pos[i]|가 리더까지의 중심거리.
         # 리더는 n_robots에 포함되지 않아 φ⁶가 보지 못한다 — 그래서 팔로워가 플랫폼을 관통했다
