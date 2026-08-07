@@ -10,7 +10,12 @@ def phi_robot(X, i, sc):
     v = vel[i]
     nr, nv = float(np.linalg.norm(r_star)), float(np.linalg.norm(v))
     vals = {}
-    vals[1] = 0.0 if (nv < sc.eps_guard or nr < sc.eps_guard) else float(r_star @ v) / (nr * nv)
+    # φ¹ 분모 |v| 하한(수치 가드, round 9). φ¹은 정규화 코사인이라 grad ∝ 1/|v| —
+    # |v|→0에서 유한차분이 1/h 천장까지 폭주한다(실측 p99 = 1e4, 평시 0.3). 하한을 두면
+    # 그 발산이 1/floor로 유계가 된다. sc.phi1_v_floor=0(기본)이면 max(nv,0)=nv라
+    # 기존 수치 캠페인(E1~E4)과 **비트 동일** — 순수 가산이다.
+    nv_g = max(nv, sc.phi1_v_floor)
+    vals[1] = 0.0 if (nv < sc.eps_guard or nr < sc.eps_guard) else float(r_star @ v) / (nr * nv_g)
     v_des = sc.v_cruise / (1.0 + np.exp(-10.0 * (nr - 0.2)))
     vals[2] = 1.0 - np.exp(-(((nv - v_des) / (0.8 * v_des)) ** 2))
     vals[3] = np.exp(-((nr / 4.0) ** 2)) * np.exp(-((nr / 6.0) ** 2))

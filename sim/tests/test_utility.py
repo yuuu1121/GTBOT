@@ -62,3 +62,23 @@ def test_phi8_absent_when_not_in_phi_terms():
     X = _state([(0.1, 0), (0, 7), (7, -4)], [(0.1, 0)] * 3)  # 원점 근접이라도 영향 없어야
     assert z2_vector(X, sc).shape == (18,)
     assert len(phi_robot(X, 0, sc)) == 6
+
+def test_phi1_v_floor_bounds_gradient_and_is_inert_by_default():
+    """φ¹ 분모 하한: 기본 0.0이면 기존과 동일, >0이면 |v|→0 발산을 유계화한다.
+
+    기본이 0.0이라 기존 수치 캠페인(E1~E4)의 z2는 비트 단위로 불변 — 순수 가산의 근거."""
+    from sim.experiment import analytic_c
+    base = Scenario(phi_terms=(1, 2, 3, 4, 5, 6))
+    slow = _state([(-7, 3), (0, 7), (7, -4)], [(1e-4, 0)] * 3)   # 거의 정지 = 발산 조건
+    assert np.allclose(phi_robot(slow, 0, base), phi_robot(slow, 0, Scenario(phi_terms=(1, 2, 3, 4, 5, 6), phi1_v_floor=0.0)))
+    guarded = Scenario(phi_terms=(1, 2, 3, 4, 5, 6), phi1_v_floor=0.05)
+    c_raw = analytic_c(slow, base, np.tile(base.w_robot, 3))
+    c_grd = analytic_c(slow, guarded, np.tile(guarded.w_robot, 3))
+    assert np.max(np.abs(c_grd)) < np.max(np.abs(c_raw)) / 10      # 발산이 실제로 눌린다
+
+def test_phi1_v_floor_inactive_at_normal_speed():
+    """평시 상대속도(0.05~0.4 m/s 대역 위)에서는 하한이 걸리지 않아 결과가 같아야 한다."""
+    fast = _state([(-7, 3), (0, 7), (7, -4)], [(0.3, 0.2)] * 3)   # |v| = 0.36 > floor
+    a = phi_robot(fast, 0, Scenario(phi_terms=(1, 2, 3, 4, 5, 6)))
+    b = phi_robot(fast, 0, Scenario(phi_terms=(1, 2, 3, 4, 5, 6), phi1_v_floor=0.05))
+    assert np.allclose(a, b)
