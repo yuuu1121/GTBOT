@@ -94,6 +94,30 @@
 			</propeller>
 		</actuator>
 
+		<sensor name="imu" type="imu" rate="100.0">
+			<link name="base_link"/>
+			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			<noise angle="0.000001745" angular_velocity="0.00001745"/>
+			<ros_publisher topic="/platform/imu"/>
+		</sensor>
+		<!-- 커스텀 rotatinglidar(Mid-360 스타일). 최상단 장착, 틸트 없음(스펙 결정).
+		     200x100으로 원복. 서로 독립인 두 문제였다.
+		     (1) 해상도: 단일 스캔 1.8°/스텝(2m에서 6.3cm)으로는 ⌀3cm 마스트를 놓친다(판별실험
+		     확정 — 480x120을 시도했던 이유). RotatingLidar에 비반복 스캔(스캔별 황금비 위상
+		     지터)을 구현해 실물 Mid-360처럼 N스캔 누적 시 유효 각해상도가 N배가 되므로,
+		     200x100으로도 몇 프레임 누적하면 잡힌다(실측: 30스캔에 마스트별 122/702 포인트).
+		     (2) 발행률: Hz 붕괴(200x100 0.79Hz, 480x120 0.27Hz)의 원인은 해상도가 아니라
+		     Polyhedron::BuildCollisionShape()의 optimizeConvexHull()이 주석 처리돼 레이당
+		     64us가 든 것. 되살린 뒤 두 스펙 모두 10Hz(실측 9.96/10.0Hz) — 단일 스캔 밀도가
+		     더 필요하면 480x120도 지금은 실시간 가능. -->
+		<sensor name="lidar" type="rotatinglidar" rate="10.0">
+			<link name="base_link"/>
+			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.36"/>
+			<specs horizontal_steps="200" vertical_steps="100" horizontal_fov="360.0"
+			       vertical_fov="59.0" range_min="0.1" range_max="40.0"/>
+			<noise range_stddev="0.01"/>
+			<ros_publisher topic="/platform/lidar/points"/>
+		</sensor>
 		<ros_subscriber thrusters="/platform/thrusters"/>
 		<world_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 	</robot>
@@ -121,12 +145,34 @@
 				<cg rpy="0.0 0.0 0.0" xyz="0.0 -0.139 0.235"/>
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
+			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
+				<dimensions radius="0.015" height="0.31"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+				<mass value="0.1"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 -0.10 -0.380"/>
+			</external_part>
+			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
+				<dimensions radius="0.015" height="0.23"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+				<mass value="0.07"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 -0.10 -0.340"/>
+			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
 		<sensor name="odometry" type="odometry" rate="10.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			<ros_publisher topic="/gtbot/odometry"/>
+		</sensor>
+		<sensor name="imu" type="imu" rate="100.0">
+			<link name="base_link"/>
+			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			<noise angle="0.000001745" angular_velocity="0.00001745"/>
+			<ros_publisher topic="/gtbot/imu"/>
 		</sensor>
 
 		<!-- 스러스터 4기: viz 메시의 프로펠러 지오메트리에서 추출한 실제 위치(림 90° 간격,
@@ -179,7 +225,7 @@
 		</actuator>
 
 		<ros_subscriber thrusters="/gtbot/thrusters"/>
-		<world_transform rpy="0.0 0.0 0.0" xyz="2.0 0.0 0.0"/>
+		<world_transform rpy="0.0 0.0 0.0" xyz="1.5 0.0 0.0"/>
 	</robot>
 
 	<robot name="gtbot2" fixed="false" self_collisions="false">
@@ -201,12 +247,34 @@
 				<cg rpy="0.0 0.0 0.0" xyz="0.0 -0.139 0.235"/>
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
+			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
+				<dimensions radius="0.015" height="0.31"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+				<mass value="0.1"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 -0.10 -0.380"/>
+			</external_part>
+			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
+				<dimensions radius="0.015" height="0.23"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+				<mass value="0.07"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 -0.10 -0.340"/>
+			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
 		<sensor name="odometry" type="odometry" rate="10.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			<ros_publisher topic="/gtbot2/odometry"/>
+		</sensor>
+		<sensor name="imu" type="imu" rate="100.0">
+			<link name="base_link"/>
+			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			<noise angle="0.000001745" angular_velocity="0.00001745"/>
+			<ros_publisher topic="/gtbot2/imu"/>
 		</sensor>
 
 		<!-- 스러스터 4기: viz 메시의 프로펠러 지오메트리에서 추출한 실제 위치(림 90° 간격,
@@ -259,7 +327,7 @@
 		</actuator>
 
 		<ros_subscriber thrusters="/gtbot2/thrusters"/>
-		<world_transform rpy="0.0 0.0 0.0" xyz="3.0 2.0 0.0"/>
+		<world_transform rpy="0.0 0.0 0.0" xyz="-0.75 1.3 0.0"/>
 	</robot>
 
 	<robot name="gtbot3" fixed="false" self_collisions="false">
@@ -281,12 +349,34 @@
 				<cg rpy="0.0 0.0 0.0" xyz="0.0 -0.139 0.235"/>
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
+			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
+				<dimensions radius="0.015" height="0.31"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+				<mass value="0.1"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 -0.10 -0.380"/>
+			</external_part>
+			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
+				<dimensions radius="0.015" height="0.23"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Neutral"/>
+				<look name="yellow"/>
+				<mass value="0.07"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 -0.10 -0.340"/>
+			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
 		<sensor name="odometry" type="odometry" rate="10.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			<ros_publisher topic="/gtbot3/odometry"/>
+		</sensor>
+		<sensor name="imu" type="imu" rate="100.0">
+			<link name="base_link"/>
+			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			<noise angle="0.000001745" angular_velocity="0.00001745"/>
+			<ros_publisher topic="/gtbot3/imu"/>
 		</sensor>
 
 		<!-- 스러스터 4기: viz 메시의 프로펠러 지오메트리에서 추출한 실제 위치(림 90° 간격,
@@ -339,7 +429,7 @@
 		</actuator>
 
 		<ros_subscriber thrusters="/gtbot3/thrusters"/>
-		<world_transform rpy="0.0 0.0 0.0" xyz="3.0 -2.0 0.0"/>
+		<world_transform rpy="0.0 0.0 0.0" xyz="-0.75 -1.3 0.0"/>
 	</robot>
 
 	<!-- 고정 관측 카메라: 두 로봇(platform x=0, gtbot x=2, 중간점 x=1) 위에서 수직으로 내려다봄.

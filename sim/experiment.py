@@ -132,7 +132,9 @@ def run_phase2(sc, rls, model, init_pos, targets, iters, controller="model"):
             eye = np.eye(n_in)
             c = np.array([sc2.w_full @ (rls.theta.T @ build_zeta_linear(X, z2, eye[l]) - base)
                           for l in range(n_in)])
-        U, status = solve_input(c, sc2.u_min, sc2.u_max)
+        # QP 정규화를 sim 하네스에서도 재현 가능하게 배선(M-1). 기본 input_reg=0.0이면
+        # 기존 LP 경로와 비트 동일이라 E1~E4 수치 캠페인은 무영향 — 기존 회귀가 증거다.
+        U, status = solve_input(c, sc2.u_min, sc2.u_max, reg=sc2.input_reg)
         if status != "ok":
             events.append((k, status))
         if rls is not None and controller == "model":
