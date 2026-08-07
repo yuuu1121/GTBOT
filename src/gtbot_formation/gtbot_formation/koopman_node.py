@@ -161,13 +161,13 @@ class KoopmanFormation(Node):
             # 참 그래디언트 해석적 팔(식별 Θ 불요) — E1~E4 시뮬레이션 캠페인에서 검증된 경로.
             # 식별 Θ 기반(model) LP는 워밍업-목표 간 외삽으로 발산(S3 model 기록 참조), 기각.
             c = analytic_c(self.Ad @ X + self.Bd @ self.u_prev, self.sc, self.sc.w_full)
-            U, status = solve_input(c, self.sc.u_min, self.sc.u_max)
+            U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.sc.input_reg)
             if status != 'ok':
                 self.get_logger().warn(f'LP {status} @k={self.k}')
         else:  # 'model' — 식별 Θ 기반 LP (실험/비교용, S3 기각 경로)
             c, _ = input_objective(self.rls['bilinear'].theta, X - self.z10, z2 - self.z20,
                                    self.sc.w_full, 6, reduced=self.sc.reduced_lifting)
-            U, status = solve_input(c, self.sc.u_min, self.sc.u_max)
+            U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.sc.input_reg)
             if status != 'ok':
                 self.get_logger().warn(f'LP {status} @k={self.k}')
         self.prev = (X, z2, U)
