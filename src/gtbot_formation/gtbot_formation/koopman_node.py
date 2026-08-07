@@ -1,5 +1,6 @@
 # gtbot_formation/koopman_node.py
 import json, os
+from dataclasses import replace
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -40,9 +41,16 @@ class KoopmanFormation(Node):
         self.warmup_steps, self.results_dir = int(p('warmup_steps')), p('results_dir')
         self.controller = p('controller')         # 'analytic'(기본, 검증된 팔) | 'model'(식별 Θ 실험용)
         self.sc = make_scenario()
+        # 식별용 시나리오 = 제어용에서 φ⁹만 뺀 것. φ⁹ = -nr²는 다른 φ(유계 0~2)와 달리
+        # **무계**라 리프팅 z2에 들어가면 1-step 예측 RMSE를 악화시켜 S2(bilinear 리프팅 품질
+        # 지표)를 직접 때린다(round 10 실측: φ⁹ 활성 후 실패율 30% -> 5회 중 3회). φ⁹은
+        # 목적함수에만 필요하므로(복원력 공급) 식별 경로에서 제외한다 — 원인 제거.
+        keep = [i for i, t in enumerate(self.sc.phi_terms) if t != 9]
+        self.sc_id = replace(self.sc, phi_terms=tuple(self.sc.phi_terms[i] for i in keep),
+                             w_robot=self.sc.w_robot[keep])
         assert abs(1.0 / p('rate') - self.sc.dt) < 1e-9, 'rate와 Scenario.dt 불일치'  # analytic_c·지연 보상 dt 정합 봉인
-        self.z10, self.z20 = operating_point(self.sc)
-        self.rls = {m: make_rls(self.sc, m) for m in ('linear', 'bilinear')}
+        self.z10, self.z20 = operating_point(self.sc_id)
+        self.rls = {m: make_rls(self.sc_id, m) for m in ('linear', 'bilinear')}
         # 지연 보상: 실측 작동기 지연 τ(U→실가속 교차상관 0.16 s)만큼 X를 미리 전파해
         # analytic_c에 넘긴다. 보상 없으면 τ=0.15 s에서 릴레이 한계 사이클이 터진다(round4 대조실험).
         self.tau = float(p('actuation_delay'))
@@ -145,11 +153,11 @@ class KoopmanFormation(Node):
             L = self.odoms['platform'][:2]
             F = [self.odoms[r][:2] for r in ROBOTS]
             X = assemble(L, F)
-        z2 = z2_vector(X, self.sc)
+        z2 = z2_vector(X, self.sc_id)   # 식별용 리프팅(φ⁹ 제외)
         if self.prev is not None:             # 전이 (ζ(k-1) → z2(k))로 RLS 갱신 지속
             Xp, z2p, Up = self.prev
             for m in ('linear', 'bilinear'):
-                self.rls[m].update(_zeta(self.sc, m, Xp, z2p, Up, self.z10, self.z20), z2)
+                self.rls[m].update(_zeta(self.sc_id, m, Xp, z2p, Up, self.z10, self.z20), z2)
         self.k += 1
         if self.phase == 'warmup':
             U = table1_input(self.k) / 8.0
@@ -166,7 +174,7 @@ class KoopmanFormation(Node):
                 self.get_logger().warn(f'LP {status} @k={self.k}')
         else:  # 'model' — 식별 Θ 기반 LP (실험/비교용, S3 기각 경로)
             c, _ = input_objective(self.rls['bilinear'].theta, X - self.z10, z2 - self.z20,
-                                   self.sc.w_full, 6, reduced=self.sc.reduced_lifting)
+                                   self.sc_id.w_full, 6, reduced=self.sc_id.reduced_lifting)
             U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.sc.input_reg)
             if status != 'ok':
                 self.get_logger().warn(f'LP {status} @k={self.k}')
@@ -179,7 +187,7 @@ class KoopmanFormation(Node):
         X_log = np.array(self.X_log)
         U_log = np.array(self.U_log[:-1])
         rmse = {m: float(np.sqrt(np.mean(
-            frozen_1step_eval(self.sc, m, self.rls[m], X_log, U_log) ** 2)))
+            frozen_1step_eval(self.sc_id, m, self.rls[m], X_log, U_log) ** 2)))
             for m in ('linear', 'bilinear')}
         out = {'frozen_1step_rmse': rmse,
                'gate_s2_pass': bool(rmse['bilinear'] < rmse['linear']),
