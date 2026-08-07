@@ -262,7 +262,7 @@ analytic_c 호출 전 X를 τ만큼 전파하는 지연 보상(X_pred = A_d·X +
 
 ### 아키텍처
 
-`platform_perception`(신규 노드)이 `/platform/lidar/points`(PointCloud2, 커스텀 `rotatinglidar`)를 클러스터링해 gtbot별 마커(기둥 2개) 중심위치·헤딩을 추정하고 `/gtbot{,2,3}/state_est`로 발행한다 — 실물의 "같은 네트워크로 상대상태를 통신"을 모사. 각 gtbot의 `velocity_loop`은 `heading_mode='bearing'`으로 확장돼 수신 상대위치로 `yaw_ref = atan2(플랫폼 방향)`를 잡고, 헤딩 추정 자체는 상보필터(`cf_update`, 자기 IMU 자이로 고주파 + 수신 헤딩 저주파, k_cf=0.1)로 자기 IMU와 정렬한다. `koopman_formation`의 상대상태 입력은 기존 ground-truth odometry에서 이 `/gtbotN/state_est`로 교체됐고(스위처블 `state_source` 파라미터), 편대 목표·지연 보상·analytic LP 팔 등 Stonefish 캠페인에서 검증된 자산은 무수정 재사용했다. odometry는 게이트 오차 산출용 평가 기준(ground truth)으로만 유지된다.
+`platform_perception`(신규 노드)이 `/platform/lidar/points`(PointCloud2, 커스텀 `rotatinglidar`)를 클러스터링해 gtbot별 마커(기둥 2개) 중심위치·헤딩을 추정하고 `/gtbot{,2,3}/state_est`로 발행한다 — 실물의 "같은 네트워크로 상대상태를 통신"을 모사. 각 gtbot의 `velocity_loop`은 `heading_mode='bearing'`으로 확장돼 수신 상대위치로 `yaw_ref = atan2(플랫폼 방향)`를 잡고, 헤딩 추정 자체는 상보필터(`cf_update`, 자기 IMU 자이로 고주파 + 수신 헤딩 저주파, **k_cf=0.05**)로 자기 IMU와 정렬한다. `koopman_formation`의 상대상태 입력은 기존 ground-truth odometry에서 이 `/gtbotN/state_est`로 교체됐고(스위처블 `state_source` 파라미터), 편대 목표·지연 보상·analytic LP 팔 등 Stonefish 캠페인에서 검증된 자산은 무수정 재사용했다. k_cf는 착수 시 0.1이었으나 3.6 m 스폰에서 `yaw_meas`가 valid 상태로도 40~50° 오차를 내는 것이 실측돼(aux 포인트 부족으로 센트로이드 노이즈 큼) 노이즈 큰 측정에 덜 끌리도록 **0.05로 하향**했고, S5·S6를 만든 실제 값이 이것이다(`mixer.cf_update`의 시그니처 기본값 0.1은 실행 경로에 쓰이지 않는다). odometry의 잔여 의존 구간은 아래 「시뮬 한정 단순화」 참조.
 
 ### 마커 설계 근거
 
@@ -276,7 +276,11 @@ gtbot은 준원판형 동체 + 스러스터 90° 배치라 형상만으로는 �
 
 ### 시뮬 한정 단순화
 
-`velocity_loop`의 내부 속도 PI 루프는 이번 캠페인에서도 여전히 `/robot/odometry`를 속도 피드백으로 구독한다(`velocity_loop.py:49,92`) — LiDAR 기반 `state_est`가 대체한 것은 `koopman_formation`의 **상위 편대제어 상대상태 입력**뿐이고, 로봇 자신의 대지속도를 추종하는 하위 루프는 여전히 ground-truth odometry 피드백에 의존한다. 실물 전환 시 이 하위 루프의 속도 피드백을 DVL·IMU 적분 등 실제 온보드 센서로 교체해야 하는 지점으로, odometry 의존이 남아 있는 유일한 구간이다.
+`velocity_loop`의 내부 속도 PI 루프는 이번 캠페인에서도 여전히 `/robot/odometry`를 속도 피드백으로 구독한다(`velocity_loop.py:49,92`) — LiDAR 기반 `state_est`가 대체한 것은 `koopman_formation`의 **상위 편대제어 상대상태 입력**뿐이고, 로봇 자신의 대지속도를 추종하는 하위 루프는 여전히 ground-truth odometry 피드백에 의존한다. 실물 전환 시 이 하위 루프의 속도 피드백을 DVL·IMU 적분 등 실제 온보드 센서로 교체해야 하는 지점이다.
+
+**odometry 의존은 여기서 끝나지 않는다.** `koopman_formation`도 `state_source`와 무관하게 platform + gtbot 3대 **전원의 odometry 신선도(0.5 s)를 하드 게이트**로 요구한다(`koopman_node.py` tick 진입부) — odometry가 끊기면 lidar 모드에서도 제어가 전혀 나가지 않는다. 또한 진단 로그(`logrow`)가 매 틱 odometry로 참값 X를 조립해 추정 오차를 같은 틱에서 재는다. 가드 자체는 안전 측(두절 시 침묵 → velocity_loop의 검증된 정지 경로)이고 시뮬에서 무해하지만, 실물에서는 이 신선도 게이트를 온보드 상태 추정의 헬스 체크로 대체해야 한다. 따라서 **출력피드백은 편대 상대상태 입력에 한정된 주장**이며, 실행 가드·평가 계측 층에는 odometry가 남아 있다.
+
+**bearing 두절 폴백의 현재 시맨틱**(알려진 한계, 머지 후 이슈로 이관): `velocity_loop`의 bearing 분기가 0.5 s 두절로 폴백하면 `syaw = kpsi·wrap(yaw − yaw0)`로 돌아가는데, `yaw0`는 첫 odometry 수신 시각에 한 번 래치된 **스폰 헤딩**이다(scn의 `world_transform rpy=0`이라 세 로봇 모두 0). bearing 목표는 gtbot ≈ 180°, gtbot2 ≈ −60°, gtbot3 ≈ +60°이므로 폴백은 "현재 헤딩 유지"가 아니라 **스폰 헤딩으로 복귀**시킨다. 통과 run에서도 실제로 진입한 경로다(제어 단계 부분 마스킹 7·14틱). 수정(`bearing` 분기에서 매 틱 `yaw0 = yaw` 갱신)은 통과 run의 거동을 바꿔 S6 2회 재판정을 수반하므로 이번 머지에는 포함하지 않았다.
 
 ### 게이트 S4 — 정지 배치 위치·헤딩 추정 (`s4_stonefish.json`)
 
