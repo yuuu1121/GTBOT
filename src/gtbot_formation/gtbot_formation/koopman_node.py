@@ -165,6 +165,15 @@ class KoopmanFormation(Node):
             L = self.odoms['platform'][:2]
             F = [self.odoms[r][:2] for r in ROBOTS]
             X = assemble(L, F)
+        if self.phase == 'warmup' and not all(mask):
+            # I-1: 마스킹 틱은 워밍업 표본에서 **통째로** 건너뛴다. X에는 만료된 홀드 좌표가
+            # 섞이고, U에는 publish_u가 실제로는 발행하지 않은 로봇의 입력이 그대로 남아
+            # '가해지지 않은 입력'이 식별 데이터가 된다 — 둘 다 frozen_1step_eval을 거쳐
+            # S2 판정을 만든다. self.k도 올리지 않아 여기 수열(table1_input)과 실제 인가가
+            # 어긋나지 않는다. odometry 모드는 mask가 항상 전부 True라 이 분기에 오지 않는다.
+            self.prev = None
+            self.logrow(t, X, np.zeros(6), float(sum(mask)) / 3.0)
+            return
         z2 = z2_vector(X, self.sc_id)   # 식별용 리프팅(φ⁹ 제외)
         if self.prev is not None:             # 전이 (ζ(k-1) → z2(k))로 RLS 갱신 지속
             Xp, z2p, Up = self.prev
@@ -190,7 +199,9 @@ class KoopmanFormation(Node):
             U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.sc.input_reg)
             if status != 'ok':
                 self.get_logger().warn(f'LP {status} @k={self.k}')
-        self.prev = (X, z2, U)
+        # I-2: 오염 전이는 다음 틱에도 재주입되지 않도록 여기서도 막는다. 161행의 prev=None은
+        # 그 틱의 갱신만 막았고, 이 줄이 오염된 X로 prev를 다시 채워 다음 틱에 흘려보냈다.
+        self.prev = (X, z2, U) if all(mask) else None
         self.publish_u(U, mask)
         self.logrow(t, X, U, float(sum(mask)) / 3.0)
 

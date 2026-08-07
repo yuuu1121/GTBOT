@@ -130,3 +130,62 @@ def test_recovery_after_permanent_loss_resumes():
     ok = {k: (np.zeros(2), np.zeros(2), 9.9) for k in range(3)}
     with pytest.raises(AttributeError):        # 침묵 반환이 아니라 제어 계산으로 진행
         _tick_stub('lidar', _odoms(t=9.9), ok=ok, t=10.0)
+
+
+def _warmup_stub(mask_ok, t=10.0):
+    """워밍업 단계 스텁 — 마스킹 틱이 식별 표본에 들어가는지 본다(I-1·I-2 가드).
+
+    mask_ok=False는 로봇1의 추정이 est_hold(1.0 s)는 넘고 est_stale_stop(5 s)은 안 넘는 상태
+    = '홀드 만료로 발행만 마스킹된' 틱이다.
+    """
+    from gtbot_formation.koopman_node import KoopmanFormation
+
+    class Stub:
+        pass
+
+    s = Stub()
+    s.now = lambda: t
+    s.odoms = _odoms(t)
+    age = 0.1 if mask_ok else 2.0                      # 2.0 s: hold 만료, stale_stop 미만
+    s.ok = {0: (np.zeros(2), np.zeros(2), t - 0.1),
+            1: (np.zeros(2), np.zeros(2), t - age),
+            2: (np.zeros(2), np.zeros(2), t - 0.1)}
+    s.state_source, s.est_hold, s.est_stale_stop = 'lidar', 1.0, 5.0
+    s.prev, s.log, s.ests = None, None, {}
+    s.phase, s.k, s.warmup_steps = 'warmup', 5, 600
+    s.X_log, s.U_log = [], []
+    # 식별 경로는 실물을 쓴다(깨끗한 틱이 실제로 RLS까지 도달하는지 보려면 필요)
+    from dataclasses import replace as _replace
+    sc = make_scenario()
+    keep = [i for i, term in enumerate(sc.phi_terms) if term != 9]
+    s.sc = sc
+    s.sc_id = _replace(sc, phi_terms=tuple(sc.phi_terms[i] for i in keep),
+                       w_robot=sc.w_robot[keep])
+    s.rls = {m: make_rls(s.sc_id, m) for m in ('linear', 'bilinear')}
+    s.z10, s.z20 = operating_point(s.sc_id)
+    s.pubs = [_FakePub(), _FakePub(), _FakePub()]
+    s.logrow = KoopmanFormation.logrow.__get__(s)
+    s.publish_u = KoopmanFormation.publish_u.__get__(s)   # 실제 마스킹 발행 경로
+    KoopmanFormation.tick(s)
+    return s
+
+
+def test_warmup_skips_masked_tick_entirely():
+    """마스킹 틱은 X_log/U_log/self.k 어디에도 기여하지 않는다 (I-1).
+
+    X에는 만료된 홀드 좌표가 섞이고 U에는 publish_u가 발행하지 않은 로봇의 입력이 남는다 —
+    둘 다 frozen_1step_eval을 거쳐 S2 판정을 만들므로 표본에서 통째로 빠져야 한다."""
+    s = _warmup_stub(mask_ok=False)
+    assert s.X_log == [] and s.U_log == []
+    assert s.k == 5                                    # 여기 수열이 실제 인가와 어긋나지 않게 정지
+    assert s.prev is None                              # 오염 전이 차단 (I-2: prev는 all(mask)일 때만 채워진다)
+    assert all(p.sent == [] for p in s.pubs)
+
+
+def test_warmup_records_clean_tick():
+    """대조군: 전 로봇 유효하면 정상 축적된다(가드가 워밍업을 통째로 막지 않음)."""
+    s = _warmup_stub(mask_ok=True)
+    assert len(s.X_log) == 1 and len(s.U_log) == 1
+    assert s.k == 6
+    assert s.prev is not None                          # 깨끗한 전이는 다음 틱 RLS로 이어진다
+    assert all(len(p.sent) == 1 for p in s.pubs)
