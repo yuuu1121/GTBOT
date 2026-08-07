@@ -28,5 +28,6 @@ setup(
         'gate_s4 = gtbot_formation.gate_s4:main',
         'gate_s5 = gtbot_formation.gate_s5:main',
         'gate_s6 = gtbot_formation.gate_s6:main',
+        'settle_wait = gtbot_formation.settle_wait:main',
     ]},
 )

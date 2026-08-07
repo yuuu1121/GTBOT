@@ -4,8 +4,10 @@
 워밍업 중 leader가 먼저 출발하면 gtbot이 지각 범위 밖으로 밀려나 state_est가 영구
 invalid 되어 k가 안 늘고 S2 전환(제어 진입)이 영원히 오지 않는다. 따라서
 `formation.launch.py start_leader:=false`로 기동 → koopman_formation의 S2 완료(제어 전환)
-로그 확인 → 이 시점에 `leader_pilot`을 별도 실행(waypoints=[60,0]) → 30 s 정착 대기 →
-gate_s6 실행. (GT-odometry 기반 편대(S3)는 이 제약이 없다 — 추정 기반과의 실질 차이.)
+로그 확인 → **`ros2 run gtbot_formation settle_wait`로 편대 정착을 기다린 뒤**(round 9 추가:
+워밍업이 로봇을 산개시킨 채 제어로 넘겨 run 간 10배 편차를 만들던 것을 차단한다. exit 1이면
+초기조건 불량이므로 그 run은 폐기·재시도) → `leader_pilot`을 별도 실행(waypoints=[60,0]) →
+30 s 대기 → gate_s6 실행. (GT-odometry 기반 편대(S3)는 이 제약이 없다 — 추정 기반과의 실질 차이.)
 표면거리는 platform-gtbot과 gtbot 간을 분리 기록(반지름 합이 다름: 0.47 vs 0.44).
 """
 import json, os, time
