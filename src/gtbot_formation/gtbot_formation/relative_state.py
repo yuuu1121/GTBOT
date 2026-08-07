@@ -16,7 +16,7 @@ def make_scenario():
     return Scenario(
         # φ⁸(리더 반발) 추가 — 사용자 결정(round 5): 반경 0.866 m를 유지한 채 플랫폼 관통을
         # 막는다. leader_standoff 0.47 = platform 0.25 + gtbot 0.22 (표면 여유 0.396 m).
-        n_robots=3, phi_terms=(1, 2, 3, 4, 5, 6, 7, 8, 9), leader_standoff=0.60,
+        n_robots=3, phi_terms=(1, 2, 3, 4, 5, 6, 7, 8, 9), leader_standoff=0.65,
         targets=np.array(OFFSETS), formation=dict(FORMATION), sigma=1.0,
         # dt는 koopman_node의 rate와 짝(dt=1/rate=0.05 @20Hz). analytic_c의 B는 위치감도 dt²/2·
         # 속도감도 dt이므로 dt를 줄이면 그래디언트에서 속도(감쇠) 항 비중이 2/dt로 커진다.
@@ -62,4 +62,4 @@ def make_scenario():
         #   w₉=50  |e|중앙 0.238 p90 0.530 최대 0.725 valid 0.996   <- 채택
         #   w₉=100 |e|중앙 0.402 p90 0.624 최대 0.804 valid 0.756 (과구동, 유효율 저하)
         # 대조: φ⁹ 없음(round 9)은 같은 조건에서 |e| 0.38~1.45로 진동했다. **튜닝 노브**.
-        w_robot=np.array([-1.0, -1.0, 5.0, 2.0, -2.0, -2.0, 3.0, -4.0, 50.0]))
+        w_robot=np.array([-1.0, -1.0, 5.0, 2.0, -2.0, -2.0, 3.0, -32.0, 50.0]))
