@@ -1,4 +1,6 @@
 """LiDAR 지각 순수함수 — ROS 무관, 합성 클라우드로 테스트."""
+import itertools
+
 import numpy as np
 
 
@@ -113,3 +115,39 @@ def marker_center(center_xy, aux_xy, offset=(0.0, -0.10)):
     yaw = marker_heading(c, a)
     ct, st = np.cos(yaw), np.sin(yaw)
     return 0.5 * (c + a) - np.array([[ct, -st], [st, ct]]) @ np.asarray(offset, dtype=float)
+
+
+def assign_tracks(dets_xy, tracks, gate):
+    """검출 <-> 트랙 **전역 최적 배정**. 반환: 트랙별 검출 인덱스(또는 None).
+
+    기존 탐욕(argmin 후 `out[k] is None`이면 채택)은 이미 점유된 트랙에 최근접인 클러스터를
+    **그냥 버려서** 다른 트랙을 굶겼다. 그리고 무효 트랙의 앵커는 갱신되지 않아 고착되므로
+    한 번 굶은 트랙은 영구 미아가 된다(round 11 실측: platform_perception만 재시작해 앵커를
+    초기화하자 **동일 장면에서 valid 집합이 바뀜** -> 탐지가 아니라 연관 계층 결함).
+
+    트랙 3개라 배정 후보가 (n_det+1)^3로 작아 순열 전수로 최적해를 고른다 — solver 불필요.
+    목적은 **사전식(lexicographic)**이다: 먼저 배정 개수를 최대화하고, 같은 개수 안에서
+    거리 합을 최소화한다. 미배정 벌점을 gate로만 두면 '한 트랙을 버리고 다른 트랙에 더 가까운
+    검출을 주는' 쪽이 총합에서 이겨 기아가 되살아난다(실제로 그렇게 실패했다) — 벌점을 게이트
+    합보다 크게 잡아 개수 항이 항상 지배하게 한다.
+    """
+    BIG = 1e3                                            # 미배정 벌점 (거리 합 최대치보다 큼)
+    n = len(dets_xy)
+    best, best_cost = (None,) * len(tracks), None
+    for combo in itertools.product([None] + list(range(n)), repeat=len(tracks)):
+        used = [c for c in combo if c is not None]
+        if len(set(used)) != len(used):                  # 한 검출을 두 트랙에 줄 수 없다
+            continue
+        cost, ok = 0.0, True
+        for k, j in enumerate(combo):
+            if j is None:
+                cost += BIG
+                continue
+            d = float(np.linalg.norm(np.asarray(dets_xy[j]) - np.asarray(tracks[k])))
+            if d >= gate:
+                ok = False
+                break
+            cost += d
+        if ok and (best_cost is None or cost < best_cost):
+            best, best_cost = combo, cost
+    return list(best)

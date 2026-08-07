@@ -1,7 +1,7 @@
 import numpy as np
 from gtbot_formation.perception_core import (cluster_2d, lidar_to_world,
                                              marker_split, marker_heading,
-                                             marker_center, kf_step)
+                                             marker_center, kf_step, assign_tracks)
 
 def synth_pole(cx, cy, h_lo, h_hi, n=30, r=0.015, seed=0):
     rng = np.random.default_rng(seed)
@@ -154,3 +154,28 @@ def test_marker_center_undoes_body_offset():
         assert np.linalg.norm(naive - [1.2, -0.4]) > 0.08      # 0.10 m 편향이 실제로 생긴다
         est_yaw = marker_heading(c_xy, a_xy)                   # 헤딩은 오프셋과 무관
         assert abs(np.arctan2(np.sin(est_yaw - yaw), np.cos(est_yaw - yaw))) < np.deg2rad(10)
+
+
+def test_assign_tracks_no_preemption_starvation():
+    """선점 기아 재현: 두 트랙의 최근접이 같은 검출일 때 탐욕은 한 트랙을 굶긴다.
+
+    round 11 실측 결함 — 탐욕은 argmin 후 점유돼 있으면 그 클러스터를 **버려서**
+    남은 트랙이 자기 차선책 검출을 받지 못하고 영구 미아가 됐다."""
+    tracks = [np.array([0.0, 0.0]), np.array([0.30, 0.0])]
+    dets = [np.array([0.25, 0.0]), np.array([0.80, 0.0])]   # det0가 두 트랙 모두의 최근접
+    asg = assign_tracks(dets, tracks, gate=0.6)
+    assert asg[0] is not None and asg[1] is not None        # 둘 다 배정 = 기아 없음
+    assert asg[0] != asg[1]
+    # 전역 최적: 총비용 |0.25|+|0.5| = 0.75 < 대안 |0.05|+|0.8(게이트밖)| -> track1이 det1
+    assert asg == [0, 1]
+
+def test_assign_tracks_respects_gate_and_leaves_unassigned():
+    tracks = [np.array([0.0, 0.0]), np.array([5.0, 0.0])]
+    dets = [np.array([0.1, 0.0])]
+    asg = assign_tracks(dets, tracks, gate=0.6)
+    assert asg == [0, None]                                  # 게이트 밖은 미배정
+
+def test_assign_tracks_prefers_assignment_over_none():
+    tracks = [np.array([0.0, 0.0])]
+    dets = [np.array([0.55, 0.0])]                           # 게이트 안이면 항상 배정이 유리
+    assert assign_tracks(dets, tracks, gate=0.6) == [0]

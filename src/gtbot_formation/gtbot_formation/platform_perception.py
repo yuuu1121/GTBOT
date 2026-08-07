@@ -12,7 +12,7 @@ from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Float64MultiArray
 from .mixer import yaw_of
 from .perception_core import (cluster_2d, lidar_to_world, marker_split, marker_heading,
-                              marker_center, kf_step)
+                              marker_center, kf_step, assign_tracks)
 from .relative_state import OFFSETS
 
 ROBOTS = ['gtbot', 'gtbot2', 'gtbot3']
@@ -28,7 +28,8 @@ class PlatformPerception(Node):
         for n, d in [('z_water_offset', 0.198),
                      ('linkage', 0.3), ('track_gate', 0.6), ('n_accum', 10),
                      ('min_sep', 0.08), ('main_band', [0.0, 0.07]), ('shared_band', [0.10, 0.22]),
-                     ('kf_q', 0.5), ('kf_r', 0.025), ('marker_offset', [0.0, -0.10])]:
+                     ('kf_q', 0.5), ('kf_r', 0.025), ('marker_offset', [0.0, -0.10]),
+                     ('track_reset', 4.0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         self.z_off = p('z_water_offset')
@@ -43,6 +44,8 @@ class PlatformPerception(Node):
         self.tracks = [np.array(o) for o in SPAWN_REL]
         self.kf_q, self.kf_r = p('kf_q'), p('kf_r')
         self.marker_offset = tuple(p('marker_offset'))   # 마스트 중점의 body 위치(캘리브레이션)
+        self.track_reset = p('track_reset')              # 트랙별 재획득 대기(초)
+        self.invalid_since = [None] * 3                 # k -> 그 트랙이 무효로 들어간 시각
         self.kf = [None] * 3                            # k -> (x=[px,py,vx,vy], P, t) 트랙별 KF
         self.all_invalid_since = None                   # fix round 1: 전 트랙 invalid 5s 지속 → 스폰 리셋
         self.create_subscription(Imu, '/platform/imu', self.on_imu, 10)
@@ -70,6 +73,7 @@ class PlatformPerception(Node):
             xy_w = np.vstack([b[0] for b in self.buf])          # 비반복 스캔 병합 → 유효 해상도 증가
             h_w = np.concatenate([b[1] for b in self.buf])
             xyz_w = np.column_stack([xy_w, h_w])
+            dets = []
             for idx in cluster_2d(xy_w, self.linkage):
                 sp = marker_split(xyz_w[idx], h_w[idx], self.main_band, self.shared_band, self.min_sep)
                 if sp is None:
@@ -77,11 +81,31 @@ class PlatformPerception(Node):
                 center_xy, aux_xy = sp
                 # 두 기둥은 body (±0.08, -0.10) — 중점이 body (0,-0.10)이라 헤딩으로 되돌려야
                 # 로봇 원점이 된다(보정 없으면 0.10 m 상수 편향).
-                rel_w = marker_center(center_xy, aux_xy, self.marker_offset)
-                yaw_w = marker_heading(center_xy, aux_xy)
-                k = int(np.argmin([np.linalg.norm(rel_w - tr) for tr in self.tracks]))
-                if np.linalg.norm(rel_w - self.tracks[k]) < self.gate and out[k] is None:
-                    out[k] = (rel_w, yaw_w)
+                dets.append((marker_center(center_xy, aux_xy, self.marker_offset),
+                             marker_heading(center_xy, aux_xy)))
+            # 전역 최적 배정(탐욕 선점 기아 제거, round 12). 게이트 0.6은 그대로 강제된다.
+            asg = assign_tracks([d[0] for d in dets], self.tracks, self.gate)
+            for k, j in enumerate(asg):
+                if j is not None:
+                    out[k] = dets[j]
+            # 트랙별 재획득: 어떤 트랙이 track_reset초 연속 무효면 그 트랙만 되살린다. 미배정
+            # 검출이 있으면 그쪽으로 앵커를 스냅하고(고착 해제의 근본), 없으면 스폰 규약으로.
+            # 전 트랙 동시-무효 리셋(아래)만으로는 나머지가 건강할 때 영원히 발화하지 않았다.
+            free = [j for j in range(len(dets)) if j not in asg]
+            for k in range(3):
+                if out[k] is not None:
+                    self.invalid_since[k] = None
+                    continue
+                if self.invalid_since[k] is None:
+                    self.invalid_since[k] = t
+                elif t - self.invalid_since[k] > self.track_reset:
+                    if free:
+                        j = min(free, key=lambda q: np.linalg.norm(dets[q][0] - self.tracks[k]))
+                        free.remove(j)
+                        self.tracks[k] = dets[j][0]
+                    else:
+                        self.tracks[k] = np.array(SPAWN_REL[k])
+                    self.invalid_since[k] = None
         # fix round 1: 전 트랙이 동시에 5s 넘게 invalid면 스폰 상대위치로 리셋(드리프트로
         # 트랙이 영구 미아가 되는 것을 막는 재획득 앵커 — 실측: 이 게이트 없이는 valid_ratio가
         # 스폰 후 몇 분 뒤 0으로 붕괴함, task-3-report 참조).
