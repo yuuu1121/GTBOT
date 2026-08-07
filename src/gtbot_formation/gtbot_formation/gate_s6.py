@@ -9,6 +9,12 @@ invalid 되어 k가 안 늘고 S2 전환(제어 진입)이 영원히 오지 않�
 초기조건 불량이므로 그 run은 폐기·재시도) → `leader_pilot`을 별도 실행(waypoints=[60,0]) →
 30 s 대기 → gate_s6 실행. (GT-odometry 기반 편대(S3)는 이 제약이 없다 — 추정 기반과의 실질 차이.)
 표면거리는 platform-gtbot과 gtbot 간을 분리 기록(반지름 합이 다름: 0.47 vs 0.44).
+
+판정 기준(round 11 재정의, 사용자 승인): tail30s edge 오차의 **중앙값 < 0.3 이고 p90 < 0.6**,
+그리고 무충돌(min_surf_pg > 0, min_surf_gg > 0). 반복성 요건(2회 연속 통과)은 절차로 유지한다.
+구 기준인 **max < 0.3**은 참 상태(odometry) 기반 S3가 낸 0.233의 바로 위라 추정 오차 예산이
+사실상 0이었다 — 추정 기반 출력피드백에는 분포 기준이 합당하다는 것이 재정의 근거다.
+무충돌 항목은 안전 요건이므로 완화 없이 그대로 둔다.
 """
 import json, os, time
 import numpy as np
@@ -55,14 +61,18 @@ def main():
         csv.write(f'{t:.3f},' + ','.join(f'{e:.4f}' for e in signed) +
                   f',{min(surf_gg):.4f},{min(surf_pg):.4f},{pL[0]:.4f},{pL[1]:.4f}\n')
     csv.close()
-    tail = [e for (t, e, _, _) in log if t > 150.0]
+    tail = np.array([e for (t, e, _, _) in log if t > 150.0])
     max_edge_err = float(np.max(tail))
+    med_edge_err = float(np.median(tail))
+    p90_edge_err = float(np.percentile(tail, 90))
     min_surf_gg = float(min(s for (_, _, s, _) in log))
     min_surf_pg = float(min(s for (_, _, _, s) in log))
-    out = {'max_edge_err_tail30s': max_edge_err,
+    out = {'median_edge_err_tail30s': med_edge_err, 'p90_edge_err_tail30s': p90_edge_err,
+           'max_edge_err_tail30s': max_edge_err,
            'min_surface_dist_gg': min_surf_gg, 'min_surface_dist_pg': min_surf_pg,
            'n_samples': len(log),
-           'gate_s6_pass': bool(max_edge_err < 0.3 and min_surf_gg > 0.0 and min_surf_pg > 0.0)}
+           'gate_s6_pass': bool(med_edge_err < 0.3 and p90_edge_err < 0.6
+                                and min_surf_gg > 0.0 and min_surf_pg > 0.0)}
     with open('results/s6_stonefish.json', 'w') as f:
         json.dump(out, f, indent=1)
     print(json.dumps(out, indent=1))
