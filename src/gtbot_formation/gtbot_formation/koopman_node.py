@@ -59,6 +59,13 @@ class KoopmanFormation(Node):
         self.u_prev = np.zeros(2 * len(ROBOTS))   # 지연 구간에 이미 발행돼 반영 중인 입력
         self.k = 0
         self.phase = 'warmup'
+        # plate 부트스트랩 상태기계(2026-08-09, 사용자 승인 3안): lidar 모드에서 전 로봇의
+        # est가 **연속 3 s 유효**할 때까지 koopman은 완전 침묵한다. 간헐 깜빡임이 워밍업
+        # 가진을 버스트로 깨워 로봇을 흔들고, 그 흔들림이 다시 검출을 깨는 3-체제 스위칭
+        # (워밍업/bearing/폴백 혼합)이 실측 확인됨 — 침묵 유지가 평수면에서 로봇을 정지시켜
+        # 검출기가 정적 장면을 보게 한다. odometry 모드는 무관(항상 boot_done).
+        self.boot_done = (p('state_source') != 'lidar')
+        self.boot_ok_since = None
         self.X_log, self.U_log = [], []
         self.prev = None                      # (X, z2, U)
         self.odoms = {}                       # name -> (pos2, vel2, t)
@@ -132,6 +139,21 @@ class KoopmanFormation(Node):
             self.prev = None                  # 두절 갱을 전이로 오인해 RLS에 주입하지 않도록 무효화
             return
         mask = (True, True, True)
+        if self.state_source == 'lidar' and not self.boot_done:
+            fresh = all(k in self.ests and self.ests[k][2]
+                        and t - self.ests[k][3] < self.est_hold for k in range(3))
+            if fresh:
+                if self.boot_ok_since is None:
+                    self.boot_ok_since = t
+                if t - self.boot_ok_since >= 3.0:
+                    self.boot_done = True
+                    self.get_logger().info('bootstrap: est 연속 유효 3 s — 워밍업 시작')
+            else:
+                self.boot_ok_since = None
+            if not self.boot_done:
+                self.prev = None
+                self.logrow(t, np.zeros(12), np.zeros(6), 0.0)
+                return
         if self.state_source == 'lidar':
             # odometry 두절 가드는 위에서 이미 통과 — 상태 조립에는 미사용, lidar 자체 두절만 가드.
             # 로봇별 홀드: 마지막 '유효' 추정을 est_hold 동안 쓰고, 만료된 로봇만 침묵시킨다.

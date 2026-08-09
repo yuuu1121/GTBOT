@@ -35,6 +35,7 @@ class VelocityLoop(Node):
             self.yaw_hat = None
             self.t_cf = None
             self.t_est = None
+            self.valid_since = None   # 연속 유효 스트릭 시작(0.5 s 끊기면 리셋) — bearing 진입 게이트
             self.gyro_z = 0.0
             self.create_subscription(Float64MultiArray, f'/{robot}/state_est', self.on_est, 10)
             self.create_subscription(Imu, f'/{robot}/imu', self.on_imu, 50)
@@ -73,9 +74,15 @@ class VelocityLoop(Node):
             valid = False
         self.meas_valid = valid
         if self.meas_valid:
+            now = self.now()
+            # 연속 유효 스트릭: 직전 유효에서 0.5 s 넘게 끊겼으면 스트릭 재시작.
+            # bearing 분기는 스트릭 1 s 이상에서만 진입(아래) — 간헐 깜빡임 한 발로
+            # 제어 체제가 스위칭하며 로봇을 흔드는 것을 차단(상태기계 3안).
+            if self.t_est is None or now - self.t_est > 0.5:
+                self.valid_since = now
             self.rel = np.array(d[0:2])
             self.yaw_meas = d[4]
-            self.t_est = self.now()
+            self.t_est = now
 
     def on_imu(self, msg):
         from .mixer import cf_update
@@ -115,14 +122,22 @@ class VelocityLoop(Node):
             self.pub.publish(Float64MultiArray(data=[0.0] * 4))
             return
         pos, v_world, yaw = self.odom
-        if self.t_acc is None or t - self.t_acc > 0.5:
+        dropped = self.t_acc is None or t - self.t_acc > 0.5
+        if dropped:
             self.a_cmd = np.zeros(2)
             self.v_ref = v_world.copy()       # 명령 두절 시 참조 리셋(윈드업 방지)
             self.ei[:] = 0.0
         self.v_ref = self.v_ref + self.a_cmd * self.dt
-        n = np.linalg.norm(self.v_ref)
-        if n > self.v_max:
-            self.v_ref *= self.v_max / n
+        if not dropped:
+            # 두절 시 v_max 클램프 생략(2026-08-09 근본 수정): 리셋 직후 클램프하면
+            # |v|>v_max에서 v_ref=0.2·v̂로 잘려 잔여 제동 명령이 남는다. 회전 중 body
+            # 프레임 + 작동 지연 0.5 s에서 제동력 방향이 스핀만큼 돌아 제동이 가속으로
+            # 뒤집히고(실측: a_cmd=0인데 |v| 1.2~1.4 m/s 폭주·채널 ±1 포화·자전 자기
+            # 유지), 두절 설계 의도(오차 0 → 추력 침묵 → 항력 자연 감속)가 깨진다.
+            # 정상 추적 경로의 클램프는 불변.
+            n = np.linalg.norm(self.v_ref)
+            if n > self.v_max:
+                self.v_ref *= self.v_max / n
         e_world = self.v_ref - v_world
         # 적분 기여를 ±i_max로 클램프(안티윈드업). i_max는 정상상태 항력을 이길 setpoint
         # 여유를 정하는 보정 노브 — mixer 병진 캡(±0.7) 아래에 둔다.
@@ -132,13 +147,18 @@ class VelocityLoop(Node):
         # 실측(2026-08-06): [a,a,a,a] 양의 setpoint -> yaw 감소(sw=+0.1에서 -215deg/4s,
         # 정상 rate -12 rad/s per unit). 따라서 yaw>yaw0일 때 sw>0이어야 되돌린다.
         if (self.heading_mode == 'bearing' and self.rel is not None
-                and self.yaw_hat is not None and self.t_est is not None
-                and t - self.t_est < 0.5):
+                and self.t_est is not None and t - self.t_est < 0.5
+                and self.valid_since is not None and t - self.valid_since >= 1.0):
             yaw_ref = np.arctan2(-self.rel[1], -self.rel[0])   # platform을 바라보는 방위
-            # fix round 2: PD로 확장 — sw>0이 yaw를 감소시키는 플랜트이므로(mixer.py 실측),
-            # gyro_z>0(yaw 증가 중)일 때 sw를 더 키워 rate를 누르는 kd>0이 댐핑 방향이다.
-            # 큰 초기오차에서 새추레이션(±0.3)에 걸려 오버슈트·역오버슈트 발진하던 문제 완화.
-            syaw = self.kpsi * wrap(self.yaw_hat - yaw_ref) + self.kd * self.gyro_z
+            # plate 캠페인(2026-08-09): 헤딩 피드백을 yaw_hat(CF: 자이로+plate yaw 융합)에서
+            # **odometry yaw**로 전환. plate yaw는 π-대칭이라 미지향 자세에서 접기-뒤집힌
+            # 측정이 CF를 오염시키고, 오염된 yaw_hat을 쫓는 제어가 자전→검출 상실→재오염의
+            # 자기 유지 발산을 만든다(실측: 정렬 성공 직후 검출 버스트에서 재붕괴). 실물
+            # 로봇은 온보드 컴퍼스/IMU로 자기 헤딩을 아는 게 표준이며, 이 저장소의 기존
+            # '시뮬 한정 단순화' 규약(하위 속도 루프 odometry = 온보드 센서 대역)과 동일한
+            # 위치의 단순화다. plate yaw 측정은 S4 게이트의 평가 대상으로 유지(제어 미사용).
+            # fix round 2의 PD 구조는 유지: sw>0이 yaw를 감소시키는 플랜트라 kd>0이 댐핑.
+            syaw = self.kpsi * wrap(yaw - yaw_ref) + self.kd * self.gyro_z
         else:
             # plate 부트스트랩(2026-08-09): bearing 모드에서 est가 아직/더는 없을 때의 폴백
             # 목표를 스폰 헤딩(yaw0)이 아니라 **배치 베어링**(fallback_bearing, 알려진 초기

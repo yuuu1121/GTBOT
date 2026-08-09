@@ -85,6 +85,7 @@ def _tick_stub(state_source, odoms, ok, t, est_hold=1.0, est_stale_stop=5.0, pha
     s.state_source, s.est_hold, s.est_stale_stop = state_source, est_hold, est_stale_stop
     s.ests = {}
     s.phase, s.k = phase, 0
+    s.boot_done, s.boot_ok_since = True, None   # 기존 경로 테스트는 부트스트랩 통과 상태
     s.pubs = [_FakePub(), _FakePub(), _FakePub()]
     s.logrow = KoopmanFormation.logrow.__get__(s)   # 실제 메서드(log=None이라 즉시 반환)
     s.publish_u = KoopmanFormation.publish_u.__get__(s)
@@ -156,6 +157,7 @@ def _warmup_stub(mask_ok, t=10.0):
     s.state_source, s.est_hold, s.est_stale_stop = 'lidar', 1.0, 5.0
     s.prev, s.log, s.ests = None, None, {}
     s.phase, s.k, s.warmup_steps = 'warmup', 5, 600
+    s.boot_done, s.boot_ok_since = True, None
     s.X_log, s.U_log = [], []
     # 식별 경로는 실물을 쓴다(깨끗한 틱이 실제로 RLS까지 도달하는지 보려면 필요)
     from dataclasses import replace as _replace
@@ -192,3 +194,29 @@ def test_warmup_records_clean_tick():
     assert s.k == 6
     assert s.prev is not None                          # 깨끗한 전이는 다음 틱 RLS로 이어진다
     assert all(len(p.sent) == 1 for p in s.pubs)
+
+
+def test_bootstrap_silences_until_sustained_validity():
+    """상태기계(3안) 회귀 가드: lidar 모드에서 전 로봇 est가 연속 3 s 유효하기 전에는
+    ok가 채워져 있어도 **완전 침묵**(가진·제어 모두 없음) — 간헐 깜빡임이 워밍업 가진을
+    버스트로 깨워 로봇을 흔들고 검출을 다시 깨는 3-체제 스위칭(실측)의 차단."""
+    from gtbot_formation.koopman_node import KoopmanFormation
+
+    class Stub:
+        pass
+
+    s = Stub()
+    s.now = lambda: 10.0
+    s.odoms = _odoms(10.0)
+    s.ok = {k: (np.zeros(2), np.zeros(2), 9.9) for k in range(3)}   # ok는 최신
+    s.state_source, s.est_hold, s.est_stale_stop = 'lidar', 1.0, 5.0
+    s.prev, s.log = 'sentinel', None
+    s.ests = {}                                    # est 스트림은 아직 없음 -> fresh 불성립
+    s.phase, s.k = 'warmup', 0
+    s.boot_done, s.boot_ok_since = False, None
+    s.pubs = [_FakePub(), _FakePub(), _FakePub()]
+    s.logrow = KoopmanFormation.logrow.__get__(s)
+    s.get_logger = lambda: type('L', (), {'info': staticmethod(lambda *_: None)})()
+    KoopmanFormation.tick(s)
+    assert all(pb.sent == [] for pb in s.pubs)
+    assert s.prev is None and s.boot_done is False
