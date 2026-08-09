@@ -100,21 +100,22 @@
 			<noise angle="0.000001745" angular_velocity="0.00001745"/>
 			<ros_publisher topic="/platform/imu"/>
 		</sensor>
-		<!-- 커스텀 rotatinglidar(Mid-360 스타일). 최상단 장착, 틸트 없음(스펙 결정).
-		     200x100으로 원복. 서로 독립인 두 문제였다.
-		     (1) 해상도: 단일 스캔 1.8°/스텝(2m에서 6.3cm)으로는 ⌀3cm 마스트를 놓친다(판별실험
-		     확정 — 480x120을 시도했던 이유). RotatingLidar에 비반복 스캔(스캔별 황금비 위상
-		     지터)을 구현해 실물 Mid-360처럼 N스캔 누적 시 유효 각해상도가 N배가 되므로,
-		     200x100으로도 몇 프레임 누적하면 잡힌다(실측: 30스캔에 마스트별 122/702 포인트).
-		     (2) 발행률: Hz 붕괴(200x100 0.79Hz, 480x120 0.27Hz)의 원인은 해상도가 아니라
-		     Polyhedron::BuildCollisionShape()의 optimizeConvexHull()이 주석 처리돼 레이당
-		     64us가 든 것. 되살린 뒤 두 스펙 모두 10Hz(실측 9.96/10.0Hz) — 단일 스캔 밀도가
-		     더 필요하면 480x120도 지금은 실시간 가능. -->
+		<!-- 커스텀 rotatinglidar — Ouster OS0-128 (REV7.1 데이터시트 + 실물 랩 구성
+		     gtbot_lidar_cluster: OS0-128-SR, 10Hz). 최상단 장착, 틸트 없음(스펙 결정).
+		     - 1024x128 @ 10Hz: 데이터시트 기준 모드(1024 @ 10 Hz). 수평 0.35°(3.6m에서
+		       2.2cm < ⌀3cm 마스트)라 단일 스캔으로 마스트가 잡힌다 — OS0는 반복 스캔이라
+		       Mid-360식 누적 해상도 이득이 없고, 단일 스캔 밀도가 곧 유효 해상도다
+		       (RotatingLidar.cpp에서 위상 지터 제거).
+		     - vertical_fov 90.8: 대칭 ±45.4°(RotatingLidar가 대칭 분할).
+		     - range_min 0.5: FW 기본값(0.3 옵션). range_max 35: 10% 반사율 기준.
+		     - noise 0.01: precision ±0.8~4cm(근거리 ~0.8cm) 반영.
+		     - 레이 수 131k/스캔 = 검증된 480x120(57.6k) 대비 2.3배 — Hz 유지 실측 필요,
+		       미달 시 512x128(65.5k, OS0 정규 모드 512 @ 10 Hz)로 낮춘다. -->
 		<sensor name="lidar" type="rotatinglidar" rate="10.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.36"/>
-			<specs horizontal_steps="200" vertical_steps="100" horizontal_fov="360.0"
-			       vertical_fov="59.0" range_min="0.1" range_max="40.0"/>
+			<specs horizontal_steps="1024" vertical_steps="128" horizontal_fov="360.0"
+			       vertical_fov="90.8" range_min="0.5" range_max="35.0"/>
 			<noise range_stddev="0.01"/>
 			<ros_publisher topic="/platform/lidar/points"/>
 		</sensor>
