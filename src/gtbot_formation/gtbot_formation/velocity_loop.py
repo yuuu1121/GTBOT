@@ -80,8 +80,13 @@ class VelocityLoop(Node):
         t = self.now()
         self.gyro_z = msg.angular_velocity.z
         if self.yaw_hat is None:
-            if self.meas_valid:
-                self.yaw_hat = self.yaw_meas
+            # plate 마커 캠페인: 초기화를 yaw_meas가 아니라 odometry yaw로 한다(실물:
+            # 컴퍼스/IMU 절대 헤딩). plate yaw는 mod-180이라 브리지의 베어링 접기가
+            # 지향 밖 자세에서 π-뒤집힌 측정을 낼 수 있는데, 그걸로 초기화하면 45°
+            # 이상치 게이트가 이후 참값을 영원히 기각하는 자기잠금이 된다(실측:
+            # yaw_hat 오염 → hold/bearing 모두 발진·자전).
+            if self.odom is not None:
+                self.yaw_hat = self.odom[2]
                 self.t_cf = t
             return
         dt = max(0.0, min(t - self.t_cf, 0.1))

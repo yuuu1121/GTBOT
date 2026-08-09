@@ -102,7 +102,8 @@
 		</sensor>
 		<!-- 커스텀 rotatinglidar — Ouster OS0-128 (REV7.1 데이터시트 + 실물 랩 구성
 		     gtbot_lidar_cluster: OS0-128-SR, 10Hz). 최상단 장착, 틸트 없음(스펙 결정).
-		     - 1024x128 @ 10Hz: 데이터시트 기준 모드(1024 @ 10 Hz). 수평 0.35°(3.6m에서
+		     - 1024x128 @ 10Hz: 데이터시트 기준 모드. 2048x128도 시도했으나 레이 262k로
+		       발행률이 1.8Hz로 붕괴(실측)해 원복 — 1024가 실시간 상한. 수평 0.35°(3.6m에서
 		       2.2cm < ⌀3cm 마스트)라 단일 스캔으로 마스트가 잡힌다 — OS0는 반복 스캔이라
 		       Mid-360식 누적 해상도 이득이 없고, 단일 스캔 밀도가 곧 유효 해상도다
 		       (RotatingLidar.cpp에서 위상 지터 제거).
@@ -146,21 +147,23 @@
 				<cg rpy="0.0 0.0 0.0" xyz="0.0 -0.139 0.235"/>
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
-			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.31"/>
+			<!-- 실물 마커: 14x10cm 반사판(두께 2cm), gtbot_lidar_cluster(ouster_cluster)가
+			     BEV 라인 검출로 위치·yaw를 추정하는 대상. 장착: 중앙 상부구조물 상면
+			     (body y=-0.10, 갑판 z=-0.188), 장축 = body Y, 면 법선 = body X.
+			     수면 위 스팬 0.168~0.268 m(갑판에서 10 cm 리프트). 5 cm 리프트로는 부족:
+			     실측 흘수(body z=+0.120)에서 판 하단(0.118)이 선체 림(0.115)과 z가 겹쳐
+			     BEV 셀에서 판+선체가 한 컴포넌트로 묶이고 z-band가 plate 판정(0.10±0.04)을
+			     초과해 기각됨(S4 재판정 중 실측). 10 cm 리프트로 림과 5 cm 분리.
+			     센서(0.198 m) 기준 -0.030~+0.070 → ouster_cluster z 크롭 [-0.06, +0.10].
+			     plate yaw는 mod-180이라 로봇 헤딩은 브리지에서 베어링 사전정보로 접어
+			     해소(구 마스트 2기둥은 제거). -->
+			<external_part name="Plate" type="box" physics="floating" buoyant="false">
+				<dimensions xyz="0.02 0.14 0.10"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
-				<mass value="0.1"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 -0.10 -0.380"/>
-			</external_part>
-			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.23"/>
-				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
-				<material name="Neutral"/>
-				<look name="yellow"/>
-				<mass value="0.07"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 -0.10 -0.340"/>
+				<mass value="0.15"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.10 -0.338"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
@@ -248,21 +251,23 @@
 				<cg rpy="0.0 0.0 0.0" xyz="0.0 -0.139 0.235"/>
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
-			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.31"/>
+			<!-- 실물 마커: 14x10cm 반사판(두께 2cm), gtbot_lidar_cluster(ouster_cluster)가
+			     BEV 라인 검출로 위치·yaw를 추정하는 대상. 장착: 중앙 상부구조물 상면
+			     (body y=-0.10, 갑판 z=-0.188), 장축 = body Y, 면 법선 = body X.
+			     수면 위 스팬 0.168~0.268 m(갑판에서 10 cm 리프트). 5 cm 리프트로는 부족:
+			     실측 흘수(body z=+0.120)에서 판 하단(0.118)이 선체 림(0.115)과 z가 겹쳐
+			     BEV 셀에서 판+선체가 한 컴포넌트로 묶이고 z-band가 plate 판정(0.10±0.04)을
+			     초과해 기각됨(S4 재판정 중 실측). 10 cm 리프트로 림과 5 cm 분리.
+			     센서(0.198 m) 기준 -0.030~+0.070 → ouster_cluster z 크롭 [-0.06, +0.10].
+			     plate yaw는 mod-180이라 로봇 헤딩은 브리지에서 베어링 사전정보로 접어
+			     해소(구 마스트 2기둥은 제거). -->
+			<external_part name="Plate" type="box" physics="floating" buoyant="false">
+				<dimensions xyz="0.02 0.14 0.10"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
-				<mass value="0.1"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 -0.10 -0.380"/>
-			</external_part>
-			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.23"/>
-				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
-				<material name="Neutral"/>
-				<look name="yellow"/>
-				<mass value="0.07"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 -0.10 -0.340"/>
+				<mass value="0.15"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.10 -0.338"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
@@ -350,21 +355,23 @@
 				<cg rpy="0.0 0.0 0.0" xyz="0.0 -0.139 0.235"/>
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			</external_part>
-			<external_part name="MastMain" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.31"/>
+			<!-- 실물 마커: 14x10cm 반사판(두께 2cm), gtbot_lidar_cluster(ouster_cluster)가
+			     BEV 라인 검출로 위치·yaw를 추정하는 대상. 장착: 중앙 상부구조물 상면
+			     (body y=-0.10, 갑판 z=-0.188), 장축 = body Y, 면 법선 = body X.
+			     수면 위 스팬 0.168~0.268 m(갑판에서 10 cm 리프트). 5 cm 리프트로는 부족:
+			     실측 흘수(body z=+0.120)에서 판 하단(0.118)이 선체 림(0.115)과 z가 겹쳐
+			     BEV 셀에서 판+선체가 한 컴포넌트로 묶이고 z-band가 plate 판정(0.10±0.04)을
+			     초과해 기각됨(S4 재판정 중 실측). 10 cm 리프트로 림과 5 cm 분리.
+			     센서(0.198 m) 기준 -0.030~+0.070 → ouster_cluster z 크롭 [-0.06, +0.10].
+			     plate yaw는 mod-180이라 로봇 헤딩은 브리지에서 베어링 사전정보로 접어
+			     해소(구 마스트 2기둥은 제거). -->
+			<external_part name="Plate" type="box" physics="floating" buoyant="false">
+				<dimensions xyz="0.02 0.14 0.10"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
-				<mass value="0.1"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.08 -0.10 -0.380"/>
-			</external_part>
-			<external_part name="MastAux" type="cylinder" physics="floating" buoyant="false">
-				<dimensions radius="0.015" height="0.23"/>
-				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
-				<material name="Neutral"/>
-				<look name="yellow"/>
-				<mass value="0.07"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.08 -0.10 -0.340"/>
+				<mass value="0.15"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.10 -0.338"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->

@@ -179,3 +179,51 @@ def test_assign_tracks_prefers_assignment_over_none():
     tracks = [np.array([0.0, 0.0])]
     dets = [np.array([0.55, 0.0])]                           # 게이트 안이면 항상 배정이 유리
     assert assign_tracks(dets, tracks, gate=0.6) == [0]
+
+
+# --- ouster_cluster boxes 브리지 (plate 마커 캠페인) ---
+
+def _wirebox_points(center, yaw, half):
+    """C++ makeWireBox와 동일한 에지 순서로 LINE_LIST 24점 합성 (z 회전 OBB)."""
+    import numpy as np
+    c, s = np.cos(yaw), np.sin(yaw)
+    R = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+    corner = lambda i, j, k: np.asarray(center) + R @ (
+        np.array([(1 if i else -1) * half[0], (1 if j else -1) * half[1],
+                  (1 if k else -1) * half[2]]))
+    edges = [((0,0,0),(1,0,0)), ((0,1,0),(1,1,0)), ((0,0,1),(1,0,1)), ((0,1,1),(1,1,1)),
+             ((0,0,0),(0,1,0)), ((1,0,0),(1,1,0)), ((0,0,1),(0,1,1)), ((1,0,1),(1,1,1)),
+             ((0,0,0),(0,0,1)), ((1,0,0),(1,0,1)), ((0,1,0),(0,1,1)), ((1,1,0),(1,1,1))]
+    pts = []
+    for a, b in edges:
+        pts.append(corner(*a))
+        pts.append(corner(*b))
+    return pts
+
+def test_decode_wirebox_recovers_center_and_yaw():
+    from gtbot_formation.perception_core import decode_wirebox
+    center, yaw = np.array([1.2, -0.7, -0.05]), 0.4
+    c_out, y_out = decode_wirebox(_wirebox_points(center, yaw, (0.07, 0.01, 0.05)))
+    assert np.allclose(c_out, center, atol=1e-9)
+    assert abs((y_out - yaw + np.pi/2) % np.pi - np.pi/2) < 1e-9   # mod pi 일치
+
+def test_decode_wirebox_yaw_is_principal_axis_mod_pi():
+    from gtbot_formation.perception_core import decode_wirebox
+    _, y1 = decode_wirebox(_wirebox_points((0, 0, 0), 0.3, (0.07, 0.01, 0.05)))
+    _, y2 = decode_wirebox(_wirebox_points((0, 0, 0), 0.3 + np.pi, (0.07, 0.01, 0.05)))
+    assert abs((y1 - y2 + np.pi/2) % np.pi - np.pi/2) < 1e-9
+
+def test_fold_heading_within_quadrant_keeps_candidate():
+    from gtbot_formation.perception_core import fold_heading
+    # 판 장축 yaw 0 -> 헤딩 후보 ±90°. 기대 100° -> +90° 선택
+    assert abs(fold_heading(0.0, np.radians(100.0)) - np.pi/2) < 1e-9
+    # 기대 -100° -> -90° 선택
+    assert abs(fold_heading(0.0, np.radians(-100.0)) + np.pi/2) < 1e-9
+
+def test_fold_heading_ambiguity_beyond_90deg_is_wrong_by_pi():
+    from gtbot_formation.perception_core import fold_heading
+    # 구조적 한계의 명시적 단언: 실제 헤딩이 기대에서 180° 벗어나면 접기가 반대를 고른다
+    true_heading = np.pi/2
+    expected = true_heading + np.pi                      # 사전정보가 정반대라면
+    folded = fold_heading(0.0, expected)                 # 장축 0 -> 후보 ±90°
+    assert abs(abs(folded - true_heading) - np.pi) < 1e-9

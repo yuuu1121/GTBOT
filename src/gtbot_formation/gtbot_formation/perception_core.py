@@ -75,6 +75,33 @@ def marker_heading(center_xy, aux_xy):
     return float(np.arctan2(v[1], v[0]))
 
 
+def decode_wirebox(pts):
+    """ouster_cluster `/ouster_cluster/boxes` 마커(LINE_LIST 24점, pose 항등) 복호.
+
+    makeWireBox는 12에지×2점을 넣고 pose는 항등이라 기하는 points에만 있다.
+    각 꼭짓점은 에지 3개에 물려 정확히 3회씩 등장 → 24점 평균 = OBB 중심.
+    첫 에지(points[0]→points[1])는 로컬 (-,-,-)→(+,-,-) — OBB 로컬 +x
+    (BEV 주축 = 판의 장축) 방향이므로 yaw를 준다(판은 π-대칭이라 mod π)."""
+    p = np.asarray(pts, dtype=float)
+    center = p.mean(axis=0)
+    d = p[1] - p[0]
+    return center, float(np.arctan2(d[1], d[0]))
+
+
+def fold_heading(line_yaw_world, expected):
+    """판 장축(mod π)에 수직인 헤딩 후보 2개(±π) 중 expected에 가까운 쪽.
+
+    plate 마커는 π-대칭(bev_tracker가 명시적으로 접는다)이라 로봇 헤딩에
+    180° 모호성이 구조적으로 남는다. 운용 영역(bearing 모드: 팔로워는 항상
+    platform을 지향)에서는 기대 헤딩과의 차가 ±90° 안이므로 그쪽으로 접는다.
+    기대에서 90° 넘게 벗어난 실제 헤딩은 원리적으로 복원 불가 — S4 이탈 참조."""
+    h = line_yaw_world + np.pi / 2.0
+    w = (h - expected + np.pi) % (2.0 * np.pi) - np.pi
+    if abs(w) > np.pi / 2.0:
+        h += np.pi
+    return float((h + np.pi) % (2.0 * np.pi) - np.pi)
+
+
 def kf_step(x, P, z, dt, q, r):
     """트랙별 상수속도 칼만 1스텝. x=[px,py,vx,vy], z=[px,py]. 두 축 등방·독립.
 

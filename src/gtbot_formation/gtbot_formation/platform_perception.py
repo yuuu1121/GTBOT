@@ -1,55 +1,55 @@
-"""platform LiDAR → gtbot별 상대위치·헤딩 추정 → /gtbotN/state_est.
+"""ouster_cluster 반사판 검출(boxes) → gtbot별 상대위치·헤딩 추정 → /gtbotN/state_est.
 rel_*는 platform 기준·월드축 정렬(IMU yaw 회전), yaw는 월드 기준.
 
-프레임 규약은 `perception_core.lidar_to_world` 도크스트링 참조(round 4 실측으로 확정:
-클라우드는 FLU/z-위, 월드 정렬은 R(+yaw)). z_water_offset = 라이다의 수면 위 높이
-(마운트 0.36 m − platform 흘수 0.162 m = 0.198 m) — 흘수가 바뀌면 여기만 다시 잰다."""
+검출 스테이지는 실물 랩 파이프라인(gtbot_lidar_cluster의 ouster_cluster_node,
+OS0 클라우드 → BEV 라인 → 14×10cm plate 판정 → EMA 트래커 → /ouster_cluster/boxes)이
+담당하고, 이 노드는 boxes를 platform 상대·월드 정렬로 변환해 트랙 배정·KF·발행만
+한다(연관/재획득/KF 로직은 마스트 캠페인에서 검증된 것을 그대로 재사용).
+
+프레임 규약: boxes는 입력 클라우드 프레임(FLU, z 위) — 중심 변환은
+`perception_core.lidar_to_world`(y 미러 + R(+yaw_p)) 재사용, 방향각은 FLU y 미러로
+θ→−θ이므로 world = yaw_p − θ_flu. z_water_offset = 라이다의 수면 위 높이
+(마운트 0.36 m − platform 흘수 0.162 m = 0.198 m) — 흘수가 바뀌면 여기만 다시 잰다.
+
+plate yaw는 π-대칭(mod 180°)이라 로봇 헤딩은 `fold_heading`이 베어링 사전정보
+(팔로워는 platform 지향)로 접어 해소한다 — 기대 헤딩에서 90° 넘게 벗어난 자세는
+원리적으로 복원 불가(마커 체계의 구조적 성질, S4 이탈로 문서화)."""
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import PointCloud2, Imu
-from sensor_msgs_py import point_cloud2
+from sensor_msgs.msg import Imu
+from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Float64MultiArray
 from .mixer import yaw_of
-from .perception_core import (cluster_2d, lidar_to_world, marker_split, marker_heading,
-                              marker_center, kf_step, assign_tracks)
-from .relative_state import OFFSETS
+from .perception_core import (lidar_to_world, decode_wirebox, fold_heading,
+                              kf_step, assign_tracks)
 
 ROBOTS = ['gtbot', 'gtbot2', 'gtbot3']
 
 SPAWN_REL = [(1.5, 0.0), (-0.75, 1.3), (-0.75, -1.3)]  # 스폰 상대 위치 — 트랙 초기값·재획득 앵커
-# fix round 2: 3.6 m 스폰(구 (3,±2))에서 yaw_meas 오차 40~50°(마커 유효거리 밖, aux 포인트
-# 부족으로 aux 센트로이드 노이즈 큼) 실측 → 전 로봇 1.5 m 반경(gtbot 2 m 실측 시 오차 8.6°와
-# 동급)으로 재배치. 편대 간격(0.87 m 등변삼각형, 변길이 2.6 m)은 유지.
 
 class PlatformPerception(Node):
     def __init__(self):
         super().__init__('platform_perception')
         for n, d in [('z_water_offset', 0.198),
-                     ('linkage', 0.3), ('track_gate', 0.6), ('n_accum', 10),
-                     ('min_sep', 0.08), ('main_band', [0.0, 0.07]), ('shared_band', [0.10, 0.22]),
+                     ('track_gate', 0.6),
                      ('kf_q', 0.5), ('kf_r', 0.025), ('marker_offset', [0.0, -0.10]),
                      ('track_reset', 4.0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         self.z_off = p('z_water_offset')
-        self.linkage, self.gate = p('linkage'), p('track_gate')
-        self.n_accum = int(p('n_accum'))
-        self.min_sep = p('min_sep')
-        self.main_band = tuple(p('main_band'))
-        self.shared_band = tuple(p('shared_band'))
-        self.buf = []                                   # (pts_world_xy, h) 누적 버퍼 (비반복 스캔 병합)
+        self.gate = p('track_gate')
         self.yaw_p = 0.0
         # 초기 트랙 = 스폰 상대 위치(로봇들은 편대 밖에서 출발 — Task 1 실측 반영)
         self.tracks = [np.array(o) for o in SPAWN_REL]
         self.kf_q, self.kf_r = p('kf_q'), p('kf_r')
-        self.marker_offset = tuple(p('marker_offset'))   # 마스트 중점의 body 위치(캘리브레이션)
+        self.marker_offset = np.array(p('marker_offset'))  # 판 중심의 body 위치(캘리브레이션)
         self.track_reset = p('track_reset')              # 트랙별 재획득 대기(초)
         self.invalid_since = [None] * 3                 # k -> 그 트랙이 무효로 들어간 시각
         self.kf = [None] * 3                            # k -> (x=[px,py,vx,vy], P, t) 트랙별 KF
-        self.all_invalid_since = None                   # fix round 1: 전 트랙 invalid 5s 지속 → 스폰 리셋
+        self.all_invalid_since = None                   # 전 트랙 invalid 5s 지속 → 스폰 리셋
         self.create_subscription(Imu, '/platform/imu', self.on_imu, 10)
-        self.create_subscription(PointCloud2, '/platform/lidar/points', self.on_cloud, 5)
+        self.create_subscription(MarkerArray, '/ouster_cluster/boxes', self.on_boxes, 5)
         self.pubs = [self.create_publisher(Float64MultiArray, f'/{r}/state_est', 10)
                      for r in ROBOTS]
 
@@ -57,58 +57,47 @@ class PlatformPerception(Node):
         q = msg.orientation
         self.yaw_p = yaw_of(q.x, q.y, q.z, q.w)
 
-    def on_cloud(self, msg):
+    def on_boxes(self, msg):
         t = self.get_clock().now().nanoseconds * 1e-9
-        pts = np.array([[q[0], q[1], q[2]] for q in
-                        point_cloud2.read_points(msg, field_names=('x', 'y', 'z'), skip_nans=True)])
+        dets = []
+        for m in msg.markers:
+            if m.id < 0 or len(m.points) != 24:          # DELETEALL 클리어 마커 등 제외
+                continue
+            pts = [(q.x, q.y, q.z) for q in m.points]
+            center_flu, line_yaw_flu = decode_wirebox(pts)
+            xy_w, _h = lidar_to_world(np.array([center_flu]), self.yaw_p, self.z_off)
+            xy = xy_w[0]
+            line_yaw_w = self.yaw_p - line_yaw_flu       # FLU y 미러: θ→−θ, 이후 R(+yaw_p)
+            expected = np.arctan2(-xy[1], -xy[0])        # 베어링 사전정보: platform 지향
+            heading = fold_heading(line_yaw_w, expected)
+            c, s = np.cos(heading), np.sin(heading)
+            origin = xy - np.array([[c, -s], [s, c]]) @ self.marker_offset
+            dets.append((origin, heading))
         out = [None] * 3
-        if len(pts):
-            xy_w, h = lidar_to_world(pts, self.yaw_p, self.z_off)   # 수신 시점 yaw로 월드축 정렬
-            r = np.hypot(pts[:, 0], pts[:, 1])
-            m = (h > 0.2) & (h < 0.55) & (r > 0.3) & (r < 5.0)  # 마커 대역만 (스폰 3.6 m 커버)
-            if m.any():                                         # 선체 상단은 0.147 m — 대역 밖
-                self.buf.append((xy_w[m], h[m]))
-        self.buf = self.buf[-self.n_accum:]
-        if self.buf:
-            xy_w = np.vstack([b[0] for b in self.buf])          # 비반복 스캔 병합 → 유효 해상도 증가
-            h_w = np.concatenate([b[1] for b in self.buf])
-            xyz_w = np.column_stack([xy_w, h_w])
-            dets = []
-            for idx in cluster_2d(xy_w, self.linkage):
-                sp = marker_split(xyz_w[idx], h_w[idx], self.main_band, self.shared_band, self.min_sep)
-                if sp is None:
-                    continue
-                center_xy, aux_xy = sp
-                # 두 기둥은 body (±0.08, -0.10) — 중점이 body (0,-0.10)이라 헤딩으로 되돌려야
-                # 로봇 원점이 된다(보정 없으면 0.10 m 상수 편향).
-                dets.append((marker_center(center_xy, aux_xy, self.marker_offset),
-                             marker_heading(center_xy, aux_xy)))
-            # 전역 최적 배정(탐욕 선점 기아 제거, round 12). 게이트 0.6은 그대로 강제된다.
-            asg = assign_tracks([d[0] for d in dets], self.tracks, self.gate)
-            for k, j in enumerate(asg):
-                if j is not None:
-                    out[k] = dets[j]
-            # 트랙별 재획득: 어떤 트랙이 track_reset초 연속 무효면 그 트랙만 되살린다. 미배정
-            # 검출이 있으면 그쪽으로 앵커를 스냅하고(고착 해제의 근본), 없으면 스폰 규약으로.
-            # 전 트랙 동시-무효 리셋(아래)만으로는 나머지가 건강할 때 영원히 발화하지 않았다.
-            free = [j for j in range(len(dets)) if j not in asg]
-            for k in range(3):
-                if out[k] is not None:
-                    self.invalid_since[k] = None
-                    continue
-                if self.invalid_since[k] is None:
-                    self.invalid_since[k] = t
-                elif t - self.invalid_since[k] > self.track_reset:
-                    if free:
-                        j = min(free, key=lambda q: np.linalg.norm(dets[q][0] - self.tracks[k]))
-                        free.remove(j)
-                        self.tracks[k] = dets[j][0]
-                    else:
-                        self.tracks[k] = np.array(SPAWN_REL[k])
-                    self.invalid_since[k] = None
-        # fix round 1: 전 트랙이 동시에 5s 넘게 invalid면 스폰 상대위치로 리셋(드리프트로
-        # 트랙이 영구 미아가 되는 것을 막는 재획득 앵커 — 실측: 이 게이트 없이는 valid_ratio가
-        # 스폰 후 몇 분 뒤 0으로 붕괴함, task-3-report 참조).
+        # 전역 최적 배정(탐욕 선점 기아 제거, round 12). 게이트 0.6은 그대로 강제된다.
+        asg = assign_tracks([d[0] for d in dets], self.tracks, self.gate)
+        for k, j in enumerate(asg):
+            if j is not None:
+                out[k] = dets[j]
+        # 트랙별 재획득: 어떤 트랙이 track_reset초 연속 무효면 그 트랙만 되살린다. 미배정
+        # 검출이 있으면 그쪽으로 앵커를 스냅하고(고착 해제의 근본), 없으면 스폰 규약으로.
+        free = [j for j in range(len(dets)) if j not in asg]
+        for k in range(3):
+            if out[k] is not None:
+                self.invalid_since[k] = None
+                continue
+            if self.invalid_since[k] is None:
+                self.invalid_since[k] = t
+            elif t - self.invalid_since[k] > self.track_reset:
+                if free:
+                    j = min(free, key=lambda q: np.linalg.norm(dets[q][0] - self.tracks[k]))
+                    free.remove(j)
+                    self.tracks[k] = dets[j][0]
+                else:
+                    self.tracks[k] = np.array(SPAWN_REL[k])
+                self.invalid_since[k] = None
+        # 전 트랙이 동시에 5s 넘게 invalid면 스폰 상대위치로 리셋(드리프트로 트랙이
+        # 영구 미아가 되는 것을 막는 재획득 앵커).
         if all(o is None for o in out):
             if self.all_invalid_since is None:
                 self.all_invalid_since = t
@@ -121,8 +110,8 @@ class PlatformPerception(Node):
                 pub.publish(Float64MultiArray(data=[0.0] * 5 + [0.0]))
                 continue
             rel_w, yaw_w = out[k]
-            # 트랙별 상수속도 KF — 발행 위치·속도는 필터 상태다(유한차분 대체). 실종 구간에는
-            # 전파하지 않고(무효 발행), 재획득 시 실제 경과 dt로 한 스텝 돌려 자연히 이어붙인다.
+            # 트랙별 상수속도 KF — 발행 위치·속도는 필터 상태다. 실종 구간에는 전파하지
+            # 않고(무효 발행), 재획득 시 실제 경과 dt로 한 스텝 돌려 자연히 이어붙인다.
             dt = t - self.kf[k][2] if self.kf[k] is not None else None
             if dt is None or not (0.0 < dt < 1.0):              # 초기화·긴 공백 -> 재초기화
                 x = np.array([rel_w[0], rel_w[1], 0.0, 0.0])
