@@ -67,11 +67,12 @@ class _FakePub:
         self.sent.append(list(msg.data))
 
 
-def _tick_stub(state_source, odoms, ok, t, est_hold=1.0, est_stale_stop=5.0):
+def _tick_stub(state_source, odoms, ok, t, est_hold=1.0, est_stale_stop=5.0, phase='control'):
     """실제 tick()을 그대로 돌리기 위한 최소 스텁 — 두절/stale 조기 반환 경로만 탄다.
 
     log=None이라 logrow는 즉시 반환하고, 그 앞의 가드에서 return되므로 제어 계산에는
     도달하지 않는다(스텁에 sc/rls가 없어도 된다 = 경로가 실제로 조기 반환함의 증거).
+    phase='control'이 기본.
     """
     from gtbot_formation.koopman_node import KoopmanFormation
 
@@ -83,8 +84,10 @@ def _tick_stub(state_source, odoms, ok, t, est_hold=1.0, est_stale_stop=5.0):
     s.odoms, s.ok, s.prev, s.log = odoms, ok, 'sentinel', None
     s.state_source, s.est_hold, s.est_stale_stop = state_source, est_hold, est_stale_stop
     s.ests = {}
+    s.phase, s.k = phase, 0
     s.pubs = [_FakePub(), _FakePub(), _FakePub()]
     s.logrow = KoopmanFormation.logrow.__get__(s)   # 실제 메서드(log=None이라 즉시 반환)
+    s.publish_u = KoopmanFormation.publish_u.__get__(s)
     KoopmanFormation.tick(s)
     return s
 
@@ -179,7 +182,7 @@ def test_warmup_skips_masked_tick_entirely():
     assert s.X_log == [] and s.U_log == []
     assert s.k == 5                                    # 여기 수열이 실제 인가와 어긋나지 않게 정지
     assert s.prev is None                              # 오염 전이 차단 (I-2: prev는 all(mask)일 때만 채워진다)
-    assert all(p.sent == [] for p in s.pubs)
+    assert all(pb.sent == [] for pb in s.pubs)
 
 
 def test_warmup_records_clean_tick():

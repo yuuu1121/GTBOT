@@ -16,7 +16,8 @@ class VelocityLoop(Node):
         for name, default in [('robot', 'gtbot'), ('kv', 1.5), ('kpsi', 0.1),
                               ('v_max', 0.5), ('rate', 20.0), ('ki', 1.0),
                               ('i_max', 0.6), ('log_csv', ''),
-                              ('heading_mode', 'hold'), ('k_cf', 0.05), ('kd', 0.1)]:
+                              ('heading_mode', 'hold'), ('k_cf', 0.05), ('kd', 0.1),
+                              ('fallback_bearing', float('nan'))]:
             self.declare_parameter(name, default)
         p = lambda n: self.get_parameter(n).value
         self.kv, self.kpsi, self.v_max = p('kv'), p('kpsi'), p('v_max')
@@ -24,6 +25,7 @@ class VelocityLoop(Node):
         self.dt = 1.0 / p('rate')
         robot = p('robot')
         self.heading_mode, self.k_cf, self.kd = p('heading_mode'), p('k_cf'), p('kd')
+        self.fallback_bearing = float(p('fallback_bearing'))
         if self.heading_mode == 'bearing':
             from sensor_msgs.msg import Imu
             from .mixer import cf_update  # noqa: 사용은 on_imu에서
@@ -138,7 +140,22 @@ class VelocityLoop(Node):
             # 큰 초기오차에서 새추레이션(±0.3)에 걸려 오버슈트·역오버슈트 발진하던 문제 완화.
             syaw = self.kpsi * wrap(self.yaw_hat - yaw_ref) + self.kd * self.gyro_z
         else:
-            syaw = self.kpsi * wrap(yaw - self.yaw0)           # 기존 hold (불변, 두절 폴백 겸용)
+            # plate 부트스트랩(2026-08-09): bearing 모드에서 est가 아직/더는 없을 때의 폴백
+            # 목표를 스폰 헤딩(yaw0)이 아니라 **배치 베어링**(fallback_bearing, 알려진 초기
+            # 기하 — 실물도 배치 시점 기하는 알고 시작)으로 한다. 판 마커는 플랫폼을 향해야
+            # 검출되므로, 스폰 헤딩 복귀 폴백은 판을 돌려버려 검출 부트스트랩을 막는다(실측).
+            # fallback_bearing 미설정(NaN)이면 기존 hold 그대로 (hold 모드·구 캠페인 불변).
+            fb = self.fallback_bearing if (self.heading_mode == 'bearing'
+                                           and not np.isnan(self.fallback_bearing)) else self.yaw0
+            syaw = self.kpsi * wrap(yaw - fb)                  # 기존 hold 형태 (두절 폴백 겸용)
+            if self.heading_mode == 'bearing':
+                # 대각(180°급) 오차 획득은 kpsi 소신호 설계(ζ≈0.7) 밖이다: syaw가 믹서
+                # 클립 ±0.3에 물리면 yaw 플랜트 이득 ~10 rad/s/unit과 곱해져 ±3 rad/s
+                # 뱅뱅 슬루가 되고, 작동 지연 ~0.5 s와 결합해 진폭 ~1.5 rad(±100°+)의
+                # 한계 사이클로 발산한다(실측: bearing 오차 100~150° 왕복 지속). 명령을
+                # ±0.05(슬루 ~0.5 rad/s = 34°/s — 180°도 수 초면 충분)로 레이트 제한하고
+                # 자이로 감쇠를 더해 정착시킨다. hold 모드(마스트 캠페인 경로)는 불변.
+                syaw = float(np.clip(syaw, -0.05, 0.05)) + self.kd * self.gyro_z
         s = setpoints(e_body, syaw, self.kv)
         self.pub.publish(Float64MultiArray(data=list(s)))
         if self.log:

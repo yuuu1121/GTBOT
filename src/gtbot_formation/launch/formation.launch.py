@@ -11,6 +11,10 @@ LOG_DIR = '/tmp/gtbot_formation_logs'   # 제어 진단 CSV(koopman 게이트·v
 
 def generate_launch_description():
     os.makedirs(LOG_DIR, exist_ok=True)
+    # fallback_bearing: 스폰 배치(SPAWN_REL)에서 platform을 향하는 방위 — plate 마커는
+    # 플랫폼 지향이어야 검출되므로, est 부재 시 폴백이 판을 플랫폼 쪽으로 유지한다.
+    import math
+    fb = {'gtbot': math.pi, 'gtbot2': -math.pi / 3, 'gtbot3': math.pi / 3}
     loops = [Node(package='gtbot_formation', executable='velocity_loop',
                   name=f'velocity_loop_{r}',
                   # v_max 0.5(기본) -> 0.2: LP는 항상 ±u_max 뱅뱅이라 v_ref가 v_max로 포화한
@@ -18,6 +22,7 @@ def generate_launch_description():
                   # a_cmd 부호 반전 ~2 Hz, 팔로워 평속 0.36 m/s = 리더 실속도 0.103 m/s의 3.5배,
                   # 목표대비 위치오차 평균 0.8~1.4 m). 리더가 0.103 m/s이므로 0.2면 2배 여유.
                   parameters=[{'robot': r, 'heading_mode': 'bearing', 'v_max': 0.2,
+                               'fallback_bearing': fb[r],
                                'log_csv': f'{LOG_DIR}/vel_{r}.csv'}])
              for r in ['gtbot', 'gtbot2', 'gtbot3']]
     return LaunchDescription([

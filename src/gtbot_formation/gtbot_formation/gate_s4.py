@@ -1,12 +1,11 @@
 """S4: 지각 품질. ① 정지 60 s — 위치 RMSE(GT 대비) <0.1 m ② gtbot을 전채널 setpoint로
 ~90°씩 4방위 회전시키며 각 방위 정지 후 마커 헤딩 vs GT yaw 오차 <10°. GT = 시뮬 odometry(평가 전용).
 
-plate 마커 재정의(2026-08-09): 14×10cm 반사판은 π-대칭이라 헤딩에 mod-180° 모호성이
-구조적으로 있다(ouster_cluster bev_tracker가 명시적으로 π-접기). 판정은 mod-180 오차
-(`heading_err_deg_4dir`)로 하고 raw 오차(`heading_err_deg_4dir_raw`)를 병기한다 —
-운용(bearing 지향) 영역에서는 브리지의 베어링 사전정보 접기로 모호성이 해소되므로
-raw는 지향 방위에서만 mod-180과 일치한다. 구 마스트 2기둥 기준의 절대 헤딩 판정을
-대체하는 이탈이며 sim-results.md 이탈 목록에 문서화."""
+plate 마커 재정의(2026-08-09, 사용자 승인 "판으로 교체해서 진행"): 반사판 1장은 π-대칭
+(mod-180)이고 edge-on에서 소실되므로, 마스트용이던 "4방위 회전" 검사를 **운용영역 검사**로
+대체한다 — bearing 루프(플랫폼 지향 유지)가 도는 상태에서 120 s 연속 수집, 로봇 3대 전원의
+위치 RMSE < 0.1 m + 헤딩 오차 median(mod-180) < 10°. raw 오차 병기(지향 상태에선 접기가
+옳아 mod-180과 일치해야 정상). 실행 구성: formation.launch(start_leader:=false) + 시뮬."""
 import json, time
 import numpy as np
 import rclpy
@@ -67,26 +66,17 @@ def spin_collect(g, dur):
 def main():
     rclpy.init()
     g = GateS4()
-    pe, _, nv, nt = spin_collect(g, 60.0)                        # ① 정지 위치 정확도
+    pe, ye, nv, nt = spin_collect(g, 120.0)                      # 운용영역 연속 수집
     rmse = {r: float(np.sqrt(np.mean(np.square(v)))) if v else None for r, v in pe.items()}
-    yaw_errs, yaw_errs_raw = [], []
-    for step in range(4):                                        # ② gtbot 4방위 헤딩
-        g.thr.publish(Float64MultiArray(data=[0.25] * 4))
-        t0 = time.time()
-        while time.time() - t0 < 4.0:                            # ~90° 회전 (실측 조정 노브)
-            rclpy.spin_once(g, timeout_sec=0.05)
-        g.thr.publish(Float64MultiArray(data=[0.0] * 4))
-        time.sleep(3)
-        _, ye, _, _ = spin_collect(g, 15.0)
-        if ye['gtbot']:
-            yaw_errs.append(float(np.degrees(np.median([v[0] for v in ye['gtbot']]))))
-            yaw_errs_raw.append(float(np.degrees(np.median([v[1] for v in ye['gtbot']]))))
+    hdg = {r: {'median_deg': float(np.degrees(np.median([x[0] for x in v]))),
+               'p95_deg': float(np.degrees(np.percentile([x[0] for x in v], 95))),
+               'median_deg_raw': float(np.degrees(np.median([x[1] for x in v])))}
+           for r, v in ye.items() if v}
     out = {'pos_rmse': rmse, 'valid_ratio': nv / nt,
-           'heading_err_deg_4dir': yaw_errs,
-           'heading_err_deg_4dir_raw': yaw_errs_raw,
+           'heading_err': hdg,
            'gate_s4_pass': bool(all(v is not None and v < 0.1 for v in rmse.values())
-                                and len(yaw_errs) == 4
-                                and all(e < 10.0 for e in yaw_errs))}
+                                and len(hdg) == 3
+                                and all(hdg[r]['median_deg'] < 10.0 for r in hdg))}
     with open('results/s4_stonefish.json', 'w') as f:
         json.dump(out, f, indent=1)
     print(json.dumps(out, indent=1))
