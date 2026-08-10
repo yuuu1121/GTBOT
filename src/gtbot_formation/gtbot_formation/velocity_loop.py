@@ -18,6 +18,14 @@ class VelocityLoop(Node):
                               ('i_max', 0.6), ('log_csv', ''),
                               ('heading_mode', 'hold'), ('k_cf', 0.05), ('kd', 0.1),
                               ('yaw_source', 'odom'),
+                              # odom_source='est'(2026-08-10, 플랫폼 중앙집중 설계):
+                              # 위치·속도 피드백을 odometry가 아니라 플랫폼 LiDAR
+                              # 추정(state_est의 상대위치·상대속도)에서 받는다 —
+                              # 실기에서 로봇은 자기 위치 센서가 없고 플랫폼이
+                              # 하행 전송하는 est가 유일한 소스. 홀드·v_ref가
+                              # 플랫폼 상대 프레임이 되어 편대 유지 의미로도 정합.
+                              # 'odom'은 구 캠페인 호환.
+                              ('odom_source', 'odom'),
                               ('fallback_bearing', float('nan'))]:
             self.declare_parameter(name, default)
         p = lambda n: self.get_parameter(n).value
@@ -32,12 +40,16 @@ class VelocityLoop(Node):
         # 절대 자세 발행, odom과 0.1° 일치 실측). 'odom'은 구 캠페인 호환 기본값.
         from sensor_msgs.msg import Imu
         self.yaw_source = p('yaw_source')
+        self.odom_source = p('odom_source')
+        if self.odom_source == 'est' and self.heading_mode != 'bearing':
+            raise ValueError("odom_source='est'는 bearing 모드(est 구독) 전용")
         self.imu_yaw = None
         self.t_imu = None
         self.create_subscription(Imu, f'/{robot}/imu', self.on_imu, 50)
         if self.heading_mode == 'bearing':
             from .mixer import cf_update  # noqa: 사용은 on_imu에서
             self.rel = None
+            self.rel_vel = None
             self.yaw_meas = 0.0
             self.meas_valid = False
             self.yaw_hat = None
@@ -119,6 +131,7 @@ class VelocityLoop(Node):
             if self.t_est is None or now - self.t_est > 0.5:
                 self.valid_since = now
             self.rel = np.array(d[0:2])
+            self.rel_vel = np.array(d[2:4])   # KF 상대속도 — odom_source='est' 피드백
             self.yaw_meas = d[4]
             self.t_est = now
 
@@ -160,11 +173,26 @@ class VelocityLoop(Node):
 
     def tick(self):
         t = self.now()
-        if self.odom is None or t - self.t_odom > 0.5:
-            self.ei[:] = 0.0
-            self.pub.publish(Float64MultiArray(data=[0.0] * 4))
-            return
-        pos, v_world, yaw = self.odom
+        if self.odom_source == 'est':
+            # 플랫폼 중앙집중 실기 설계: 위치·속도 = 플랫폼 LiDAR est(상대 프레임,
+            # 월드축 정렬). est 두절(가림·통신 단절) 시 기존 odom-두절과 동일하게
+            # 무추력 — 로봇이 스스로 멈추는 검증된 안전 경로.
+            if self.t_est is None or t - self.t_est > 0.5 or self.rel_vel is None:
+                self.ei[:] = 0.0
+                self.pub.publish(Float64MultiArray(data=[0.0] * 4))
+                return
+            pos, v_world = self.rel, self.rel_vel
+            yaw = self.imu_yaw if self.imu_yaw is not None else 0.0
+            if self.t_imu is None or t - self.t_imu > 0.5:
+                self.ei[:] = 0.0
+                self.pub.publish(Float64MultiArray(data=[0.0] * 4))
+                return
+        else:
+            if self.odom is None or t - self.t_odom > 0.5:
+                self.ei[:] = 0.0
+                self.pub.publish(Float64MultiArray(data=[0.0] * 4))
+                return
+            pos, v_world, yaw = self.odom
         # 헤딩 피드백 소스 전환: 'imu'면 로봇 자체 AHRS yaw 사용(실기 hwt9053 동일
         # 의미론). 위치·속도는 여전히 odometry(시뮬 한정 단순화 — 실기 속도원 미정).
         if self.yaw_source == 'imu' and self.t_imu is not None and t - self.t_imu < 0.5:
@@ -231,7 +259,11 @@ class VelocityLoop(Node):
             # 발진을 만든다(실측: 정렬 8~13° 도달 후 120~150° 스윙 반복). bearing 분기가
             # 마지막으로 쓴 yaw_ref를 유지하면 두절 동안 지향이 보존된다.
             fb = None
-            if self.heading_mode == 'bearing' and getattr(self, 'plat_odom', None) is not None \
+            if self.odom_source == 'est' and self.rel is not None:
+                # est 모드: rel 자체가 플랫폼 상대 벡터 — plat_odom(월드)과 섞지 않는다.
+                # 이 분기는 est 신선(위 게이트 통과)·스트릭 미충족(<1s)일 때만 온다.
+                fb = float(np.arctan2(-self.rel[1], -self.rel[0]))
+            elif self.heading_mode == 'bearing' and getattr(self, 'plat_odom', None) is not None \
                     and t - self.plat_odom[1] < 1.0:
                 dp = self.plat_odom[0] - pos
                 fb = float(np.arctan2(dp[1], dp[0]))     # platform odometry 기준 실제 베어링

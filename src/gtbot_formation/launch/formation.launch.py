@@ -23,6 +23,11 @@ def generate_launch_description():
                   # 목표대비 위치오차 평균 0.8~1.4 m). 리더가 0.103 m/s이므로 0.2면 2배 여유.
                   parameters=[{'robot': r, 'heading_mode': 'bearing', 'v_max': 0.2,
                                'yaw_source': 'imu',  # 로봇 자체 AHRS 헤딩(실기 hwt9053 동일 의미론)
+                               # odom_source='est'(완전 출력 피드백)는 게이트 회귀에서 S4·S5 탈락
+                               # (헤딩 중앙값 9.9~11.8° > 10°, 2026-08-10 런): est 잡음이 폐루프로
+                               # 로봇 운동에 들어가 판 헤딩 적합을 ~2배 열화. S6은 통과(0.089 m).
+                               # 시뮬은 검증된 'odom' 유지, est 모드는 실기 전용(hardware_robot.launch).
+                               'odom_source': 'odom',
                                'fallback_bearing': fb[r],
                                'log_csv': f'{LOG_DIR}/vel_{r}.csv'}])
              for r in ['gtbot', 'gtbot2', 'gtbot3']]

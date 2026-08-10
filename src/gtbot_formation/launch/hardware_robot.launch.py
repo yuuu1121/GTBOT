@@ -7,13 +7,18 @@
 
 사용: ros2 launch gtbot_formation hardware_robot.launch.py robot:=gtbot
 
-잔여 통합 지점(실기 투입 전 필수):
-  velocity_loop는 /<robot>/odometry(위치·속도·yaw)를 피드백으로 쓴다 — 시뮬 한정
-  단순화 규약('온보드 센서 대역'). 실물에는 odometry 소스가 없으므로,
-  (a) hwt9053 yaw + 속도 추정(GPS/DVL 등 추가 센서 결정 필요)으로 odometry 토픽을
-  합성하는 노드를 붙이거나, (b) velocity_loop에 imu-yaw 전용 모드를 추가해야 한다.
-  결정 전까지 velocity_loop는 이 launch에 넣지 않는다(무피드백 오동작 방지) —
-  아래 주석 블록이 연결 예시다.
+피드백 구성(2026-08-10 확정, 플랫폼 중앙집중):
+  헤딩 = 자체 hwt9053 AHRS(yaw_source='imu'), 위치·속도 = 플랫폼이 LiDAR로
+  추정해 하행 전송하는 /<robot>/state_est(odom_source='est', 오차 4~5 cm 시뮬
+  실측). 시뮬 게이트 회귀(2026-08-10): est 되먹임으로 S6(편대 성능 0.089 m) 통과,
+  단 S4·S5 헤딩 게이트는 marginal 탈락(9.9~11.8° vs 10°) — est 잡음의 폐루프
+  재유입로 판 헤딩 적합이 열화(sim-results.md 6차). 실기 캘리브레이션 시 참고.
+  로봇에 위치 센서 불요. est·명령 두절 0.5 s 시 무추력 자연 정지(검증된
+  안전 경로). 운용 요건: 초기 배치에서 반사판이 플랫폼 LiDAR에 보여야 est가
+  성립한다(대략 지향이면 충분 — 강도 검출은 방향 관용).
+멀티머신: 플랫폼·로봇 전부 같은 LAN + 동일 ROS_DOMAIN_ID(권장 42)면 DDS 기본
+  멀티캐스트 디스커버리로 토픽이 이어진다. 오가는 것은 accel_cmd(하행)·
+  state_est(하행)·(선택) imu(상행)뿐이라 WiFi 대역폭 부담 없음.
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -33,8 +38,8 @@ def generate_launch_description():
         Node(package='thruster_control', executable='thruster_can_node',
              parameters=[{'can_channel': 'can0', 'can_base_id': 0x300,
                           'num_thrusters': 8}]),
-        # velocity_loop 연결 예시 (odometry 소스 확정 후 주석 해제):
-        # Node(package='gtbot_formation', executable='velocity_loop',
-        #      parameters=[{'robot': robot, 'heading_mode': 'bearing',
-        #                   'v_max': 0.2}]),
+        Node(package='gtbot_formation', executable='velocity_loop',
+             parameters=[{'robot': robot, 'heading_mode': 'bearing',
+                          'yaw_source': 'imu', 'odom_source': 'est',
+                          'v_max': 0.2}]),
     ])
