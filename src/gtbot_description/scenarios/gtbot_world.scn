@@ -39,6 +39,41 @@
 				<mass value="0.1"/>
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.17"/>
 			</internal_part>
+			<!-- 요 감쇠 킬 핀 4기(2026-08-10): 팔로워와 동일 사유 — 플랫폼 요 발진이
+			     스테이션 키핑 배회·이탈의 원인(진단 실측). 흘수 0.161 m, 반경 0.25 m
+			     (스러스터 0.194 밖), 부력 중립. -->
+			<external_part name="FinXp" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.16 0.02 0.16"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="orange"/>
+				<mass value="0.51"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.25 0.0 0.06"/>
+			</external_part>
+			<external_part name="FinXm" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.16 0.02 0.16"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="orange"/>
+				<mass value="0.51"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.25 0.0 0.06"/>
+			</external_part>
+			<external_part name="FinYp" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.02 0.16 0.16"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="orange"/>
+				<mass value="0.51"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.25 0.06"/>
+			</external_part>
+			<external_part name="FinYm" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.02 0.16 0.16"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="orange"/>
+				<mass value="0.51"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.25 0.06"/>
+			</external_part>
 		</base_link>
 
 		<sensor name="odometry" type="odometry" rate="10.0">
@@ -158,12 +193,52 @@
 			     plate yaw는 mod-180이라 로봇 헤딩은 브리지에서 베어링 사전정보로 접어
 			     해소(구 마스트 2기둥은 제거). -->
 			<external_part name="Plate" type="box" physics="floating" buoyant="false">
-				<dimensions xyz="0.02 0.14 0.10"/>
+				<dimensions xyz="0.02 0.14 0.20"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.15"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.10 -0.338"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.10 -0.488"/>
+			</external_part>
+			<!-- 요 감쇠 킬 핀 4기(2026-08-10): 마커 교체 후 진단에서 sim 요 플랜트가
+			     무저항 자전(무추력 -14°/s 지속·죽은시간 1.8 s)으로 실측됨 — 실물 선체의
+			     방향 안정성(요 항력)이 sim에 없어 헤딩 제어가 원리적으로 불가했다.
+			     stonefish는 파트 CG 점속도로 항력을 계산하므로 중앙 킬은 회전 항력이 0:
+			     반경 0.17 m 접선 방향 얇은 수직 핀 4기가 회전 시 브로드사이드 항력으로
+			     요 감쇠를 만든다(90° 대칭 = 병진 항력 등방). 부력 중립(0.336 L=0.34 kg)
+			     이라 흘수 불변. simplified: 실물 킬 실측치 아님 — 감쇠 계수는 실기 대조
+			     시 재보정. -->
+			<external_part name="FinXp" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.12 0.02 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.17 0.0 0.05"/>
+			</external_part>
+			<external_part name="FinXm" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.12 0.02 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.17 0.0 0.05"/>
+			</external_part>
+			<external_part name="FinYp" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.02 0.12 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.17 0.05"/>
+			</external_part>
+			<external_part name="FinYm" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.02 0.12 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.17 0.05"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
@@ -262,12 +337,52 @@
 			     plate yaw는 mod-180이라 로봇 헤딩은 브리지에서 베어링 사전정보로 접어
 			     해소(구 마스트 2기둥은 제거). -->
 			<external_part name="Plate" type="box" physics="floating" buoyant="false">
-				<dimensions xyz="0.02 0.14 0.10"/>
+				<dimensions xyz="0.02 0.14 0.20"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.15"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.10 -0.338"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.10 -0.488"/>
+			</external_part>
+			<!-- 요 감쇠 킬 핀 4기(2026-08-10): 마커 교체 후 진단에서 sim 요 플랜트가
+			     무저항 자전(무추력 -14°/s 지속·죽은시간 1.8 s)으로 실측됨 — 실물 선체의
+			     방향 안정성(요 항력)이 sim에 없어 헤딩 제어가 원리적으로 불가했다.
+			     stonefish는 파트 CG 점속도로 항력을 계산하므로 중앙 킬은 회전 항력이 0:
+			     반경 0.17 m 접선 방향 얇은 수직 핀 4기가 회전 시 브로드사이드 항력으로
+			     요 감쇠를 만든다(90° 대칭 = 병진 항력 등방). 부력 중립(0.336 L=0.34 kg)
+			     이라 흘수 불변. simplified: 실물 킬 실측치 아님 — 감쇠 계수는 실기 대조
+			     시 재보정. -->
+			<external_part name="FinXp" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.12 0.02 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.17 0.0 0.05"/>
+			</external_part>
+			<external_part name="FinXm" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.12 0.02 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.17 0.0 0.05"/>
+			</external_part>
+			<external_part name="FinYp" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.02 0.12 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.17 0.05"/>
+			</external_part>
+			<external_part name="FinYm" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.02 0.12 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.17 0.05"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
@@ -366,12 +481,52 @@
 			     plate yaw는 mod-180이라 로봇 헤딩은 브리지에서 베어링 사전정보로 접어
 			     해소(구 마스트 2기둥은 제거). -->
 			<external_part name="Plate" type="box" physics="floating" buoyant="false">
-				<dimensions xyz="0.02 0.14 0.10"/>
+				<dimensions xyz="0.02 0.14 0.20"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.15"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.10 -0.338"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.10 -0.488"/>
+			</external_part>
+			<!-- 요 감쇠 킬 핀 4기(2026-08-10): 마커 교체 후 진단에서 sim 요 플랜트가
+			     무저항 자전(무추력 -14°/s 지속·죽은시간 1.8 s)으로 실측됨 — 실물 선체의
+			     방향 안정성(요 항력)이 sim에 없어 헤딩 제어가 원리적으로 불가했다.
+			     stonefish는 파트 CG 점속도로 항력을 계산하므로 중앙 킬은 회전 항력이 0:
+			     반경 0.17 m 접선 방향 얇은 수직 핀 4기가 회전 시 브로드사이드 항력으로
+			     요 감쇠를 만든다(90° 대칭 = 병진 항력 등방). 부력 중립(0.336 L=0.34 kg)
+			     이라 흘수 불변. simplified: 실물 킬 실측치 아님 — 감쇠 계수는 실기 대조
+			     시 재보정. -->
+			<external_part name="FinXp" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.12 0.02 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.17 0.0 0.05"/>
+			</external_part>
+			<external_part name="FinXm" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.12 0.02 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="-0.17 0.0 0.05"/>
+			</external_part>
+			<external_part name="FinYp" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.02 0.12 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.17 0.05"/>
+			</external_part>
+			<external_part name="FinYm" type="box" physics="floating" buoyant="true">
+				<dimensions xyz="0.02 0.12 0.14"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Fiberglass"/>
+				<look name="yellow"/>
+				<mass value="0.34"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.17 0.05"/>
 			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->

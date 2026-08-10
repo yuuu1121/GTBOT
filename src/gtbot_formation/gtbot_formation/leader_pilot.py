@@ -51,6 +51,20 @@ class LeaderPilot(Node):
         n = np.linalg.norm(v_cmd)
         if n > self.v_lead:
             v_cmd *= self.v_lead / n
+        # 스테이션 키핑 데드밴드(2026-08-10): 목표 부근에서 연속 추력 보정이 hull을
+        # 요동시켜(롤·피치 ±2~3°) 라이다 z-크롭 창을 거리×기울기만큼 휩쓸고 반사판
+        # 검출을 간헐화시킨다(리플레이 실측). 0.3 m 안에서는 추력을 끊고 0.5 m를
+        # 벗어나면 재개 — 웨이포인트 주행(단일 wp 유지 용법 외)에는 arrive_r 로직이
+        # 먼저 인덱스를 넘겨 영향 없다.
+        d_wp = float(np.linalg.norm(wp - pos))
+        if not hasattr(self, 'dead'):
+            self.dead = False
+        if self.dead and d_wp > 0.5:
+            self.dead = False
+        elif not self.dead and d_wp < 0.3:
+            self.dead = True
+        if self.dead:
+            v_cmd[:] = 0.0
         e_body = world_to_body(*(v_cmd - v), yaw)
         # platform 벤치 실측(2026-08-06, yaw_bench.py): sw=+0.1 -> yaw -157.3 deg/4s,
         # sw=-0.1 -> yaw +140.8 deg/4s. gtbot과 동일하게 양의 setpoint가 yaw를 감소시킨다

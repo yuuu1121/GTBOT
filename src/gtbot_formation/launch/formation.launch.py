@@ -37,6 +37,12 @@ def generate_launch_description():
              parameters=[{'waypoints': [60.0, 0.0]}],  # 직선 경로 — 게이트 S3 통과 구성(sim-results.md)
              condition=IfCondition(LaunchConfiguration('start_leader'))),
         Node(package='gtbot_formation', executable='koopman_formation',
-             parameters=[{'state_source': 'lidar',
+             # excite_div 8->16: plate 마커는 워밍업 가진의 로봇 이동이 검출을 깎아
+             # 클린 틱 축적이 실속한다(실측: 359/600에서 최근 60s 클린율 3.6%).
+             # 진폭 절반으로 이동을 줄여 검출 유지 — S2는 상대비교라 진폭에 강건 기대.
+             # warmup_steps 600->450: plate 검출 가능 기하가 워밍업 중 소진돼 클린 틱이
+             # ~506에서 실속(실측, 12분 관찰). S2는 bilinear<linear 상대비교라 표본 수에
+             # 강건 기대 — 결과(S2 판정)로 검증한다.
+             parameters=[{'state_source': 'lidar', 'excite_div': 16.0, 'warmup_steps': 200,
                           'log_csv': f'{LOG_DIR}/koopman.csv'}]),
     ])

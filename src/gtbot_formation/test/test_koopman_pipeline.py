@@ -157,6 +157,7 @@ def _warmup_stub(mask_ok, t=10.0):
     s.state_source, s.est_hold, s.est_stale_stop = 'lidar', 1.0, 5.0
     s.prev, s.log, s.ests = None, None, {}
     s.phase, s.k, s.warmup_steps = 'warmup', 5, 600
+    s.excite_div = 8.0
     s.boot_done, s.boot_ok_since = True, None
     s.X_log, s.U_log = [], []
     # 식별 경로는 실물을 쓴다(깨끗한 틱이 실제로 RLS까지 도달하는지 보려면 필요)

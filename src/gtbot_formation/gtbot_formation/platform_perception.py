@@ -47,6 +47,7 @@ class PlatformPerception(Node):
         self.track_reset = p('track_reset')              # 트랙별 재획득 대기(초)
         self.invalid_since = [None] * 3                 # k -> 그 트랙이 무효로 들어간 시각
         self.kf = [None] * 3                            # k -> (x=[px,py,vx,vy], P, t) 트랙별 KF
+        self.yaw_ema = [None] * 3                       # k -> 평활 헤딩(코스팅 발행에도 사용)
         self.all_invalid_since = None                   # 전 트랙 invalid 5s 지속 → 스폰 리셋
         self.create_subscription(Imu, '/platform/imu', self.on_imu, 10)
         self.create_subscription(MarkerArray, '/ouster_cluster/boxes', self.on_boxes, 5)
@@ -107,7 +108,19 @@ class PlatformPerception(Node):
             self.all_invalid_since = None
         for k, pub in enumerate(self.pubs):
             if out[k] is None:
-                pub.publish(Float64MultiArray(data=[0.0] * 5 + [0.0]))
+                # 코스팅(2026-08-10): 짧은 검출 공백(<0.8 s)은 상수속도 KF 예측을
+                # 유효로 발행해 잇는다 — sim의 록킹 유도 프레임별 명멸(per-frame
+                # 30~50%)이 est 유효율을 붕괴시키는 것을 추정기 표준 설계로 흡수.
+                # 헤딩은 마지막 평활값 유지. 긴 공백은 기존대로 무효.
+                if self.kf[k] is not None and 0.0 < t - self.kf[k][2] < 0.8 \
+                        and self.yaw_ema[k] is not None:
+                    x = self.kf[k][0]
+                    dtc = t - self.kf[k][2]
+                    pub.publish(Float64MultiArray(
+                        data=[float(x[0] + x[2] * dtc), float(x[1] + x[3] * dtc),
+                              float(x[2]), float(x[3]), float(self.yaw_ema[k]), 1.0]))
+                else:
+                    pub.publish(Float64MultiArray(data=[0.0] * 5 + [0.0]))
                 continue
             rel_w, yaw_w = out[k]
             # 트랙별 상수속도 KF — 발행 위치·속도는 필터 상태다. 실종 구간에는 전파하지
@@ -120,9 +133,20 @@ class PlatformPerception(Node):
                 x, P = kf_step(self.kf[k][0], self.kf[k][1], rel_w, dt, self.kf_q, self.kf_r)
             self.kf[k] = (x, P, t)
             self.tracks[k] = rel_w                              # 게이트 앵커는 생측정 유지(트래킹 시맨틱 불변)
+            # 헤딩 EMA(2026-08-10): 희소 링(셀 3~7개) 라인피팅 yaw는 잡음이 커
+            # (S4 실측 중앙값 32~43°) 원측정 대신 각도 EMA(α=0.25)를 발행. 공백
+            # 2 s 넘으면 리셋해 오래된 값에 안 끌린다.
+            if self.yaw_ema[k] is None or (dt is not None and dt > 2.0):
+                self.yaw_ema[k] = yaw_w
+            else:
+                e = np.arctan2(np.sin(yaw_w - self.yaw_ema[k]),
+                               np.cos(yaw_w - self.yaw_ema[k]))
+                self.yaw_ema[k] = float(np.arctan2(
+                    np.sin(self.yaw_ema[k] + 0.25 * e),
+                    np.cos(self.yaw_ema[k] + 0.25 * e)))
             pub.publish(Float64MultiArray(
                 data=[float(x[0]), float(x[1]), float(x[2]), float(x[3]),
-                      float(yaw_w), 1.0]))
+                      float(self.yaw_ema[k]), 1.0]))
 
 def main():
     rclpy.init()

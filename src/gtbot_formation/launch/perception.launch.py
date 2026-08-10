@@ -17,12 +17,22 @@ def generate_launch_description():
              parameters=[{
                  'input_topic': '/platform/lidar/points',
                  'preprocess_max_range': 5.0,
+                 # z-크롭 재설계(2026-08-10): platform 롤/피치 요동(±2~3°)이 거리 r에서
+                 # 창을 ±0.04·r 휩쓸어 판이 프레임별로 들락거림(리플레이 실측: z-band가
+                 # 프레임 간 6 cm 점프, confirm 3연속 불가). 판을 10 cm 추가 리프트해
+                 # 센서 기준 +0.07~+0.17에 두고 상한을 열어 스윕을 흡수. 선체 림(-0.083)은
+                 # 하한 -0.06이 계속 배제.
+                 # 판 14x20cm(sim 보정, 2026-08-10): 10cm 판은 1.5~3m에서 링 3~4개만
+                 # 걸려 측정 z-밴드(0.06~0.07)가 물리 높이(0.10)에 항상 미달, 높이
+                 # 게이트가 구조적으로 기각(리플레이 실측). 실물은 반사강도로 잡지만
+                 # sim은 기하 게이트뿐이라 수직 확장으로 링 샘플링을 배가 — BEV
+                 # 발자국(14cm 폭)과 yaw 기하는 불변. simplified: 실기 대조 시 재보정.
                  'preprocess_z_min': -0.06,
-                 'preprocess_z_max': 0.10,
+                 'preprocess_z_max': 0.40,
                  'preprocess_voxel_leaf': 0.0,
                  'elev_filter_enable': True,
                  'elev_min_deg': -30.0,
-                 'elev_max_deg': 15.0,
+                 'elev_max_deg': 25.0,  # sim 보정: 판 상단(센서 위 0.37m)이 근거리 1.4m에서 15° 컷에 잘림
                  'bev_density_cell_size': 0.02,
                  'bev_density_min': 3.0,  # sim 보정: 시뮬 OS0 판 셀 밀도 실측 5~27 (랩 벤치 30~300)
                  'bev_density_max': 0.0,
@@ -46,16 +56,16 @@ def generate_launch_description():
                  'bev_line_top_tol': 0.10,
                  'bev_line_top_step': 0.07,
                  'bev_plate_width': 0.14,
-                 'bev_plate_height': 0.10,
+                 'bev_plate_height': 0.20,
                  'bev_plate_tol_width': 0.05,
-                 'bev_plate_tol_height': 0.04,
+                 'bev_plate_tol_height': 0.06,
                  'bev_plate_thickness_max': 0.0,
                  'bev_line_max_segments': 50,
                  'bev_refine_enable': False,
                  'bev_refl_enable': False,
                  'bev_seg_match_distance': 0.15,
-                 'bev_seg_confirm_frames': 3,  # sim 보정: 부유 표적 히브로 검출 깜빡임
-                 'bev_seg_max_missed': 5,  # sim 보정: 동일
+                 'bev_seg_confirm_frames': 2,  # sim 보정: 부유 표적 히브로 검출 깜빡임
+                 'bev_seg_max_missed': 10,  # sim 보정: 동일
                  'plate_recover_enable': True,
                  'plate_recover_xy_half': 0.12,
                  'plate_recover_z_margin_below': 0.0,
@@ -64,17 +74,17 @@ def generate_launch_description():
                  'plate_recover_min_points': 10,
                  'plate_recover_maha_threshold': 7.815,
                  'plate_recover_accum_frames': 3,  # sim 보정: 히브 재위상으로 링 간극 메움
-                 'plate_thickness_max': 0.03,
+                 'plate_thickness_max': 0.12,  # sim 보정: 록킹 틸트 시 20cm 판 투영두께 0.02+0.20sinθ  # sim 보정: 노이즈 sigma=1cm의 면 두께 퍼짐 실측 3.6~5.4cm (38/38 이 게이트 단독 탈락)
                  'plate_width': 0.14,
-                 'plate_height': 0.10,
-                 'plate_size_tol': 0.03,
+                 'plate_height': 0.20,
+                 'plate_size_tol': 0.05,
                  'plate_min_points': 10,
                  'track_match_distance': 0.5,
                  'track_pos_alpha': 0.5,
                  'track_vel_alpha': 0.5,
                  'track_yaw_alpha': 0.2,
                  'track_confirm_frames': 2,
-                 'track_max_missed': 3,
+                 'track_max_missed': 6,
                  'track_max_dt': 0.3,
                  'scalar_field': 'intensity',
              }]),

@@ -36,15 +36,24 @@ class VelocityLoop(Node):
             self.t_cf = None
             self.t_est = None
             self.valid_since = None   # 연속 유효 스트릭 시작(0.5 s 끊기면 리셋) — bearing 진입 게이트
+            self.yaw_ref_track = None  # 슬루잉 기준(_syaw_track) — 첫 사용 시 현재 자세로 초기화
             self.gyro_z = 0.0
             self.create_subscription(Float64MultiArray, f'/{robot}/state_est', self.on_est, 10)
             self.create_subscription(Imu, f'/{robot}/imu', self.on_imu, 50)
+            # 부트스트랩 폴백용 platform odometry(시뮬 한정 단순화의 연장 — 실물에서는
+            # 운용자가 배치 시 로봇을 platform 쪽으로 지향시키는 것에 대응). est 성립
+            # 후에는 bearing 분기(추정 기반)가 우선하므로 출력피드백 주장에는 부트스트랩
+            # 구간만 관여한다. 스폰 상수 베어링은 platform이 로딩 중 표류하면 부정확해져
+            # 런별 지향 품질 편차(부트 발화 복불복)를 만들었다(실측).
+            self.plat_odom = None
+            self.create_subscription(Odometry, '/platform/odometry', self.on_plat, 10)
         self.v_ref = np.zeros(2)
         self.a_cmd = np.zeros(2)
         self.ei = np.zeros(2)
         self.odom = None            # (pos2, v_world2, yaw)
         self.yaw0 = None
         self.t_odom = self.t_acc = None
+        self.pos_hold = None              # 두절 위치 홀드 앵커(두절 진입 시 캡처)
         path = p('log_csv')
         self.log = open(path, 'w', buffering=1) if path else None
         if self.log:
@@ -56,6 +65,28 @@ class VelocityLoop(Node):
 
     def now(self):
         return self.get_clock().now().nanoseconds * 1e-9
+
+    def _syaw_track(self, yaw, target):
+        """대각 오차 획득의 한계 사이클 제거(2026-08-10 근본 수정): 명령 clip ±0.05 +
+        kd·gyro_z 감쇠는 자이로 피드백 이득(G≈12 × kd=0.1)이 작동 지연 0.5 s와 결합해
+        그 자체로 발진 구동이 된다(실측: 전 로봇 영구 자전, |wrap 오차| 중앙값 90° —
+        판이 모서리로 서서 검출 사망). 대신 내부 기준 yaw_ref_track을 0.3 rad/s로
+        목표까지 굴리고, 플랜트는 항상 소신호 오차만 추종한다 — 검증된 hold 모드
+        P 루프(kpsi, ζ≈0.7)를 그대로 쓰는 기준 슬루잉."""
+        if self.yaw_ref_track is None:
+            self.yaw_ref_track = yaw                     # 현재 자세에서 출발(점프 없음)
+        d = wrap(target - self.yaw_ref_track)
+        step = 0.3 * self.dt
+        self.yaw_ref_track = wrap(self.yaw_ref_track + float(np.clip(d, -step, step)))
+        # ±0.06 캡: 정·역추력 비대칭 때문에 공통모드(syaw)가 크면 순 병진력이 생겨
+        # '기생력 → 이탈 → 베어링 오차 증가 → 더 큰 syaw'의 폭주 루프가 된다(진단
+        # 실측: syaw ~0.15 지속 구간에서 로봇 단조 이탈). 0.06이면 요 권위
+        # ~0.45 rad/s로 슬루 0.3 rad/s 추종에 충분하면서 기생력은 절반 이하.
+        return float(np.clip(self.kpsi * wrap(yaw - self.yaw_ref_track), -0.06, 0.06))
+
+    def on_plat(self, msg):
+        p_ = msg.pose.pose.position
+        self.plat_odom = (np.array([p_.x, p_.y]), self.now())
 
     def on_acc(self, msg):
         self.a_cmd = np.array(msg.data[:2])
@@ -125,8 +156,22 @@ class VelocityLoop(Node):
         dropped = self.t_acc is None or t - self.t_acc > 0.5
         if dropped:
             self.a_cmd = np.zeros(2)
-            self.v_ref = v_world.copy()       # 명령 두절 시 참조 리셋(윈드업 방지)
+            # 두절 시 위치 홀드(2026-08-10): '참조=현재 속도'(자유 표류)는 부트 전
+            # 구간이 길어진 plate 캠페인에서 로봇을 플랫폼/서로에게 표류-충돌시켜
+            # 스핀을 만든다(진단 실측: r0가 1.08 m까지 접근 후 -100°/s 회전).
+            # 두절 진입 시점 위치를 잡아 부드럽게 유지한다(odometry 사용은 기존
+            # '시뮬 한정 단순화' 규약과 동일 위치. 이득·캡은 표류 정지 수준).
+            if self.pos_hold is None:
+                self.pos_hold = pos.copy()
+            # P-only 홀드(적분 금지 — 지연 1.8 s 루프에서 적분이 이탈을 가속함을 실측).
+            # sim 잔여 상수 외력은 ~0.2 m 정적 오프셋으로 수용(연관 게이트 0.6 안).
+            # 이득 0.2/캡 0.08: sim 잔여 외력(~0.05 setpoint 상당)을 이겨 스테이션에
+            # 실제로 복귀해야 한다(0.04 캡은 3~5 m 밖에서 힘 평형으로 미복귀 실측).
+            self.v_ref = np.clip(0.2 * (self.pos_hold - pos), -0.08, 0.08)
             self.ei[:] = 0.0
+        # 앵커는 최초 1회만 캡처하고 유지(2026-08-10): 두절마다 재캡처하면 워밍업
+        # 가진으로 밀려난 자리를 새 기준으로 삼아 이탈이 누적된다(실측: 워밍업 44s에
+        # |rel| 3~6m). 최초 스테이션 복귀가 검출 기하를 보존한다.
         self.v_ref = self.v_ref + self.a_cmd * self.dt
         if not dropped:
             # 두절 시 v_max 클램프 생략(2026-08-09 근본 수정): 리셋 직후 클램프하면
@@ -150,6 +195,7 @@ class VelocityLoop(Node):
                 and self.t_est is not None and t - self.t_est < 0.5
                 and self.valid_since is not None and t - self.valid_since >= 1.0):
             yaw_ref = np.arctan2(-self.rel[1], -self.rel[0])   # platform을 바라보는 방위
+            self.last_yaw_ref = yaw_ref   # 두절 폴백용 최신 베어링 기억(스폰 상수 대체)
             # plate 캠페인(2026-08-09): 헤딩 피드백을 yaw_hat(CF: 자이로+plate yaw 융합)에서
             # **odometry yaw**로 전환. plate yaw는 π-대칭이라 미지향 자세에서 접기-뒤집힌
             # 측정이 CF를 오염시키고, 오염된 yaw_hat을 쫓는 제어가 자전→검출 상실→재오염의
@@ -157,25 +203,31 @@ class VelocityLoop(Node):
             # 로봇은 온보드 컴퍼스/IMU로 자기 헤딩을 아는 게 표준이며, 이 저장소의 기존
             # '시뮬 한정 단순화' 규약(하위 속도 루프 odometry = 온보드 센서 대역)과 동일한
             # 위치의 단순화다. plate yaw 측정은 S4 게이트의 평가 대상으로 유지(제어 미사용).
-            # fix round 2의 PD 구조는 유지: sw>0이 yaw를 감소시키는 플랜트라 kd>0이 댐핑.
-            syaw = self.kpsi * wrap(yaw - yaw_ref) + self.kd * self.gyro_z
+            syaw = self._syaw_track(yaw, yaw_ref)
         else:
             # plate 부트스트랩(2026-08-09): bearing 모드에서 est가 아직/더는 없을 때의 폴백
             # 목표를 스폰 헤딩(yaw0)이 아니라 **배치 베어링**(fallback_bearing, 알려진 초기
             # 기하 — 실물도 배치 시점 기하는 알고 시작)으로 한다. 판 마커는 플랫폼을 향해야
             # 검출되므로, 스폰 헤딩 복귀 폴백은 판을 돌려버려 검출 부트스트랩을 막는다(실측).
             # fallback_bearing 미설정(NaN)이면 기존 hold 그대로 (hold 모드·구 캠페인 불변).
-            fb = self.fallback_bearing if (self.heading_mode == 'bearing'
-                                           and not np.isnan(self.fallback_bearing)) else self.yaw0
-            syaw = self.kpsi * wrap(yaw - fb)                  # 기존 hold 형태 (두절 폴백 겸용)
+            # 적응형 폴백(2026-08-09): 스폰 상수 베어링은 platform이 표류하면 틀린 방향이
+            # 되어, 두절마다 로봇을 엉뚱한 쪽으로 돌리고 검출 버스트가 되돌리는 왕복
+            # 발진을 만든다(실측: 정렬 8~13° 도달 후 120~150° 스윙 반복). bearing 분기가
+            # 마지막으로 쓴 yaw_ref를 유지하면 두절 동안 지향이 보존된다.
+            fb = None
+            if self.heading_mode == 'bearing' and getattr(self, 'plat_odom', None) is not None \
+                    and t - self.plat_odom[1] < 1.0:
+                dp = self.plat_odom[0] - pos
+                fb = float(np.arctan2(dp[1], dp[0]))     # platform odometry 기준 실제 베어링
+            if fb is None:
+                fb = getattr(self, 'last_yaw_ref', None)
+            if fb is None:
+                fb = self.fallback_bearing if (self.heading_mode == 'bearing'
+                                               and not np.isnan(self.fallback_bearing)) else self.yaw0
             if self.heading_mode == 'bearing':
-                # 대각(180°급) 오차 획득은 kpsi 소신호 설계(ζ≈0.7) 밖이다: syaw가 믹서
-                # 클립 ±0.3에 물리면 yaw 플랜트 이득 ~10 rad/s/unit과 곱해져 ±3 rad/s
-                # 뱅뱅 슬루가 되고, 작동 지연 ~0.5 s와 결합해 진폭 ~1.5 rad(±100°+)의
-                # 한계 사이클로 발산한다(실측: bearing 오차 100~150° 왕복 지속). 명령을
-                # ±0.05(슬루 ~0.5 rad/s = 34°/s — 180°도 수 초면 충분)로 레이트 제한하고
-                # 자이로 감쇠를 더해 정착시킨다. hold 모드(마스트 캠페인 경로)는 불변.
-                syaw = float(np.clip(syaw, -0.05, 0.05)) + self.kd * self.gyro_z
+                syaw = self._syaw_track(yaw, fb)
+            else:
+                syaw = self.kpsi * wrap(yaw - fb)              # hold 모드(마스트 캠페인) 불변
         s = setpoints(e_body, syaw, self.kv)
         self.pub.publish(Float64MultiArray(data=list(s)))
         if self.log:

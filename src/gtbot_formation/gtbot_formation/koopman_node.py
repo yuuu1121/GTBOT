@@ -27,7 +27,7 @@ class KoopmanFormation(Node):
                      ('actuation_delay', 0.16), ('state_source', 'odometry'),
                      # 1.0 = 평활 무효(통과). round 6에서 rel_vel이 platform_perception의
                      # 트랙 KF 출력으로 바뀌어 여기서 또 EMA를 걸면 지연만 더한다.
-                     ('vel_smooth_alpha', 1.0), ('est_hold', 1.0),
+                     ('vel_smooth_alpha', 1.0), ('est_hold', 1.0), ('excite_div', 8.0),
                      ('est_stale_stop', 5.0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
@@ -76,6 +76,7 @@ class KoopmanFormation(Node):
         self.vel_alpha = float(p('vel_smooth_alpha'))
         self.vel_ema = {}                     # k -> 지수평활된 rel_vel2 (10 Hz 유한차분 노이즈 완화)
         self.est_hold = float(p('est_hold'))
+        self.excite_div = float(p('excite_div'))  # 워밍업 가진 스케일 (8=원본, lidar 모드는 launch에서 완화)
         self.est_stale_stop = float(p('est_stale_stop'))
         self.ests = {}                        # k -> (rel_pos2, rel_vel2, valid, t) — lidar 상태원
         self.ok = {}                          # k -> (rel_pos2, rel_vel2, t) — 마지막 '유효' 추정(홀드)
@@ -203,7 +204,7 @@ class KoopmanFormation(Node):
                 self.rls[m].update(_zeta(self.sc_id, m, Xp, z2p, Up, self.z10, self.z20), z2)
         self.k += 1
         if self.phase == 'warmup':
-            U = table1_input(self.k) / 8.0
+            U = table1_input(self.k) / self.excite_div
             self.X_log.append(X)
             self.U_log.append(U)
             if self.k >= self.warmup_steps:
