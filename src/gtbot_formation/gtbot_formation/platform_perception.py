@@ -35,7 +35,16 @@ class PlatformPerception(Node):
                      ('track_gate', 0.6),
                      ('kf_q', 0.5), ('kf_r', 0.025), ('marker_offset', [0.0, 0.0]),
                      ('track_reset', 4.0),
-                     ('input_mode', 'boxes'), ('intensity_min', 100.0)]:
+                     ('input_mode', 'boxes'), ('intensity_min', 100.0),
+                     # yaw_se_max(2026-08-10, 프로브 D): 라인피팅 기울기 표준오차(rad)가
+                     # 이 값을 넘는 프레임은 헤딩 EMA 갱신 보류(위치·KF는 정상). est 체제
+                     # 실측: 헤딩 오차가 요레이트 상관(+0.25~0.41) — 요동으로 판이
+                     # 비스듬해진 순간 교차-거리 스팬이 줄어 기울기 분산이 폭발하는
+                     # 아스펙트 붕괴 프레임의 선별 차단. 0=게이트 없음.
+                     # 0.12(프로브 D): S4 첫 통과(7.7/7.8/10.0°). 0.08(프로브 E)은
+                     # 역효과(S4 여유 축소·S6 열화) — 0.12 확정. S5는 GT 물리 정렬
+                     # 지표라 이 게이트와 무관(gate_s5.py).
+                     ('yaw_se_max', 0.12)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         self.z_off = p('z_water_offset')
@@ -58,6 +67,7 @@ class PlatformPerception(Node):
         # KF·발행)는 두 모드가 완전히 공유한다.
         self.input_mode = p('input_mode')
         self.intensity_min = float(p('intensity_min'))
+        self.yaw_se_max = float(p('yaw_se_max'))
         if self.input_mode == 'points':
             from sensor_msgs.msg import PointCloud2
             self.create_subscription(PointCloud2, '/ouster/points', self.on_points, 5)
@@ -70,8 +80,8 @@ class PlatformPerception(Node):
         q = msg.orientation
         self.yaw_p = yaw_of(q.x, q.y, q.z, q.w)
 
-    def _det_from_flu(self, center_flu, line_yaw_flu):
-        """라이다 FLU (중심, 장축각) -> world (마커오프셋 보정 원점, 접힌 헤딩)."""
+    def _det_from_flu(self, center_flu, line_yaw_flu, yaw_ok=True):
+        """라이다 FLU (중심, 장축각) -> world (마커오프셋 보정 원점, 접힌 헤딩, 헤딩 신뢰)."""
         xy_w, _h = lidar_to_world(np.array([center_flu]), self.yaw_p, self.z_off)
         xy = xy_w[0]
         line_yaw_w = self.yaw_p - line_yaw_flu           # FLU y 미러: θ→−θ, 이후 R(+yaw_p)
@@ -79,7 +89,7 @@ class PlatformPerception(Node):
         heading = fold_heading(line_yaw_w, expected)
         c, s = np.cos(heading), np.sin(heading)
         origin = xy - np.array([[c, -s], [s, c]]) @ self.marker_offset
-        return (origin, heading)
+        return (origin, heading, yaw_ok)
 
     def on_boxes(self, msg):
         t = self.get_clock().now().nanoseconds * 1e-9
@@ -132,11 +142,16 @@ class PlatformPerception(Node):
                 keep = np.abs(res - np.median(res)) < 2 * np.std(res) + 1e-9
                 if keep.sum() >= 5:
                     s = float(np.polyfit(x[keep], y[keep], 1)[0])
+                    x, y = x[keep], y[keep]
+                # 기울기 표준오차(rad 근사) — 아스펙트 붕괴 프레임 선별(yaw_se_max 주석)
+                sx = float(np.std(x))
+                se = float(np.std(y - s * x)) / max(sx * np.sqrt(len(x)), 1e-6)
+                yaw_ok = self.yaw_se_max <= 0.0 or se <= self.yaw_se_max
                 dvec = u_perp + s * u_ray
                 line_yaw_flu = float(np.arctan2(dvec[1], dvec[0]))
                 z_mid = float(np.median(hi[:, 2]))    # 판 높이는 전 로봇 공통
                 dets.append(self._det_from_flu((float(c[0]), float(c[1]), z_mid),
-                                               line_yaw_flu))
+                                               line_yaw_flu, yaw_ok))
         self._process(dets, t)
 
     def _process(self, dets, t):
@@ -188,7 +203,7 @@ class PlatformPerception(Node):
                 else:
                     pub.publish(Float64MultiArray(data=[0.0] * 5 + [0.0]))
                 continue
-            rel_w, yaw_w = out[k]
+            rel_w, yaw_w, yaw_ok = out[k]
             # 트랙별 상수속도 KF — 발행 위치·속도는 필터 상태다. 실종 구간에는 전파하지
             # 않고(무효 발행), 재획득 시 실제 경과 dt로 한 스텝 돌려 자연히 이어붙인다.
             dt = t - self.kf[k][2] if self.kf[k] is not None else None
@@ -203,13 +218,15 @@ class PlatformPerception(Node):
             # (S4 실측 중앙값 32~43°) 원측정 대신 각도 EMA(α=0.65)를 발행 — PCA 프레임 잡음 ~2°라 강평활 불필요; α 0.25의 랙(τ~0.4s)이 요동 중 12~20° 오차 주인(S4 실측 15°). 공백
             # 2 s 넘으면 리셋해 오래된 값에 안 끌린다.
             if self.yaw_ema[k] is None or (dt is not None and dt > 2.0):
-                self.yaw_ema[k] = yaw_w
-            else:
+                self.yaw_ema[k] = yaw_w                 # 부트스트랩·리셋은 게이트 무관(발행 연속성)
+            elif yaw_ok:                                # 아스펙트 붕괴 프레임은 EMA 보류(프로브 D)
+                # α 0.65→0.5(프로브 G): 랙 우려는 kpsi 0.15로 요동이 줄어(S5 6~7°) 약화 —
+                # 게이트 통과 프레임 위 평활 강화로 S4 잔여 잡음(gtbot3 10.2° 경계) 마감.
                 e = np.arctan2(np.sin(yaw_w - self.yaw_ema[k]),
                                np.cos(yaw_w - self.yaw_ema[k]))
                 self.yaw_ema[k] = float(np.arctan2(
-                    np.sin(self.yaw_ema[k] + 0.65 * e),
-                    np.cos(self.yaw_ema[k] + 0.65 * e)))
+                    np.sin(self.yaw_ema[k] + 0.5 * e),
+                    np.cos(self.yaw_ema[k] + 0.5 * e)))
             pub.publish(Float64MultiArray(
                 data=[float(x[0]), float(x[1]), float(x[2]), float(x[3]),
                       float(self.yaw_ema[k]), 1.0]))

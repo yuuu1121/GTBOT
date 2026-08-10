@@ -23,11 +23,18 @@ def generate_launch_description():
                   # 목표대비 위치오차 평균 0.8~1.4 m). 리더가 0.103 m/s이므로 0.2면 2배 여유.
                   parameters=[{'robot': r, 'heading_mode': 'bearing', 'v_max': 0.2,
                                'yaw_source': 'imu',  # 로봇 자체 AHRS 헤딩(실기 hwt9053 동일 의미론)
-                               # odom_source='est'(완전 출력 피드백)는 게이트 회귀에서 S4·S5 탈락
-                               # (헤딩 중앙값 9.9~11.8° > 10°, 2026-08-10 런): est 잡음이 폐루프로
-                               # 로봇 운동에 들어가 판 헤딩 적합을 ~2배 열화. S6은 통과(0.089 m).
-                               # 시뮬은 검증된 'odom' 유지, est 모드는 실기 전용(hardware_robot.launch).
-                               'odom_source': 'odom',
+                               # 실기 동일: 위치·속도 = 플랫폼 LiDAR est(완전 출력 피드백, 사용자 결정
+                               # 2026-08-10 "시뮬도 똑같이 추정값"). est 잡음의 폐루프 재유입로 S4·S5
+                               # 헤딩이 9.9~11.8°로 열화(odom 대비 ~2배) — S6(임무 성능)은 통과.
+                               'odom_source': 'est',
+                               'k_yaw_off': 0.0,  # 프로브 A 판정: 오프셋 결합이 S4 열화 주범 — OFF
+                               'e_deadband': 0.03,  # 프로브 B 판정: 한계 개선(최악 13.3→11.8°) — 유지
+                               'kv': 1.0,  # 프로브 C: 단독 무효였으나 기생토크 감소 방향 — 유지
+                               # kpsi 0.15(F): S5 8~12.5→6~7° 첫 통과. 재현 런에서 gtbot3만
+                               # 9.5~10.2° 경계 플립(sim 상수 외력의 로봇별 요 기생토크 비대칭)
+                               # → 0.18(H)로 여유 확보. ζ는 낮아지나 캡 0.06 미포화 영역 유지.
+                               'kpsi': 0.18,
+
                                'fallback_bearing': fb[r],
                                'log_csv': f'{LOG_DIR}/vel_{r}.csv'}])
              for r in ['gtbot', 'gtbot2', 'gtbot3']]

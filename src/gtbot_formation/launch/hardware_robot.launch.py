@@ -38,8 +38,15 @@ def generate_launch_description():
         Node(package='thruster_control', executable='thruster_can_node',
              parameters=[{'can_channel': 'can0', 'can_base_id': 0x300,
                           'num_thrusters': 8}]),
+        # 이득은 시뮬 전 게이트 통과 구성(2026-08-10 프로브 H, 2/2 재현)과 동일 —
+        # 실기 요 플랜트가 다르므로 kpsi는 출발점이며 물에서 캘리브레이션 항목.
+        # k_yaw_off(자북↔플랫폼 프레임 정렬·IMU 드리프트 보정): 시뮬에서는 지속
+        # 결합이 헤딩 지표를 열화시켜 0(비활성) — 실기는 프레임 정렬에 필수라 켠다.
+        # 권장 절차: 배치 정지 구간에서 수렴 확인 후, 요동 결합 징후(자전·검출 명멸)
+        # 가 보이면 0으로 내려 마지막 오프셋을 동결 운용.
         Node(package='gtbot_formation', executable='velocity_loop',
              parameters=[{'robot': robot, 'heading_mode': 'bearing',
                           'yaw_source': 'imu', 'odom_source': 'est',
-                          'v_max': 0.2}]),
+                          'v_max': 0.2, 'kv': 1.0, 'kpsi': 0.18,
+                          'e_deadband': 0.03, 'k_yaw_off': 0.005}]),
     ])

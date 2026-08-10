@@ -26,6 +26,24 @@ class VelocityLoop(Node):
                               # 플랫폼 상대 프레임이 되어 편대 유지 의미로도 정합.
                               # 'odom'은 구 캠페인 호환.
                               ('odom_source', 'odom'),
+                              # k_yaw_off(2026-08-10): yaw = imu_yaw + yaw_off 의 오프셋 EMA 이득
+                              # (유효 est 헤딩 표본당, ~10 Hz -> tau≈5 s). IMU 드리프트를 LiDAR
+                              # 절대 헤딩으로 저주파 보정 + 실기 자북↔플랫폼 프레임 오프셋 자동
+                              # 정렬(이게 없으면 실기는 베어링 목표와 IMU yaw 의 기준 프레임이
+                              # 달라 수동 캘리브레이션 필수). 0.005 @10 Hz ≈ tau 20 s — 검출
+                              # 상실 동역학(수 초)보다 훨씬 느려 '오염 측정→제어→검출 붕괴'
+                              # 폐루프 결합을 끊는다(0.02 런 실측: 요 스윙 91~123°, S6 붕괴).
+                              ('k_yaw_off', 0.005),
+                              # est_vel_alpha(2026-08-10): rel_vel(KF 상대속도) EMA — est 잡음이
+                              # 폐루프로 재유입(est->e_world->추력 지터, 실측 setpoint diff-std
+                              # 0.023~0.028 = syaw 캡의 절반)돼 판 헤딩 적합을 열화시키는 것의
+                              # 완화. 0.35 @10 Hz ≈ tau 0.3 s(플랜트 지연 0.5 s 아래).
+                              ('est_vel_alpha', 0.35),
+                              # e_deadband(2026-08-10): 속도오차가 이 값(m/s) 미만이면 병진
+                              # 추력 침묵(요 제어는 유지) — est 잡음 크기의 오차를 쫓는
+                              # 추력 지터가 정지유지 중 선체를 흔들어 판 헤딩 적합을
+                              # 열화시키는 것의 차단. 0=비활성.
+                              ('e_deadband', 0.0),
                               ('fallback_bearing', float('nan'))]:
             self.declare_parameter(name, default)
         p = lambda n: self.get_parameter(n).value
@@ -34,6 +52,7 @@ class VelocityLoop(Node):
         self.dt = 1.0 / p('rate')
         robot = p('robot')
         self.heading_mode, self.k_cf, self.kd = p('heading_mode'), p('k_cf'), p('kd')
+        self.e_db = p('e_deadband')
         self.fallback_bearing = float(p('fallback_bearing'))
         # yaw_source='imu'(2026-08-10): 헤딩 피드백을 odometry가 아니라 로봇 자체
         # IMU(AHRS 절대 yaw)에서 받는다 — 실기 hwt9053과 동일 의미론(시뮬 IMU도
@@ -48,6 +67,11 @@ class VelocityLoop(Node):
         self.create_subscription(Imu, f'/{robot}/imu', self.on_imu, 50)
         if self.heading_mode == 'bearing':
             from .mixer import cf_update  # noqa: 사용은 on_imu에서
+            self.k_yaw_off, self.est_vel_alpha = p('k_yaw_off'), p('est_vel_alpha')
+            self.yaw_off = None   # 초기화 포함 모든 갱신은 '스트릭 3 s + 준정지' 게이트 뒤
+            #                       (on_est 참조) — 부트스트랩 원거리 표본(40~50° 오차 실측)
+            #                       으로 초기화하면 로봇이 그만큼 돌아 검출이 죽고 45° 게이트가
+            #                       교정을 막는 자기잠금이 된다(0.02 런 실측 붕괴).
             self.rel = None
             self.rel_vel = None
             self.yaw_meas = 0.0
@@ -128,11 +152,31 @@ class VelocityLoop(Node):
             # 연속 유효 스트릭: 직전 유효에서 0.5 s 넘게 끊겼으면 스트릭 재시작.
             # bearing 분기는 스트릭 1 s 이상에서만 진입(아래) — 간헐 깜빡임 한 발로
             # 제어 체제가 스위칭하며 로봇을 흔드는 것을 차단(상태기계 3안).
-            if self.t_est is None or now - self.t_est > 0.5:
+            gap = self.t_est is None or now - self.t_est > 0.5
+            if gap:
                 self.valid_since = now
             self.rel = np.array(d[0:2])
-            self.rel_vel = np.array(d[2:4])   # KF 상대속도 — odom_source='est' 피드백
+            raw_vel = np.array(d[2:4])        # KF 상대속도 — odom_source='est' 피드백
+            # EMA: est 잡음의 폐루프 재유입 완화(파라미터 주석 참조). 두절 후엔 재초기화.
+            if self.rel_vel is None or gap:
+                self.rel_vel = raw_vel
+            else:
+                self.rel_vel = self.rel_vel + self.est_vel_alpha * (raw_vel - self.rel_vel)
             self.yaw_meas = d[4]
+            # yaw 오프셋 추정(IMU 드리프트·프레임 정렬 — 파라미터 주석 참조): 판 적합이
+            # 신뢰되는 조건 — est 연속 유효 3 s 이상(안정 추적) + 준정지(|gyro|<0.05 rad/s,
+            # 헤딩 오차가 운동 상관 실측) — 에서만 err=yaw_meas-imu_yaw 를 느리게 추종.
+            # 초기화도 같은 게이트 뒤(자기잠금 방지, __init__ 주석). 이후 45° 게이트가
+            # π-접힘 이상치 차단.
+            if (self.k_yaw_off > 0.0                      # 0 = 추정기 완전 비활성(초기화 포함)
+                    and self.imu_yaw is not None and self.t_imu is not None
+                    and now - self.t_imu < 0.5
+                    and now - self.valid_since >= 3.0 and abs(self.gyro_z) < 0.05):
+                err = wrap(self.yaw_meas - self.imu_yaw)
+                if self.yaw_off is None:
+                    self.yaw_off = err
+                elif abs(wrap(err - self.yaw_off)) < np.radians(45):
+                    self.yaw_off = wrap(self.yaw_off + self.k_yaw_off * wrap(err - self.yaw_off))
             self.t_est = now
 
     def on_imu(self, msg):
@@ -196,7 +240,8 @@ class VelocityLoop(Node):
         # 헤딩 피드백 소스 전환: 'imu'면 로봇 자체 AHRS yaw 사용(실기 hwt9053 동일
         # 의미론). 위치·속도는 여전히 odometry(시뮬 한정 단순화 — 실기 속도원 미정).
         if self.yaw_source == 'imu' and self.t_imu is not None and t - self.t_imu < 0.5:
-            yaw = self.imu_yaw
+            off = getattr(self, 'yaw_off', None)   # bearing 모드에서만 존재·추정됨
+            yaw = wrap(self.imu_yaw + off) if off is not None else self.imu_yaw
         dropped = self.t_acc is None or t - self.t_acc > 0.5
         if dropped:
             self.a_cmd = np.zeros(2)
@@ -228,6 +273,9 @@ class VelocityLoop(Node):
             if n > self.v_max:
                 self.v_ref *= self.v_max / n
         e_world = self.v_ref - v_world
+        # 데드밴드(파라미터 주석 참조): 오차가 잡음 바닥 미만이면 병진 무추력 + 적분 동결.
+        if self.e_db > 0.0 and np.linalg.norm(e_world) < self.e_db:
+            e_world = np.zeros(2)
         # 적분 기여를 ±i_max로 클램프(안티윈드업). i_max는 정상상태 항력을 이길 setpoint
         # 여유를 정하는 보정 노브 — mixer 병진 캡(±0.7) 아래에 둔다.
         lim = self.i_max / self.ki if self.ki else 0.0
