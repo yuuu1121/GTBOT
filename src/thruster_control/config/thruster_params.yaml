@@ -1,0 +1,16 @@
+# thruster_control 파라미터
+# 코드에 흩어져 있던 매직넘버를 한곳에 모음.
+
+thruster_can_node:
+  ros__parameters:
+    can_channel: "can0"       # SocketCAN 인터페이스
+    can_interface: "socketcan"
+    can_base_id: 768          # 0x300. 스러스터 i의 CAN ID = can_base_id + (i + 1)
+    num_thrusters: 8
+    cmd_topic: "thruster_rpm"
+
+keyboard_node:
+  ros__parameters:
+    rpm: 2000                 # 각 방향키가 내보내는 RPM 크기
+    num_thrusters: 8
+    cmd_topic: "thruster_rpm"

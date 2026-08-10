@@ -17,6 +17,7 @@ class VelocityLoop(Node):
                               ('v_max', 0.5), ('rate', 20.0), ('ki', 1.0),
                               ('i_max', 0.6), ('log_csv', ''),
                               ('heading_mode', 'hold'), ('k_cf', 0.05), ('kd', 0.1),
+                              ('yaw_source', 'odom'),
                               ('fallback_bearing', float('nan'))]:
             self.declare_parameter(name, default)
         p = lambda n: self.get_parameter(n).value
@@ -26,8 +27,15 @@ class VelocityLoop(Node):
         robot = p('robot')
         self.heading_mode, self.k_cf, self.kd = p('heading_mode'), p('k_cf'), p('kd')
         self.fallback_bearing = float(p('fallback_bearing'))
+        # yaw_source='imu'(2026-08-10): 헤딩 피드백을 odometry가 아니라 로봇 자체
+        # IMU(AHRS 절대 yaw)에서 받는다 — 실기 hwt9053과 동일 의미론(시뮬 IMU도
+        # 절대 자세 발행, odom과 0.1° 일치 실측). 'odom'은 구 캠페인 호환 기본값.
+        from sensor_msgs.msg import Imu
+        self.yaw_source = p('yaw_source')
+        self.imu_yaw = None
+        self.t_imu = None
+        self.create_subscription(Imu, f'/{robot}/imu', self.on_imu, 50)
         if self.heading_mode == 'bearing':
-            from sensor_msgs.msg import Imu
             from .mixer import cf_update  # noqa: 사용은 on_imu에서
             self.rel = None
             self.yaw_meas = 0.0
@@ -39,7 +47,6 @@ class VelocityLoop(Node):
             self.yaw_ref_track = None  # 슬루잉 기준(_syaw_track) — 첫 사용 시 현재 자세로 초기화
             self.gyro_z = 0.0
             self.create_subscription(Float64MultiArray, f'/{robot}/state_est', self.on_est, 10)
-            self.create_subscription(Imu, f'/{robot}/imu', self.on_imu, 50)
             # 부트스트랩 폴백용 platform odometry(시뮬 한정 단순화의 연장 — 실물에서는
             # 운용자가 배치 시 로봇을 platform 쪽으로 지향시키는 것에 대응). est 성립
             # 후에는 bearing 분기(추정 기반)가 우선하므로 출력피드백 주장에는 부트스트랩
@@ -118,6 +125,11 @@ class VelocityLoop(Node):
     def on_imu(self, msg):
         from .mixer import cf_update
         t = self.now()
+        q = msg.orientation
+        self.imu_yaw = yaw_of(q.x, q.y, q.z, q.w)   # AHRS 절대 yaw (yaw_source='imu' 피드백)
+        self.t_imu = t
+        if self.heading_mode != 'bearing':
+            return
         self.gyro_z = msg.angular_velocity.z
         if self.yaw_hat is None:
             # plate 마커 캠페인: 초기화를 yaw_meas가 아니라 odometry yaw로 한다(실물:
@@ -153,6 +165,10 @@ class VelocityLoop(Node):
             self.pub.publish(Float64MultiArray(data=[0.0] * 4))
             return
         pos, v_world, yaw = self.odom
+        # 헤딩 피드백 소스 전환: 'imu'면 로봇 자체 AHRS yaw 사용(실기 hwt9053 동일
+        # 의미론). 위치·속도는 여전히 odometry(시뮬 한정 단순화 — 실기 속도원 미정).
+        if self.yaw_source == 'imu' and self.t_imu is not None and t - self.t_imu < 0.5:
+            yaw = self.imu_yaw
         dropped = self.t_acc is None or t - self.t_acc > 0.5
         if dropped:
             self.a_cmd = np.zeros(2)

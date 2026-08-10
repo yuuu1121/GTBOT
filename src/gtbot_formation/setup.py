@@ -21,6 +21,7 @@ setup(
     tests_require=['pytest'],
     entry_points={'console_scripts': [
         'velocity_loop = gtbot_formation.velocity_loop:main',
+            'rpm_to_sim = gtbot_formation.rpm_to_sim:main',
         'gate_s1 = gtbot_formation.gate_s1:main',
         'leader_pilot = gtbot_formation.leader_pilot:main',
         'koopman_formation = gtbot_formation.koopman_node:main',

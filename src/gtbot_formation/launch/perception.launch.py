@@ -15,7 +15,7 @@ def generate_launch_description():
         Node(package='ouster_cluster', executable='ouster_cluster_node',
              name='ouster_cluster_node',
              parameters=[{
-                 'input_topic': '/platform/lidar/points',
+                 'input_topic': '/ouster/points',  # ouster-ros 규약(드라이버 기본값) — 실기·시뮬 동일 설정
                  'preprocess_max_range': 5.0,
                  # z-크롭 재설계(2026-08-10): platform 롤/피치 요동(±2~3°)이 거리 r에서
                  # 창을 ±0.04·r 휩쓸어 판이 프레임별로 들락거림(리플레이 실측: z-band가
@@ -27,8 +27,12 @@ def generate_launch_description():
                  # 게이트가 구조적으로 기각(리플레이 실측). 실물은 반사강도로 잡지만
                  # sim은 기하 게이트뿐이라 수직 확장으로 링 샘플링을 배가 — BEV
                  # 발자국(14cm 폭)과 yaw 기하는 불변. simplified: 실기 대조 시 재보정.
-                 'preprocess_z_min': -0.06,
-                 'preprocess_z_max': 0.40,
+                 'preprocess_z_min': -0.25,  # 강도 컷 도입으로 넓게: 판 밴드(-0.14~-0.04)+여유
+                 'preprocess_z_max': 0.10,
+                 # 반사강도 컷(2026-08-10): sim RotatingLidar가 판 명중에 255, 배경 1을
+                 # 발행(실물 레트로리플렉터 동등) — 선체 클러터를 재질로 분리, 기하
+                 # 게이트 부담 해소. 실기에서도 reflectivity 채널로 동일 사용 가능.
+                 'preprocess_min_intensity': 100.0,
                  'preprocess_voxel_leaf': 0.0,
                  'elev_filter_enable': True,
                  'elev_min_deg': -30.0,
@@ -56,9 +60,9 @@ def generate_launch_description():
                  'bev_line_top_tol': 0.10,
                  'bev_line_top_step': 0.07,
                  'bev_plate_width': 0.14,
-                 'bev_plate_height': 0.20,
+                 'bev_plate_height': 0.10,
                  'bev_plate_tol_width': 0.05,
-                 'bev_plate_tol_height': 0.06,
+                 'bev_plate_tol_height': 0.05,  # sim 링 샘플링: 실측 밴드 0.06~0.07
                  'bev_plate_thickness_max': 0.0,
                  'bev_line_max_segments': 50,
                  'bev_refine_enable': False,
@@ -76,7 +80,7 @@ def generate_launch_description():
                  'plate_recover_accum_frames': 3,  # sim 보정: 히브 재위상으로 링 간극 메움
                  'plate_thickness_max': 0.12,  # sim 보정: 록킹 틸트 시 20cm 판 투영두께 0.02+0.20sinθ  # sim 보정: 노이즈 sigma=1cm의 면 두께 퍼짐 실측 3.6~5.4cm (38/38 이 게이트 단독 탈락)
                  'plate_width': 0.14,
-                 'plate_height': 0.20,
+                 'plate_height': 0.10,
                  'plate_size_tol': 0.05,
                  'plate_min_points': 10,
                  'track_match_distance': 0.5,
@@ -88,5 +92,8 @@ def generate_launch_description():
                  'track_max_dt': 0.3,
                  'scalar_field': 'intensity',
              }]),
-        Node(package='gtbot_formation', executable='platform_perception'),
+        Node(package='gtbot_formation', executable='platform_perception',
+             # sim: 반사강도 클러스터링 직접 검출(points). 실기 전환 시 'boxes'로
+             # 바꾸면 ouster_cluster(실물 검출기) 출력을 소비한다 — 하류 동일.
+             parameters=[{'input_mode': 'points', 'intensity_min': 100.0}]),
     ])

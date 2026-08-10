@@ -1,7 +1,7 @@
 {
  "frozen_1step_rmse": {
-  "linear": 0.05202731498219209,
-  "bilinear": 0.019183789580829537
+  "linear": 0.04792045827729952,
+  "bilinear": 0.025551854604515326
  },
  "gate_s2_pass": true,
  "warmup_steps": 200

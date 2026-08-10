@@ -1,0 +1,33 @@
+# HWT9053-485 센서 파라미터 (ROS2)
+# 노드 이름(hwt9053_node) 아래 ros__parameters 로 지정한다.
+hwt9053_node:
+  ros__parameters:
+    # 시리얼 포트 설정
+    port: "/dev/hwt9053"   # udev 규칙(99-hwt9053.rules)이 CH340->이 이름으로 링크. 실제로는 /dev/ttyUSB2
+    baudrate: 9600          # 센서의 실제 보드레이트
+    device_address: 80      # 0x50 (10진수 80)
+
+    # 프레임 ID
+    frame_id: "imu_link"
+
+    # 퍼블리시 속도 (Hz)
+    publish_rate: 50
+
+    # TF 브로드캐스트 여부
+    publish_tf: false
+
+    # 공분산 행렬 (3x3을 1차원 배열로, row-major 순서)
+    # orientation: X,Y: ±0.001° ≈ 3e-10 rad², Z: ±1° ≈ 3e-4 rad²
+    orientation_covariance: [3.0e-10, 0.0, 0.0,
+                             0.0, 3.0e-10, 0.0,
+                             0.0, 0.0, 3.0e-4]
+
+    # angular_velocity: ±0.05 deg/s ≈ 7.6e-7 rad²/s²
+    angular_velocity_covariance: [7.6e-7, 0.0, 0.0,
+                                  0.0, 7.6e-7, 0.0,
+                                  0.0, 0.0, 7.6e-7]
+
+    # linear_acceleration: 가정 ±0.1 m/s² → 0.01 m²/s⁴
+    linear_acceleration_covariance: [0.01, 0.0, 0.0,
+                                     0.0, 0.01, 0.0,
+                                     0.0, 0.0, 0.01]

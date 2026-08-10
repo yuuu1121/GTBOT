@@ -30,3 +30,6 @@ models/
 build/
 install/
 log/
+
+# 업스트림 클론 (버전: ros2 브랜치, ouster-sdk 서브모듈 포함) — 재현은 README 절차로
+src/ouster-ros/

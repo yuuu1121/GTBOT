@@ -33,8 +33,9 @@ class PlatformPerception(Node):
         super().__init__('platform_perception')
         for n, d in [('z_water_offset', 0.198),
                      ('track_gate', 0.6),
-                     ('kf_q', 0.5), ('kf_r', 0.025), ('marker_offset', [0.0, -0.10]),
-                     ('track_reset', 4.0)]:
+                     ('kf_q', 0.5), ('kf_r', 0.025), ('marker_offset', [0.0, 0.0]),
+                     ('track_reset', 4.0),
+                     ('input_mode', 'boxes'), ('intensity_min', 100.0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         self.z_off = p('z_water_offset')
@@ -50,13 +51,35 @@ class PlatformPerception(Node):
         self.yaw_ema = [None] * 3                       # k -> 평활 헤딩(코스팅 발행에도 사용)
         self.all_invalid_since = None                   # 전 트랙 invalid 5s 지속 → 스폰 리셋
         self.create_subscription(Imu, '/platform/imu', self.on_imu, 10)
-        self.create_subscription(MarkerArray, '/ouster_cluster/boxes', self.on_boxes, 5)
+        # input_mode(2026-08-10): 'boxes' = 실물 랩 검출기(ouster_cluster) 출력 소비
+        # (실기 경로). 'points' = 반사강도 클러스터링 직접 검출(sim 경로) — sim
+        # RotatingLidar의 판=255 강도 모델 위에서 클러스터+PCA로 중심·장축을 얻는다.
+        # 실물도 레트로리플렉터 강도 컷 기반이라 검출 원리는 동일하고, 하류(연관·
+        # KF·발행)는 두 모드가 완전히 공유한다.
+        self.input_mode = p('input_mode')
+        self.intensity_min = float(p('intensity_min'))
+        if self.input_mode == 'points':
+            from sensor_msgs.msg import PointCloud2
+            self.create_subscription(PointCloud2, '/ouster/points', self.on_points, 5)
+        else:
+            self.create_subscription(MarkerArray, '/ouster_cluster/boxes', self.on_boxes, 5)
         self.pubs = [self.create_publisher(Float64MultiArray, f'/{r}/state_est', 10)
                      for r in ROBOTS]
 
     def on_imu(self, msg):
         q = msg.orientation
         self.yaw_p = yaw_of(q.x, q.y, q.z, q.w)
+
+    def _det_from_flu(self, center_flu, line_yaw_flu):
+        """라이다 FLU (중심, 장축각) -> world (마커오프셋 보정 원점, 접힌 헤딩)."""
+        xy_w, _h = lidar_to_world(np.array([center_flu]), self.yaw_p, self.z_off)
+        xy = xy_w[0]
+        line_yaw_w = self.yaw_p - line_yaw_flu           # FLU y 미러: θ→−θ, 이후 R(+yaw_p)
+        expected = np.arctan2(-xy[1], -xy[0])            # 베어링 사전정보: platform 지향
+        heading = fold_heading(line_yaw_w, expected)
+        c, s = np.cos(heading), np.sin(heading)
+        origin = xy - np.array([[c, -s], [s, c]]) @ self.marker_offset
+        return (origin, heading)
 
     def on_boxes(self, msg):
         t = self.get_clock().now().nanoseconds * 1e-9
@@ -66,14 +89,57 @@ class PlatformPerception(Node):
                 continue
             pts = [(q.x, q.y, q.z) for q in m.points]
             center_flu, line_yaw_flu = decode_wirebox(pts)
-            xy_w, _h = lidar_to_world(np.array([center_flu]), self.yaw_p, self.z_off)
-            xy = xy_w[0]
-            line_yaw_w = self.yaw_p - line_yaw_flu       # FLU y 미러: θ→−θ, 이후 R(+yaw_p)
-            expected = np.arctan2(-xy[1], -xy[0])        # 베어링 사전정보: platform 지향
-            heading = fold_heading(line_yaw_w, expected)
-            c, s = np.cos(heading), np.sin(heading)
-            origin = xy - np.array([[c, -s], [s, c]]) @ self.marker_offset
-            dets.append((origin, heading))
+            dets.append(self._det_from_flu(center_flu, line_yaw_flu))
+        self._process(dets, t)
+
+    def on_points(self, msg):
+        import sensor_msgs_py.point_cloud2 as pc2
+        t = self.get_clock().now().nanoseconds * 1e-9
+        arr = pc2.read_points_numpy(msg, field_names=('x', 'y', 'z', 'intensity'),
+                                    skip_nans=True)
+        hi = arr[arr[:, 3] >= self.intensity_min]
+        dets = []
+        if len(hi) >= 5:
+            xy = hi[:, :2].astype(float)
+            # 탐욕 클러스터링: 판 간 최소 간격(스폰 1.1 m+) >> 판 폭(0.14 m)이라
+            # 반경 0.35 m 단순 배정으로 충분하다.
+            centers, members = [], []
+            for q in xy:
+                for i, c in enumerate(centers):
+                    if np.hypot(q[0] - c[0], q[1] - c[1]) < 0.35:
+                        members[i].append(q)
+                        centers[i] = np.mean(members[i], axis=0)
+                        break
+                else:
+                    centers.append(q.copy())
+                    members.append([q])
+            for c, m in zip(centers, members):
+                if len(m) < 5:                            # 잡음 클러스터 배제
+                    continue
+                pts2 = np.array(m) - c
+                # 광선-회귀 적합(2026-08-10): 라이다 거리 노이즈는 광선 방향에만
+                # 있고 방위각은 무잡음이다. 원시 PCA는 노이즈 분산(광선 방향)이 판
+                # 길이 분산과 비슷해 주축이 광선 쪽으로 회전(S4 실측 15° 계통 편향).
+                # 교차-거리(x, 무잡음)에 대한 광선-거리(y)의 OLS 회귀는 이 편향이
+                # 없다(y-잡음만 가정하는 회귀의 기본 성질). 2σ 트림 1회로 모서리
+                # 리턴 지렛대 억제. 오프라인 실측: 중앙값 15°→8.8°.
+                u_ray = c / max(float(np.hypot(c[0], c[1])), 1e-6)
+                u_perp = np.array([-u_ray[1], u_ray[0]])
+                x = pts2 @ u_perp
+                y = pts2 @ u_ray
+                s = float(np.polyfit(x, y, 1)[0])
+                res = y - s * x
+                keep = np.abs(res - np.median(res)) < 2 * np.std(res) + 1e-9
+                if keep.sum() >= 5:
+                    s = float(np.polyfit(x[keep], y[keep], 1)[0])
+                dvec = u_perp + s * u_ray
+                line_yaw_flu = float(np.arctan2(dvec[1], dvec[0]))
+                z_mid = float(np.median(hi[:, 2]))    # 판 높이는 전 로봇 공통
+                dets.append(self._det_from_flu((float(c[0]), float(c[1]), z_mid),
+                                               line_yaw_flu))
+        self._process(dets, t)
+
+    def _process(self, dets, t):
         out = [None] * 3
         # 전역 최적 배정(탐욕 선점 기아 제거, round 12). 게이트 0.6은 그대로 강제된다.
         asg = assign_tracks([d[0] for d in dets], self.tracks, self.gate)
@@ -134,7 +200,7 @@ class PlatformPerception(Node):
             self.kf[k] = (x, P, t)
             self.tracks[k] = rel_w                              # 게이트 앵커는 생측정 유지(트래킹 시맨틱 불변)
             # 헤딩 EMA(2026-08-10): 희소 링(셀 3~7개) 라인피팅 yaw는 잡음이 커
-            # (S4 실측 중앙값 32~43°) 원측정 대신 각도 EMA(α=0.25)를 발행. 공백
+            # (S4 실측 중앙값 32~43°) 원측정 대신 각도 EMA(α=0.65)를 발행 — PCA 프레임 잡음 ~2°라 강평활 불필요; α 0.25의 랙(τ~0.4s)이 요동 중 12~20° 오차 주인(S4 실측 15°). 공백
             # 2 s 넘으면 리셋해 오래된 값에 안 끌린다.
             if self.yaw_ema[k] is None or (dt is not None and dt > 2.0):
                 self.yaw_ema[k] = yaw_w
@@ -142,8 +208,8 @@ class PlatformPerception(Node):
                 e = np.arctan2(np.sin(yaw_w - self.yaw_ema[k]),
                                np.cos(yaw_w - self.yaw_ema[k]))
                 self.yaw_ema[k] = float(np.arctan2(
-                    np.sin(self.yaw_ema[k] + 0.25 * e),
-                    np.cos(self.yaw_ema[k] + 0.25 * e)))
+                    np.sin(self.yaw_ema[k] + 0.65 * e),
+                    np.cos(self.yaw_ema[k] + 0.65 * e)))
             pub.publish(Float64MultiArray(
                 data=[float(x[0]), float(x[1]), float(x[2]), float(x[3]),
                       float(self.yaw_ema[k]), 1.0]))

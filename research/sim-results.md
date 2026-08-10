@@ -558,3 +558,46 @@ Stonefish는 flat ocean surface를 쓴다(파서 확인). 앞선 "파고 히브"
 수직 확장·+20 cm 리프트, 검출기 게이트 sim 보정 7건(perception.launch.py 주석),
 warmup_steps 200, leader 데드밴드, velocity_loop 슬루잉 요 제어·위치 홀드·syaw 캡,
 브리지 코스팅·헤딩 EMA. 전부 '실기 대조 시 재보정' 대상으로 주석 명시.
+
+### 재개 시도 5차 (2026-08-10 주간, 사용자 협업 세션) — **게이트 S2·S4·S5·S6 전체 통과**
+
+**최종 결과(단일 런, 12:09~12:17)**:
+- S2: bilinear frozen 1-step RMSE 0.0256 < linear 0.0479 — 통과
+- S4: valid_ratio 1.00, 위치 RMSE 0.043 m(게이트 0.1), 헤딩 중앙값 5.8~6.4°(게이트 10°) — 통과
+- S5: 베어링 정렬 중앙값 3.4~5.3° — 통과
+- S6: 리더 [60,0] 편대주행, 변 오차 중앙값 0.046 m·p90 0.124 m·최대 0.238 m,
+  로봇간 최소 표면거리 0.91 m(충돌 없음) — 통과
+부트 10 s, 워밍업 200틱 즉시 완주, 정착 9.3 s — 부트스트랩 복불복 소멸.
+
+**돌파구가 된 설계 전환 3건**:
+1. **반사강도 모델(RotatingLidar)**: 판 명중(몸체 프레임 역변환으로 판 박스 정확
+   판정 — 틸트 무관)에 intensity 255, 배경 1 — 실물 레트로리플렉터와 동등 의미론.
+   이것으로 '기하 게이트만으로 판·선체 분리'라는 구조적 난제(4차의 결론)가 소멸.
+2. **points 검출 모드(platform_perception)**: 강도 컷(>100) → 탐욕 클러스터링 →
+   광선-회귀 라인 적합. BEV 파이프라인(ouster_cluster)은 실기용 'boxes' 모드로
+   보존 — 하류(연관·KF·발행)는 두 모드 공유. **광선-회귀 적합이 결정타**:
+   거리 노이즈는 광선 방향에만 있으므로 교차-거리(무잡음)에 대한 광선-거리 OLS는
+   PCA의 주축 회전 편향(실측 15° 상수)이 원리적으로 없다(실측 15°→5.9°).
+3. **실기 동일 인터페이스 3종**: /ouster/points(ouster-ros 규약), /gtbotN/imu
+   (AHRS 절대 yaw = hwt9053 의미론, velocity_loop yaw_source='imu'),
+   /gtbotN/thruster_rpm(8ch RPM — 실기 검증 thruster_control 규약; 시뮬은
+   rpm_to_sim, 실기는 thruster_can_node가 소비). 제어~RPM 전 구간이 바이트 동일.
+
+**워크스페이스 단일화**: ouster_cluster·stonefish_ros2·stonefish_msgs·
+hwt9053_driver·thruster_control을 gtbot_ws/src로 통합, 공식 ouster-ros(ros2
+브랜치)는 클론 빌드(.gitignore, 재현 절차는 소싱 체인 주석). `source
+install/setup.bash` 하나로 시뮬·실기 launch 전부 접근(콜콘 언더레이 체인).
+
+**주간 세션의 진단 사슬(요 제어 재론)**: 핀 제거(사용자 지시) 후 요 플랜트
+재분석 — "죽은시간 1.8 s"의 실체는 모멘트암 1.9 cm의 느린 토크 램프(RTF=1.00,
+로터 모델 무죄 실측). 슬루잉 P + syaw 캡 ±0.06으로 자전은 차단(오차 ±20~50°
+진동 수용), 강도 검출의 방향 관용이 이를 흡수. 헤딩 15° 잔여의 원인 분해:
+지연·틸트·EMA 랙 전부 기각(실측), 최종 원인 = 노이즈 블롭의 PCA 주축 회전(위 2).
+
+**이탈 목록(5차)**: 판 14×10(실물 동일)·선체 상단 정중앙(0,0,-0.26) 장착(사용자
+결정), 강도 모델(stonefish 라이브러리 — 별도 저장소 미커밋 주의), points 검출
+모드(sim 전용, 실기는 boxes), yaw_source='imu', 대칭 액추에이터 경로, GTBOT.obj
+시각 모델(8만 면 decimate, 원본 215 MB는 /root/home/GTBOT_full.obj).
+
+**남은 실기 통합 지점**: velocity_loop의 위치·속도 피드백(odometry)은 시뮬 한정
+단순화 유지 — 실기 속도원(GPS/DVL 등) 결정 필요(hardware_robot.launch.py 주석).

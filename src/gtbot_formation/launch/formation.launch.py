@@ -22,9 +22,19 @@ def generate_launch_description():
                   # a_cmd 부호 반전 ~2 Hz, 팔로워 평속 0.36 m/s = 리더 실속도 0.103 m/s의 3.5배,
                   # 목표대비 위치오차 평균 0.8~1.4 m). 리더가 0.103 m/s이므로 0.2면 2배 여유.
                   parameters=[{'robot': r, 'heading_mode': 'bearing', 'v_max': 0.2,
+                               'yaw_source': 'imu',  # 로봇 자체 AHRS 헤딩(실기 hwt9053 동일 의미론)
                                'fallback_bearing': fb[r],
                                'log_csv': f'{LOG_DIR}/vel_{r}.csv'}])
              for r in ['gtbot', 'gtbot2', 'gtbot3']]
+    # 실기 동일 액추에이터 경로(2026-08-10): 제어 출력(4ch setpoint)을 하드웨어
+    # 인터페이스(thruster_rpm, 8ch RPM)로 변환해 흘리고, 시뮬 끝단에서만 되돌린다
+    # — 실기에서는 rpm_to_sim 대신 thruster_can_node가 같은 토픽을 소비한다.
+    bridges = [Node(package='thruster_control', executable='thruster_bridge',
+                    name=f'thruster_bridge_{r}', parameters=[{'robot': r}])
+               for r in ['gtbot', 'gtbot2', 'gtbot3']]
+    rpm_sims = [Node(package='gtbot_formation', executable='rpm_to_sim',
+                     name=f'rpm_to_sim_{r}', parameters=[{'robot': r}])
+                for r in ['gtbot', 'gtbot2', 'gtbot3']]
     return LaunchDescription([
         # LiDAR 지각 범위(r<5 m) 제약: 워밍업 중 리더가 먼저 출발하면 gtbot이 지각 범위 밖으로
         # 밀려나 state_est가 영구 invalid → k가 안 늘어 S2 전환이 오지 않는다(S6 실측 확인).
@@ -45,4 +55,4 @@ def generate_launch_description():
              # 강건 기대 — 결과(S2 판정)로 검증한다.
              parameters=[{'state_source': 'lidar', 'excite_div': 16.0, 'warmup_steps': 200,
                           'log_csv': f'{LOG_DIR}/koopman.csv'}]),
-    ])
+    ] + bridges + rpm_sims)
