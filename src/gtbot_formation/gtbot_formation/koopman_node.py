@@ -28,6 +28,11 @@ class KoopmanFormation(Node):
                      # 1.0 = 평활 무효(통과). round 6에서 rel_vel이 platform_perception의
                      # 트랙 KF 출력으로 바뀌어 여기서 또 EMA를 걸면 지연만 더한다.
                      ('vel_smooth_alpha', 1.0), ('est_hold', 1.0), ('excite_div', 8.0),
+                     # require_odom(2026-08-10): odometry 신선도 가드·GT 진단 로그의
+                     # 사용 여부. 시뮬 True(기존 동작). 실기에는 odometry가 없어 이
+                     # 가드가 tick을 영구 차단하므로 hardware_platform.launch에서 False.
+                     # lidar 모드의 제어 상태 조립은 어차피 est만 쓴다(odometry 미사용).
+                     ('require_odom', True),
                      ('est_stale_stop', 5.0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
@@ -78,6 +83,7 @@ class KoopmanFormation(Node):
         self.est_hold = float(p('est_hold'))
         self.excite_div = float(p('excite_div'))  # 워밍업 가진 스케일 (8=원본, lidar 모드는 launch에서 완화)
         self.est_stale_stop = float(p('est_stale_stop'))
+        self.require_odom = bool(p('require_odom'))
         self.ests = {}                        # k -> (rel_pos2, rel_vel2, valid, t) — lidar 상태원
         self.ok = {}                          # k -> (rel_pos2, rel_vel2, t) — 마지막 '유효' 추정(홀드)
         if self.state_source == 'lidar':
@@ -126,7 +132,10 @@ class KoopmanFormation(Node):
             return
         v = [float(k in self.ests and self.ests[k][2] and t - self.ests[k][3] <= 0.5)
              for k in range(3)]
-        gt = assemble(self.odoms['platform'][:2], [self.odoms[r][:2] for r in ROBOTS])
+        if all(n in self.odoms for n in ['platform'] + ROBOTS):
+            gt = assemble(self.odoms['platform'][:2], [self.odoms[r][:2] for r in ROBOTS])
+        else:
+            gt = np.zeros(12)                  # 실기(require_odom=False): GT 진단열 없음
         self.log.write(','.join(f'{x:.4f}' for x in [t, *X, *U, pub, *v, *gt]) + '\n')
 
     def tick(self):
@@ -136,7 +145,9 @@ class KoopmanFormation(Node):
         # velocity_loop의 기존 0.5 s a_cmd 두절 경로가 v_ref를 현재 속도로 리셋하고
         # 추력을 죽여 항력으로 자연 감속한다(검증된 안전 정지, velocity_loop 무수정).
         t = self.now()
-        if any(n not in self.odoms or t - self.odoms[n][2] > 0.5 for n in ['platform'] + ROBOTS):
+        if self.require_odom and any(
+                n not in self.odoms or t - self.odoms[n][2] > 0.5
+                for n in ['platform'] + ROBOTS):
             self.prev = None                  # 두절 갱을 전이로 오인해 RLS에 주입하지 않도록 무효화
             return
         mask = (True, True, True)

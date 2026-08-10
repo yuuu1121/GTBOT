@@ -40,5 +40,6 @@ def generate_launch_description():
              parameters=[{'frame_id': 'imu_link'}]),
         Node(package='gtbot_formation', executable='koopman_formation',
              parameters=[{'state_source': 'lidar', 'excite_div': 16.0,
-                          'warmup_steps': 200}]),
+                          'warmup_steps': 200,
+                          'require_odom': False}]),  # 실기: odometry 없음 — 가드·GT 진단 비활성
     ])

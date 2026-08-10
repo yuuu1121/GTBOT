@@ -83,6 +83,7 @@ def _tick_stub(state_source, odoms, ok, t, est_hold=1.0, est_stale_stop=5.0, pha
     s.now = lambda: t
     s.odoms, s.ok, s.prev, s.log = odoms, ok, 'sentinel', None
     s.state_source, s.est_hold, s.est_stale_stop = state_source, est_hold, est_stale_stop
+    s.require_odom = True                      # 시뮬 기본 — 기존 가드 시맨틱 유지
     s.ests = {}
     s.phase, s.k = phase, 0
     s.boot_done, s.boot_ok_since = True, None   # 기존 경로 테스트는 부트스트랩 통과 상태
@@ -155,6 +156,7 @@ def _warmup_stub(mask_ok, t=10.0):
             1: (np.zeros(2), np.zeros(2), t - age),
             2: (np.zeros(2), np.zeros(2), t - 0.1)}
     s.state_source, s.est_hold, s.est_stale_stop = 'lidar', 1.0, 5.0
+    s.require_odom = True
     s.prev, s.log, s.ests = None, None, {}
     s.phase, s.k, s.warmup_steps = 'warmup', 5, 600
     s.excite_div = 8.0
@@ -211,6 +213,7 @@ def test_bootstrap_silences_until_sustained_validity():
     s.odoms = _odoms(10.0)
     s.ok = {k: (np.zeros(2), np.zeros(2), 9.9) for k in range(3)}   # ok는 최신
     s.state_source, s.est_hold, s.est_stale_stop = 'lidar', 1.0, 5.0
+    s.require_odom = True
     s.prev, s.log = 'sentinel', None
     s.ests = {}                                    # est 스트림은 아직 없음 -> fresh 불성립
     s.phase, s.k = 'warmup', 0
