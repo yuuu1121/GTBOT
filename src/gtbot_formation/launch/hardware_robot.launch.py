@@ -48,5 +48,6 @@ def generate_launch_description():
              parameters=[{'robot': robot, 'heading_mode': 'bearing',
                           'yaw_source': 'imu', 'odom_source': 'est',
                           'v_max': 0.2, 'kv': 1.0, 'kpsi': 0.18,
-                          'e_deadband': 0.03, 'k_yaw_off': 0.005}]),
+                          'e_deadband': 0.03, 'k_yaw_off': 0.005,
+                          'vref_tau': 0.5}]),
     ])

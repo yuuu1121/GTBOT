@@ -44,6 +44,15 @@ class VelocityLoop(Node):
                               # 추력 지터가 정지유지 중 선체를 흔들어 판 헤딩 적합을
                               # 열화시키는 것의 차단. 0=비활성.
                               ('e_deadband', 0.0),
+                              # vref_tau(2026-08-11): v_ref를 실측 속도로 되끄는 시상수(s).
+                              # 0 = 기존 순수 적분기(비트 동일). 순수 적분 v_ref는 플랜트가
+                              # 못 따라가면 실측 속도와 위상이 벌어지고(실측 ∠(v,v_ref)=
+                              # 100~107°), 그 상태에서 a_cmd의 '감속' 지령은 v_ref를 줄이는
+                              # 대신 **회전**시킨다 — v_ref가 52~67°/s로 돌고 로봇이 그걸
+                              # 쫓아 공전한다(주기 5~7 s). 되끌면 정상상태가
+                              # v_ref = v + a_cmd·tau 라 가속 지령이 곧 속도오차가 되어
+                              # 감속 지령이 실제 감속으로 도달한다.
+                              ('vref_tau', 0.0),
                               ('fallback_bearing', float('nan'))]:
             self.declare_parameter(name, default)
         p = lambda n: self.get_parameter(n).value
@@ -52,7 +61,7 @@ class VelocityLoop(Node):
         self.dt = 1.0 / p('rate')
         robot = p('robot')
         self.heading_mode, self.k_cf, self.kd = p('heading_mode'), p('k_cf'), p('kd')
-        self.e_db = p('e_deadband')
+        self.e_db, self.vref_tau = p('e_deadband'), p('vref_tau')
         self.fallback_bearing = float(p('fallback_bearing'))
         # yaw_source='imu'(2026-08-10): 헤딩 피드백을 odometry가 아니라 로봇 자체
         # IMU(AHRS 절대 yaw)에서 받는다 — 실기 hwt9053과 동일 의미론(시뮬 IMU도
@@ -262,6 +271,9 @@ class VelocityLoop(Node):
         # 가진으로 밀려난 자리를 새 기준으로 삼아 이탈이 누적된다(실측: 워밍업 44s에
         # |rel| 3~6m). 최초 스테이션 복귀가 검출 기하를 보존한다.
         self.v_ref = self.v_ref + self.a_cmd * self.dt
+        # 기준 앵커링(파라미터 주석 참조) — 두절 홀드 경로는 자체 v_ref를 쓰므로 제외한다.
+        if not dropped and self.vref_tau > 0.0:
+            self.v_ref = self.v_ref - (self.v_ref - v_world) * (self.dt / self.vref_tau)
         if not dropped:
             # 두절 시 v_max 클램프 생략(2026-08-09 근본 수정): 리셋 직후 클램프하면
             # |v|>v_max에서 v_ref=0.2·v̂로 잘려 잔여 제동 명령이 남는다. 회전 중 body

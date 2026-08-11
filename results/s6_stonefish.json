@@ -1,9 +1,9 @@
 {
- "median_edge_err_tail30s": 0.13985675096674044,
- "p90_edge_err_tail30s": 0.3174011440566845,
- "max_edge_err_tail30s": 0.5922654746258109,
- "min_surface_dist_gg": 0.679027508732464,
- "min_surface_dist_pg": 0.15159221470536144,
- "n_samples": 4759,
+ "median_edge_err_tail30s": 0.160371652257999,
+ "p90_edge_err_tail30s": 0.232294015344688,
+ "max_edge_err_tail30s": 0.2905722675019544,
+ "min_surface_dist_gg": 0.9574629015091591,
+ "min_surface_dist_pg": 0.2811236013990017,
+ "n_samples": 4994,
  "gate_s6_pass": true
 }

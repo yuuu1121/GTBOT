@@ -16,8 +16,14 @@ def phi_robot(X, i, sc):
     # 기존 수치 캠페인(E1~E4)과 **비트 동일** — 순수 가산이다.
     nv_g = max(nv, sc.phi1_v_floor)
     vals[1] = 0.0 if (nv < sc.eps_guard or nr < sc.eps_guard) else float(r_star @ v) / (nr * nv_g)
-    v_des = sc.v_cruise / (1.0 + np.exp(-10.0 * (nr - 0.2)))
-    vals[2] = 1.0 - np.exp(-(((nv - v_des) / (0.8 * v_des)) ** 2))
+    # 전이 게이트: '스테이션에서 멀다'의 정도. v_des와 φ¹ 게이트가 이 하나를 공유한다
+    # (규약·근거는 Scenario 주석 — 기본값이면 게이트=미적용, 원 하드코딩과 비트 동일).
+    transit = 1.0 / (1.0 + np.exp(-10.0 * (nr - sc.v_des_r0)))
+    if sc.phi1_transit_gate:
+        vals[1] *= transit
+    v_des = sc.v_cruise * transit
+    v_w = 0.8 * max(v_des, sc.v_des_width_floor)
+    vals[2] = 1.0 - np.exp(-(((nv - v_des) / v_w) ** 2))
     vals[3] = np.exp(-((nr / 4.0) ** 2)) * np.exp(-((nr / 6.0) ** 2))
     vals[4] = np.exp(-((nr / 0.05) ** 2)) * np.exp(-((nv / 0.05) ** 2))
     diw = sc.wall_radius - np.linalg.norm(pos[i] - sc.wall_center) - sc.robot_radius
