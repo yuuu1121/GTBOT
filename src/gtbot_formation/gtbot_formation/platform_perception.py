@@ -33,7 +33,14 @@ class PlatformPerception(Node):
         super().__init__('platform_perception')
         for n, d in [('z_water_offset', 0.198),
                      ('track_gate', 0.6),
-                     ('kf_q', 0.5), ('kf_r', 0.025), ('marker_offset', [0.0, 0.0]),
+                     ('kf_q', 0.5), ('kf_r', 0.025),
+                     # marker_offset(2026-08-11): 판 중심의 body 좌표. 라이다는 판을
+                     # 보는데 제어·평가는 로봇 원점 기준이라, 이 값을 빼지 않으면 판까지의
+                     # 거리가 그대로 위치 오차가 된다. 판이 충돌체로 들어온 뒤 실측 위치
+                     # RMSE가 세 대 모두 0.138 m로 나왔고, 이는 판 중심 오프셋
+                     # |(0.0014, -0.1386)| = 0.1386 m와 일치한다(S4 임계 0.1 m 초과의 원인).
+                     # 값은 GTBOT.obj 원본 메시에서 실측한 판 중심(몸체 프레임).
+                     ('marker_offset', [0.0014, -0.1386]),
                      ('track_reset', 4.0),
                      ('input_mode', 'boxes'), ('intensity_min', 100.0),
                      # yaw_se_max(2026-08-10, 프로브 D): 라인피팅 기울기 표준오차(rad)가

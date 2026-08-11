@@ -158,14 +158,31 @@
 			     센서(0.198 m) 기준 -0.030~+0.070 → ouster_cluster z 크롭 [-0.06, +0.10].
 			     plate yaw는 mod-180이라 로봇 헤딩은 브리지에서 베어링 사전정보로 접어
 			     해소(구 마스트 2기둥은 제거). -->
-			<!-- <external_part name="Plate" type="box" physics="floating" buoyant="false">
-				<dimensions xyz="0.02 0.14 0.10"/>
+			<!-- 반사판 물리 파트(2026-08-11). GTBOT.obj의 판은 **visual 전용**이라 라이다
+			     레이캐스트(Bullet 충돌 월드 = physical 메시)가 볼 수 없었고, 그래서 강도
+			     모델이 판 대신 돔 상면을 잡아 클러스터가 원형(종횡비 1.1~1.9)이 됐다.
+			     GTBOT.obj를 physical로 쓰는 대안은 기각 — 경계 에지 78,221개의 열린 메시라
+			     부력(폐부피) 계산이 불안정하고 면 수가 4배(80k)다.
+			     시각 판과 동일한 위치·자세·크기의 박스를 충돌체로만 추가한다. 값은 원본
+			     메시 실측: 중심 (0.0014, -0.1386, -0.2847), 장축 14 cm·두께 1 cm·높이 10 cm,
+			     몸체 x축 기준 -22.4°(-0.391 rad) 회전. 장착 각도는 모델 그대로 유지(사용자
+			     지시). 치수를 1~2 mm 작게 잡아 시각 메시와의 동일면 z-fighting을 피한다. -->
+			<external_part name="Plate" type="box" physics="floating" buoyant="false">
+				<dimensions xyz="0.138 0.008 0.098"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.15"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.285"/>
-			</external_part> -->
+				<!-- yaw -1.5708(-90°) = 판 장축이 몸체 y축, 법선이 전방(x)을 향함.
+				     GTBOT.obj(2026-08-11 사용자 수정본)의 판과 정확히 일치한다 — 원본
+				     메시 실측: 장축 14.0 cm, 두께 1.00 cm, 장축 방위 -90.0°, 중심
+				     (0.0014, -0.1386, -0.3347). 즉 시각 메시와 이 충돌 박스가 겹친다.
+				     이 정렬이 중요한 이유: 지각은 판 장축이 헤딩에 수직이라고 보고
+				     `헤딩 = 적합선 + 90°`로 계산하므로, 판이 틀어져 있으면 그 각도가
+				     그대로 헤딩 편향이 된다(수정 전 22° 틀어짐 -> 68° 편향, 전 게이트
+				     붕괴: S4 66.7~68.5°, S6 13.0 m). -->
+				<compound_transform rpy="0.0 0.0 -1.5708" xyz="0.0014 -0.1386 -0.2847"/>
+			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
 		<sensor name="odometry" type="odometry" rate="10.0">
@@ -263,14 +280,31 @@
 			     센서(0.198 m) 기준 -0.030~+0.070 → ouster_cluster z 크롭 [-0.06, +0.10].
 			     plate yaw는 mod-180이라 로봇 헤딩은 브리지에서 베어링 사전정보로 접어
 			     해소(구 마스트 2기둥은 제거). -->
-			<!-- <external_part name="Plate" type="box" physics="floating" buoyant="false">
-				<dimensions xyz="0.02 0.14 0.10"/>
+			<!-- 반사판 물리 파트(2026-08-11). GTBOT.obj의 판은 **visual 전용**이라 라이다
+			     레이캐스트(Bullet 충돌 월드 = physical 메시)가 볼 수 없었고, 그래서 강도
+			     모델이 판 대신 돔 상면을 잡아 클러스터가 원형(종횡비 1.1~1.9)이 됐다.
+			     GTBOT.obj를 physical로 쓰는 대안은 기각 — 경계 에지 78,221개의 열린 메시라
+			     부력(폐부피) 계산이 불안정하고 면 수가 4배(80k)다.
+			     시각 판과 동일한 위치·자세·크기의 박스를 충돌체로만 추가한다. 값은 원본
+			     메시 실측: 중심 (0.0014, -0.1386, -0.2847), 장축 14 cm·두께 1 cm·높이 10 cm,
+			     몸체 x축 기준 -22.4°(-0.391 rad) 회전. 장착 각도는 모델 그대로 유지(사용자
+			     지시). 치수를 1~2 mm 작게 잡아 시각 메시와의 동일면 z-fighting을 피한다. -->
+			<external_part name="Plate" type="box" physics="floating" buoyant="false">
+				<dimensions xyz="0.138 0.008 0.098"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.15"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.285"/>
-			</external_part> -->
+				<!-- yaw -1.5708(-90°) = 판 장축이 몸체 y축, 법선이 전방(x)을 향함.
+				     GTBOT.obj(2026-08-11 사용자 수정본)의 판과 정확히 일치한다 — 원본
+				     메시 실측: 장축 14.0 cm, 두께 1.00 cm, 장축 방위 -90.0°, 중심
+				     (0.0014, -0.1386, -0.3347). 즉 시각 메시와 이 충돌 박스가 겹친다.
+				     이 정렬이 중요한 이유: 지각은 판 장축이 헤딩에 수직이라고 보고
+				     `헤딩 = 적합선 + 90°`로 계산하므로, 판이 틀어져 있으면 그 각도가
+				     그대로 헤딩 편향이 된다(수정 전 22° 틀어짐 -> 68° 편향, 전 게이트
+				     붕괴: S4 66.7~68.5°, S6 13.0 m). -->
+				<compound_transform rpy="0.0 0.0 -1.5708" xyz="0.0014 -0.1386 -0.2847"/>
+			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
 		<sensor name="odometry" type="odometry" rate="10.0">
@@ -368,14 +402,26 @@
 			     센서(0.198 m) 기준 -0.030~+0.070 → ouster_cluster z 크롭 [-0.06, +0.10].
 			     plate yaw는 mod-180이라 로봇 헤딩은 브리지에서 베어링 사전정보로 접어
 			     해소(구 마스트 2기둥은 제거). -->
-			<!-- <external_part name="Plate" type="box" physics="floating" buoyant="false">
-				<dimensions xyz="0.02 0.14 0.10"/>
+			<!-- 반사판 물리 파트 — gtbot·gtbot2와 동일(위 주석 참조). 세 로봇이 같은
+			     메시를 쓰므로 장착 값도 동일하다. 종전 이 블록만 y=-0.10으로 값이 달라
+			     일괄 치환에서 누락됐고, 그 결과 gtbot3만 판이 없어 검출 클러스터가
+			     2개만 잡혔다(실측). -->
+			<external_part name="Plate" type="box" physics="floating" buoyant="false">
+				<dimensions xyz="0.138 0.008 0.098"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
 				<look name="yellow"/>
 				<mass value="0.15"/>
-				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 -0.10 -0.285"/>
-			</external_part> -->
+				<!-- yaw -1.5708(-90°) = 판 장축이 몸체 y축, 법선이 전방(x)을 향함.
+				     GTBOT.obj(2026-08-11 사용자 수정본)의 판과 정확히 일치한다 — 원본
+				     메시 실측: 장축 14.0 cm, 두께 1.00 cm, 장축 방위 -90.0°, 중심
+				     (0.0014, -0.1386, -0.3347). 즉 시각 메시와 이 충돌 박스가 겹친다.
+				     이 정렬이 중요한 이유: 지각은 판 장축이 헤딩에 수직이라고 보고
+				     `헤딩 = 적합선 + 90°`로 계산하므로, 판이 틀어져 있으면 그 각도가
+				     그대로 헤딩 편향이 된다(수정 전 22° 틀어짐 -> 68° 편향, 전 게이트
+				     붕괴: S4 66.7~68.5°, S6 13.0 m). -->
+				<compound_transform rpy="0.0 0.0 -1.5708" xyz="0.0014 -0.1386 -0.2847"/>
+			</external_part>
 		</base_link>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
 		<sensor name="odometry" type="odometry" rate="10.0">
