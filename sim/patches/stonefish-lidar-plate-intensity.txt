@@ -1,0 +1,36 @@
+// 대상: <stonefish>/Library/src/sensors/scalar/RotatingLidar.cpp
+// InternalUpdate()의 레이 히트 처리부 — 판 z-대역만 intensity 255를 부여한다.
+// 적용 후 Library 재빌드 + make install (libStonefish.so 교체) 필요.
+// 원본 트리에서 이 파일은 git 미추적이라 diff가 없어 해당 블록만 보관한다.
+
+
+                // 반사판 강도 모델(2026-08-10): 실물 파이프라인(ouster_cluster)은
+                // 레트로리플렉터의 고강도 리턴으로 판을 분리한다. 시뮬에서 동등하게,
+                // gtbot 컴파운드 명중 중 로봇 원점축 반경 0.10 m 이내·원점 위
+                // 0.20 m 이상(= 판 장착 영역)의 점에 고강도(255)를 부여한다.
+                // 컴파운드라 부위별 material을 직접 조회할 수 없어 기하 판별을 쓴다
+                // — 판 위치를 옮기면 이 임계도 함께 조정할 것(simplified).
+                if(closest.m_collisionObject != nullptr)
+                {
+                    Entity* ent = (Entity*)closest.m_collisionObject->getUserPointer();
+                    if(ent != nullptr && ent->getType() == EntityType::SOLID
+                       && ent->getName().find("gtbot") != std::string::npos)
+                    {
+                        // 명중점을 몸체 원점 프레임으로 역변환해 판을 판정한다.
+                        // **z 하나로 충분**(2026-08-11): 선체(gtbot_phy) 최상단이
+                        // z=-0.2347이고 판은 그 위 -0.2347~-0.3347 구간에만 존재하므로
+                        // z<-0.236이면 반드시 판이다. 종전의 x,y 박스는 두 가지가 틀렸다 —
+                        // (1) |y|<0.10은 원점 기준인데 선체 중심이 y=-0.139라 14 cm 어긋나
+                        // 판을 아예 못 덮었고, (2) |x|<0.06은 판 두께(1 cm)의 12배라
+                        // 돔 상면을 함께 반사로 표시해 클러스터가 원형이 됐다(실측 종횡비
+                        // 1.1~1.9). z대역은 로봇 틸트에도 강건하다(판 높이 10 cm >> 틸트 변위).
+                        SolidEntity* solid = (SolidEntity*)ent;
+                        Transform oT = solid->getCGTransform()
+                                       * solid->getCG2OTransform();
+                        Vector3 lp = oT.inverse() * hitPoint;
+                        if(lp.z() < Scalar(-0.236) && lp.z() > Scalar(-0.345))
+                            pointIntensity = Scalar(255.0);
+                    }
+                }
+            }
+
