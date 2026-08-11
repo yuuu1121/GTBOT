@@ -9,7 +9,8 @@
 사용: ros2 launch gtbot_formation hardware_platform.launch.py sensor_hostname:=<OS0 IP>
 
 잔여 통합 지점: platform_perception은 /platform/imu(플랫폼 yaw)를 쓴다 — 실물
-플랫폼에 hwt9053을 달아 namespace platform으로 올리면 동일 토픽으로 충족된다.
+플랫폼에 hwt9053을 달아 namespace platform으로 올리고 imu/data -> imu 리맵을
+걸면 충족된다(드라이버 기본 토픽이 imu/data라 리맵 없이는 안 물린다).
 """
 import os
 from ament_index_python.packages import get_package_share_directory
@@ -37,6 +38,9 @@ def generate_launch_description():
                 os.path.join(pkg, 'launch', 'perception.launch.py'))),
         Node(package='hwt9053_driver', executable='hwt9053_node',
              namespace='platform',
+             # 드라이버 기본 토픽은 imu/data — platform_perception은 시뮬 scn과 같은
+             # /platform/imu를 구독하므로 리맵해 시뮬·실기 그래프를 일치시킨다.
+             remappings=[('imu/data', 'imu')],
              parameters=[{'frame_id': 'imu_link'}]),
         Node(package='gtbot_formation', executable='koopman_formation',
              parameters=[{'state_source': 'lidar', 'excite_div': 16.0,

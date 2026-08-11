@@ -32,6 +32,9 @@ def generate_launch_description():
         DeclareLaunchArgument('robot', default_value='gtbot'),
         Node(package='hwt9053_driver', executable='hwt9053_node',
              namespace=robot,
+             # 드라이버 기본 토픽은 imu/data — velocity_loop는 시뮬 scn과 같은
+             # /<robot>/imu를 구독하므로 리맵해 시뮬·실기 그래프를 일치시킨다.
+             remappings=[('imu/data', 'imu')],
              parameters=[{'frame_id': 'imu_link'}]),
         Node(package='thruster_control', executable='thruster_bridge',
              parameters=[{'robot': robot, 'max_rpm': 2000}]),
