@@ -38,9 +38,10 @@ def generate_launch_description():
                 os.path.join(pkg, 'launch', 'perception.launch.py'))),
         Node(package='hwt9053_driver', executable='hwt9053_node',
              namespace='platform',
-             # 드라이버 기본 토픽은 imu/data — platform_perception은 시뮬 scn과 같은
-             # /platform/imu를 구독하므로 리맵해 시뮬·실기 그래프를 일치시킨다.
-             remappings=[('imu/data', 'imu')],
+             # 로봇과 같은 드라이버라 자세 토픽도 imu/ddpm — platform_perception은
+             # 시뮬 scn과 같은 /platform/imu를 구독하므로 리맵해 그래프를 일치시킨다.
+             # (ddpm 선택 근거는 hardware_robot.launch.py 주석 참조)
+             remappings=[('imu/ddpm', 'imu')],
              parameters=[{'frame_id': 'imu_link'}]),
         Node(package='gtbot_formation', executable='koopman_formation',
              parameters=[{'state_source': 'lidar', 'excite_div': 16.0,

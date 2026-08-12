@@ -1,14 +1,20 @@
 """실물 gtbot(로봇 1대) 기동 — 시뮬과 동일한 제어 스택 + 하드웨어 어댑터.
 
 구성(시뮬 대비 달라지는 것은 어댑터 계층뿐, 제어 로직은 동일):
-  hwt9053_driver     RS485 AHRS -> /<robot>/imu (sensor_msgs/Imu)
+  hwt9053_driver     RS485 AHRS -> imu/ddpm, 리맵으로 /<robot>/imu (sensor_msgs/Imu)
   thruster_bridge    /<robot>/thrusters(4ch setpoint, 시뮬 규약) -> thruster_rpm(8ch RPM)
   thruster_can_node  thruster_rpm -> SocketCAN (can0, base_id 0x300)
 
 사용: ros2 launch gtbot_formation hardware_robot.launch.py robot:=gtbot
 
 피드백 구성(2026-08-10 확정, 플랫폼 중앙집중):
-  헤딩 = 자체 hwt9053 AHRS(yaw_source='imu'), 위치·속도 = 플랫폼이 LiDAR로
+  헤딩 = 자체 hwt9053 AHRS(yaw_source='imu') — **실측으로 재검토 필요**:
+  정지 55분 로그(imu_run1)에서 imu/ddpm yaw가 32°/h로 흘렀고 Allan 편차가 전
+  구간 +1 기울기라 절대 기준(자기계)이 없다. 순간 잡음은 0.0013°로 우수하나
+  10분 주행에 5°가 밀린다. 이 구성으로는 장시간 편대가 성립하지 않으므로,
+  LiDAR 헤딩 추정을 절대 기준으로 삼고 IMU를 단기 자이로로 쓰는 융합
+  (k_yaw_off 경로)이 실기 기본이 되어야 한다. 상세 research/sim-results.md.
+  위치·속도 = 플랫폼이 LiDAR로
   추정해 하행 전송하는 /<robot>/state_est(odom_source='est', 오차 4~5 cm 시뮬
   실측). 시뮬 게이트 회귀(2026-08-10): est 되먹임으로 S6(편대 성능 0.089 m) 통과,
   단 S4·S5 헤딩 게이트는 marginal 탈락(9.9~11.8° vs 10°) — est 잡음의 폐루프
@@ -32,9 +38,12 @@ def generate_launch_description():
         DeclareLaunchArgument('robot', default_value='gtbot'),
         Node(package='hwt9053_driver', executable='hwt9053_node',
              namespace=robot,
-             # 드라이버 기본 토픽은 imu/data — velocity_loop는 시뮬 scn과 같은
-             # /<robot>/imu를 구독하므로 리맵해 시뮬·실기 그래프를 일치시킨다.
-             remappings=[('imu/data', 'imu')],
+             # 실기 드라이버가 내는 자세 토픽은 imu/ddpm — velocity_loop는 시뮬 scn과
+             # 같은 /<robot>/imu를 구독하므로 리맵해 시뮬·실기 그래프를 일치시킨다.
+             # ddpm을 고른 근거(imu_run1, 정지 55분): 같은 로그의 세 출력 중 yaw
+             # 드리프트가 raw 1024°/h, gp 256°/h, ddpm 32°/h로 ddpm이 최선이고,
+             # imu/raw는 orientation_covariance=-1(자세 미제공)이라 애초에 못 쓴다.
+             remappings=[('imu/ddpm', 'imu')],
              parameters=[{'frame_id': 'imu_link'}]),
         Node(package='thruster_control', executable='thruster_bridge',
              parameters=[{'robot': robot, 'max_rpm': 2000}]),
