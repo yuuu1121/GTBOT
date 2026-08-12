@@ -2,11 +2,19 @@
 게이트 S4(정지 지각 품질)는 편대 제어 없이 이 launch + gate_s4로 판정한다.
 formation.launch.py가 이 파일을 include해 파라미터 중복을 없앤다."""
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
+    # 저하 시나리오 주입(기본 0 = 종전 동작). 스윕 러너가 값을 바꿔가며 게이트를 돌린다.
+    bias = ParameterValue(LaunchConfiguration('lidar_yaw_bias'), value_type=float)
+    dropout = ParameterValue(LaunchConfiguration('det_dropout'), value_type=float)
     return LaunchDescription([
+        DeclareLaunchArgument('lidar_yaw_bias', default_value='0.0'),
+        DeclareLaunchArgument('det_dropout', default_value='0.0'),
         # 실물 랩 검출 파이프라인(gtbot_lidar_cluster) — 파라미터는 랩 launch의 실기
         # 튜닝값 그대로, 시뮬 기하에 따른 오버라이드 3개만 다르다:
         #   input_topic: 시뮬 OS0 토픽 / preprocess_max_range 3→5 (스폰 1.5 m + S6 과도
@@ -95,5 +103,6 @@ def generate_launch_description():
         Node(package='gtbot_formation', executable='platform_perception',
              # sim: 반사강도 클러스터링 직접 검출(points). 실기 전환 시 'boxes'로
              # 바꾸면 ouster_cluster(실물 검출기) 출력을 소비한다 — 하류 동일.
-             parameters=[{'input_mode': 'points', 'intensity_min': 100.0}]),
+             parameters=[{'input_mode': 'points', 'intensity_min': 100.0,
+                          'lidar_yaw_bias': bias, 'det_dropout': dropout}]),
     ])

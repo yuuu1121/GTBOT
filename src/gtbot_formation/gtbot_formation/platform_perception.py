@@ -51,11 +51,23 @@ class PlatformPerception(Node):
                      # 0.12(프로브 D): S4 첫 통과(7.7/7.8/10.0°). 0.08(프로브 E)은
                      # 역효과(S4 여유 축소·S6 열화) — 0.12 확정. S5는 GT 물리 정렬
                      # 지표라 이 게이트와 무관(gate_s5.py).
-                     ('yaw_se_max', 0.12)]:
+                     ('yaw_se_max', 0.12),
+                     # --- 저하 시나리오 주입(2026-08-12, 기본값 0 = 종전 동작) ---
+                     # lidar_yaw_bias: 라이다 0° 방위와 플랫폼 body 프레임의 정합 오차
+                     # [rad]. 실기 장착·캘리브레이션에서 0.5~1°는 흔하고, 이 값은
+                     # 모든 검출의 월드 변환에 공통으로 실려 로봇 3대에 같이 전파된다.
+                     ('lidar_yaw_bias', 0.0),
+                     # det_dropout: 프레임별 검출 누락 확률. 젖은 판·수면 반사·큰
+                     # 입사각으로 재귀반사가 죽는 실기 현상의 대리. 검출 자체를 버리므로
+                     # 하류(트랙 재획득·KF 외삽·valid)가 실제와 같은 경로로 반응한다.
+                     ('det_dropout', 0.0), ('dropout_seed', 0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         self.z_off = p('z_water_offset')
         self.gate = p('track_gate')
+        self.lidar_yaw_bias = float(p('lidar_yaw_bias'))
+        self.det_dropout = float(p('det_dropout'))
+        self.drop_rng = np.random.default_rng(int(p('dropout_seed')))
         self.yaw_p = 0.0
         # 초기 트랙 = 스폰 상대 위치(로봇들은 편대 밖에서 출발 — Task 1 실측 반영)
         self.tracks = [np.array(o) for o in SPAWN_REL]
@@ -85,7 +97,8 @@ class PlatformPerception(Node):
 
     def on_imu(self, msg):
         q = msg.orientation
-        self.yaw_p = yaw_of(q.x, q.y, q.z, q.w)
+        # lidar_yaw_bias: 라이다-플랫폼 프레임 정합 오차(저하 시나리오 축 2). 0이면 무영향.
+        self.yaw_p = yaw_of(q.x, q.y, q.z, q.w) + self.lidar_yaw_bias
 
     def _det_from_flu(self, center_flu, line_yaw_flu, yaw_ok=True):
         """라이다 FLU (중심, 장축각) -> world (마커오프셋 보정 원점, 접힌 헤딩, 헤딩 신뢰)."""
@@ -162,6 +175,11 @@ class PlatformPerception(Node):
         self._process(dets, t)
 
     def _process(self, dets, t):
+        # det_dropout(저하 시나리오 축 3): 검출을 프레임별로 독립 기각한다. 배정 전에
+        # 버려야 트랙 재획득·KF 외삽·valid 하강이 실기와 같은 경로로 일어난다.
+        if self.det_dropout > 0.0 and dets:
+            dets = [d for d in dets
+                    if self.drop_rng.random() >= self.det_dropout]
         out = [None] * 3
         # 전역 최적 배정(탐욕 선점 기아 제거, round 12). 게이트 0.6은 그대로 강제된다.
         asg = assign_tracks([d[0] for d in dets], self.tracks, self.gate)
