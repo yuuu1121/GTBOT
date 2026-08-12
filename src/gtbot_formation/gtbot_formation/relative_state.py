@@ -1,9 +1,27 @@
+import os
 import numpy as np
 from .simpath import ensure
 ensure()
 from sim.scenario import Scenario
 
-OFFSETS = [(0.866, 0.0), (-0.433, 0.750), (-0.433, -0.750)]      # platform 중심 정삼각형, gtbot 간 1.5 m
+_BASE_OFFSETS = [(0.866, 0.0), (-0.433, 0.750), (-0.433, -0.750)]  # platform 중심 정삼각형, gtbot 간 1.5 m
+
+# 편대 회전 노브(2026-08-12, 판별 시험용). 세 로봇은 반경이 같고 **방위만** 다른데,
+# 31런 전수에서 방위 0°(플랫폼 정면)의 gtbot만 위치 오차가 4.6배(파랑 시 8.8배)였다.
+# 가설: 플랫폼 피치가 방위 0°/180° 표적의 고도각을 최대로 쓸고 검출기 z-크롭이 거기
+# 민감하다. 60° 회전하면 방위가 0/120/-120 -> 60/180/-60이 되어 **최악 로봇이
+# gtbot2로 바뀌어야** 한다(경쟁 가설 '개체 특성'은 gtbot이 그대로 최악이라 예측).
+# 기본 0 = 종전 동작. FORMATION(변 길이)과 |OFFSET|은 회전 불변이라 게이트는 그대로다.
+FORMATION_ROT_DEG = float(os.environ.get('GTBOT_FORMATION_ROT_DEG', '0'))
+
+
+def _rot(offsets, deg):
+    t = np.radians(deg)
+    c, s = np.cos(t), np.sin(t)
+    return [(c * x - s * y, s * x + c * y) for x, y in offsets]
+
+
+OFFSETS = _rot(_BASE_OFFSETS, FORMATION_ROT_DEG)
 FORMATION = {(0, 1): 1.5, (0, 2): 1.5, (1, 2): 1.5}
 
 def assemble(leader, followers):

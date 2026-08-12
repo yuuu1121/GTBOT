@@ -14,8 +14,12 @@ def generate_launch_description():
     os.makedirs(LOG_DIR, exist_ok=True)
     # fallback_bearing: 스폰 배치(SPAWN_REL)에서 platform을 향하는 방위 — plate 마커는
     # 플랫폼 지향이어야 검출되므로, est 부재 시 폴백이 판을 플랫폼 쪽으로 유지한다.
+    # OFFSETS에서 유도한다(하드코딩 금지) — 편대 회전 노브
+    # GTBOT_FORMATION_ROT_DEG를 쓰면 스테이션 방위가 바뀌므로 폴백도 따라가야 한다.
     import math
-    fb = {'gtbot': math.pi, 'gtbot2': -math.pi / 3, 'gtbot3': math.pi / 3}
+    from gtbot_formation.relative_state import OFFSETS
+    fb = {r: math.atan2(-o[1], -o[0])
+          for r, o in zip(['gtbot', 'gtbot2', 'gtbot3'], OFFSETS)}
     loops = [Node(package='gtbot_formation', executable='velocity_loop',
                   name=f'velocity_loop_{r}',
                   # v_max 0.5(기본) -> 0.2: LP는 항상 ±u_max 뱅뱅이라 v_ref가 v_max로 포화한
