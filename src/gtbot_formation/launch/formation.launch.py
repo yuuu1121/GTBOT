@@ -4,8 +4,9 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 LOG_DIR = '/tmp/gtbot_formation_logs'   # 제어 진단 CSV(koopman 게이트·velocity_loop v_ref/ei)
 
@@ -64,7 +65,9 @@ def generate_launch_description():
     # 흐르면 상대 기하가 보존돼 문제가 실제보다 순해진다).
     drift_shims = [Node(package='gtbot_formation', executable='imu_drift_shim',
                         name=f'imu_drift_shim_{r}',
-                        parameters=[{'robot': r, 'seed': 100 + i}])
+                        parameters=[{'robot': r, 'seed': ParameterValue(
+                            PythonExpression([LaunchConfiguration('seed_base'), '+', str(i)]),
+                            value_type=int)}])
                    for i, r in enumerate(['gtbot', 'gtbot2', 'gtbot3'])]
     return LaunchDescription([
         # LiDAR 지각 범위(r<5 m) 제약: 워밍업 중 리더가 먼저 출발하면 gtbot이 지각 범위 밖으로
@@ -73,12 +76,15 @@ def generate_launch_description():
         DeclareLaunchArgument('start_leader', default_value='true'),
         DeclareLaunchArgument('lidar_yaw_bias', default_value='0.0'),
         DeclareLaunchArgument('det_dropout', default_value='0.0'),
+        DeclareLaunchArgument('dropout_seed', default_value='0'),
+        DeclareLaunchArgument('seed_base', default_value='100'),
     ] + loops + [
         IncludeLaunchDescription(PythonLaunchDescriptionSource([
             FindPackageShare('gtbot_formation'), '/launch/perception.launch.py']),
             # 저하 시나리오 주입을 지각 스택으로 전달(기본 0 = 종전 동작)
             launch_arguments={'lidar_yaw_bias': LaunchConfiguration('lidar_yaw_bias'),
-                              'det_dropout': LaunchConfiguration('det_dropout')}.items()),
+                              'det_dropout': LaunchConfiguration('det_dropout'),
+                              'dropout_seed': LaunchConfiguration('dropout_seed')}.items()),
         Node(package='gtbot_formation', executable='leader_pilot',
              parameters=[{'waypoints': [60.0, 0.0]}],  # 직선 경로 — 게이트 S3 통과 구성(sim-results.md)
              condition=IfCondition(LaunchConfiguration('start_leader'))),

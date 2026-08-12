@@ -1,0 +1,9 @@
+{
+ "median_edge_err_tail30s": 0.11487711046942439,
+ "p90_edge_err_tail30s": 0.2593629689229071,
+ "max_edge_err_tail30s": 0.27466444150300084,
+ "min_surface_dist_gg": 1.0045949664554568,
+ "min_surface_dist_pg": 0.33380202168150297,
+ "n_samples": 3730,
+ "gate_s6_pass": true
+}
