@@ -16,12 +16,12 @@ R3 = ['gtbot', 'gtbot2', 'gtbot3']
 
 # (표시이름, 파일 접두, 설명)
 COMPOSITE = [
-    ('기준선',   'base',       'bias 0°, 누락 0%, 파고 0'),
-    ('복합 약',  'comp_mild',  'bias 0.5°, 누락 5%, 파고 5 cm'),
-    ('복합 강',  'comp_harsh', 'bias 1.0°, 누락 15%, 파고 10 cm'),
-    ('복합 초과', 'comp_over',  'bias 2.0°, 누락 30%, 파고 20 cm'),
+    ('기준선',   'base_fix',       'bias 0°, 누락 0%, 파고 0'),
+    ('복합 약',  'comp_mild_fix',  'bias 0.5°, 누락 5%, 파고 5 cm'),
+    ('복합 강',  'comp_harsh_fix', 'bias 1.0°, 누락 15%, 파고 10 cm'),
+    ('복합 초과', 'comp_over_fix',  'bias 2.0°, 누락 30%, 파고 20 cm'),
 ]
-SINGLE = [
+SINGLE = [   # 게이트 수정 전 값 — 과도 포함이라 위 표와 직접 비교 불가
     ('bias 0.5°', 'bias0.5'), ('bias 1.0°', 'bias1.0'),
     ('누락 5%', 'drop05'), ('누락 15%', 'drop15'),
     ('파고 5 cm', 'wave005'), ('파고 10 cm', 'wave010'),
@@ -95,7 +95,7 @@ def report(title, items):
 
 
 comp_rows = report('복합 조건 (구성당 3런)', COMPOSITE)
-sing_rows = report('단일축 (구성당 3런)', SINGLE)
+sing_rows = report('단일축 (게이트 수정 전, 참고용)', SINGLE)
 
 fig, ax = plt.subplots(1, 4, figsize=(20, 5))
 labels = [r[0] for r in comp_rows]
@@ -124,11 +124,11 @@ for r, col in zip(R3, ['#d62728', '#2ca02c', '#1f77b4']):
     a.errorbar(x, mean, yerr=[lo, hi], fmt='o-', capsize=4, c=col, label=r)
 a.axhline(0.1, ls='--', c='r', lw=1.0, label='게이트 0.1 m')
 a.set_xticks(x); a.set_xticklabels(labels, fontsize=9)
-a.set_ylabel('S4 위치 RMSE [m]'); a.set_title('로봇별 위치 오차 — gtbot 편중', fontsize=12)
+a.set_ylabel('S4 위치 RMSE [m]'); a.set_title('로봇별 위치 오차 — 편중 소멸(세 곡선 겹침)', fontsize=12)
 a.grid(alpha=0.3); a.legend(fontsize=8); a.set_ylim(bottom=0)
 
-fig.suptitle('복합 저하 조건 — 구성당 3런 평균 ± 범위 (실측 IMU 드리프트 + 융합 ON 위)',
+fig.suptitle('복합 저하 조건 (게이트 수정 후) — 구성당 3런 평균 ± 범위',
              fontsize=13)
 fig.tight_layout(rect=[0, 0, 1, 0.93])
-fig.savefig(f'{WS}/results/figs/composite_sweep.png', dpi=110)
-print('\nsaved results/figs/composite_sweep.png')
+fig.savefig(f'{WS}/results/figs/composite_sweep_fixed.png', dpi=110)
+print('\nsaved results/figs/composite_sweep_fixed.png')
