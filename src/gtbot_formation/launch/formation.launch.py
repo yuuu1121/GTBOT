@@ -27,7 +27,14 @@ def generate_launch_description():
                                # 2026-08-10 "시뮬도 똑같이 추정값"). est 잡음의 폐루프 재유입로 S4·S5
                                # 헤딩이 9.9~11.8°로 열화(odom 대비 ~2배) — S6(임무 성능)은 통과.
                                'odom_source': 'est',
-                               'k_yaw_off': 0.0,  # 프로브 A 판정: 오프셋 결합이 S4 열화 주범 — OFF
+                               # k_yaw_off(2026-08-12 재활성): 프로브 A에서 OFF로 둔 이유는
+                               # 시뮬 IMU에 드리프트가 없어(1e-4°) 보정할 대상이 없는데 결합만
+                               # 남아 S4를 열화시켰기 때문이다. 실기 실측(imu_run1)에서 IMU가
+                               # 32°/h로 흐르는 것이 확인돼 전제가 뒤집혔다 — 이제 보정할 대상이
+                               # 있다. 주행 중 준정지 게이트(|gyro_z|<0.05) 개방률 68~82% 실측,
+                               # est 10 Hz -> EMA 시상수 약 27 s, 32°/h 램프의 정상상태 지연
+                               # 0.24°, 판 헤딩 잡음 0.5°는 400 표본 평균으로 0.025°까지 감쇠.
+                               'k_yaw_off': 0.005,
                                'e_deadband': 0.03,  # 프로브 B 판정: 한계 개선(최악 13.3→11.8°) — 유지
                                # 공전의 마지막 고리: 순수 적분 v_ref가 실측 속도와 100~107°
                                # 어긋나 감속 지령이 회전으로 소비됐다(실측). 0.5 s로 되끈다.
@@ -50,6 +57,15 @@ def generate_launch_description():
     rpm_sims = [Node(package='gtbot_formation', executable='rpm_to_sim',
                      name=f'rpm_to_sim_{r}', parameters=[{'robot': r}])
                 for r in ['gtbot', 'gtbot2', 'gtbot3']]
+    # IMU 드리프트 심(2026-08-12): scn은 /<robot>/imu_true를 내고 심이 실측 드리프트를
+    # 얹어 /<robot>/imu로 재발행한다. Stonefish의 yaw_drift가 결정론적 램프뿐이라
+    # 실측의 배회를 못 내는 것을 메우는 자리 — 상세는 imu_drift_shim 독스트링.
+    # seed를 로봇마다 다르게 줘 세 대가 같은 궤적으로 흐르지 않게 한다(공통모드로
+    # 흐르면 상대 기하가 보존돼 문제가 실제보다 순해진다).
+    drift_shims = [Node(package='gtbot_formation', executable='imu_drift_shim',
+                        name=f'imu_drift_shim_{r}',
+                        parameters=[{'robot': r, 'seed': 100 + i}])
+                   for i, r in enumerate(['gtbot', 'gtbot2', 'gtbot3'])]
     return LaunchDescription([
         # LiDAR 지각 범위(r<5 m) 제약: 워밍업 중 리더가 먼저 출발하면 gtbot이 지각 범위 밖으로
         # 밀려나 state_est가 영구 invalid → k가 안 늘어 S2 전환이 오지 않는다(S6 실측 확인).
@@ -70,4 +86,4 @@ def generate_launch_description():
              # 강건 기대 — 결과(S2 판정)로 검증한다.
              parameters=[{'state_source': 'lidar', 'excite_div': 16.0, 'warmup_steps': 200,
                           'log_csv': f'{LOG_DIR}/koopman.csv'}]),
-    ] + bridges + rpm_sims)
+    ] + bridges + rpm_sims + drift_shims)

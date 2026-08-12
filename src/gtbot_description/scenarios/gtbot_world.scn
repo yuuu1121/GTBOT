@@ -94,10 +94,21 @@
 			</propeller>
 		</actuator>
 
+		<!-- IMU 잡음(2026-08-12): 실기 정지 55분 로그 imu_run1의 /imu/ddpm 실측.
+		     angle은 1 s 이동평균 대비 잔차(백색 성분) roll·pitch 0.0012°, yaw 0.0013°.
+		     angular_velocity·linear_acceleration은 정지 표본의 축별 표준편차.
+		     축별 벡터형인 이유: AHRS는 중력 기준인 roll·pitch와 자이로 적분인 yaw의
+		     특성이 달라 스칼라 한 값으로 묶으면 안 된다.
+		     linear_acceleration y는 실측이 16만 샘플 내내 정확히 0(죽은 채널인지
+		     완벽 정렬인지 미판별)이라 x값을 잠정 적용 — 기울임 시험 후 갱신할 것.
+		     **드리프트는 여기 없다**: Stonefish yaw_drift는 결정론적 램프뿐이라
+		     실측의 배회를 못 낸다. 로봇 3대는 imu_drift_shim이 주입한다(imu_true 경유).
+		     플랫폼은 기종 미정이라 백색잡음만 실측값을 잠정 적용하고 드리프트 미주입 —
+		     기종 확정 시 로봇과 같은 두 시험으로 갱신한다. -->
 		<sensor name="imu" type="imu" rate="100.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
-			<noise angle="0.000001745" angular_velocity="0.00001745"/>
+			<noise angle="0.000021 0.000021 0.000023" angular_velocity="0.00050 0.00056 0.00054" linear_acceleration="0.0013 0.0013 0.0023"/>
 			<ros_publisher topic="/platform/imu"/>
 		</sensor>
 		<!-- 커스텀 rotatinglidar — Ouster OS0-128 (REV7.1 데이터시트 + 실물 랩 구성
@@ -193,8 +204,8 @@
 		<sensor name="imu" type="imu" rate="100.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
-			<noise angle="0.000001745" angular_velocity="0.00001745"/>
-			<ros_publisher topic="/gtbot/imu"/>
+			<noise angle="0.000021 0.000021 0.000023" angular_velocity="0.00050 0.00056 0.00054" linear_acceleration="0.0013 0.0013 0.0023"/>
+			<ros_publisher topic="/gtbot/imu_true"/>
 		</sensor>
 
 		<!-- 스러스터 4기: viz 메시의 프로펠러 지오메트리에서 추출한 실제 위치(림 90° 간격,
@@ -315,8 +326,8 @@
 		<sensor name="imu" type="imu" rate="100.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
-			<noise angle="0.000001745" angular_velocity="0.00001745"/>
-			<ros_publisher topic="/gtbot2/imu"/>
+			<noise angle="0.000021 0.000021 0.000023" angular_velocity="0.00050 0.00056 0.00054" linear_acceleration="0.0013 0.0013 0.0023"/>
+			<ros_publisher topic="/gtbot2/imu_true"/>
 		</sensor>
 
 		<!-- 스러스터 4기: viz 메시의 프로펠러 지오메트리에서 추출한 실제 위치(림 90° 간격,
@@ -432,8 +443,8 @@
 		<sensor name="imu" type="imu" rate="100.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
-			<noise angle="0.000001745" angular_velocity="0.00001745"/>
-			<ros_publisher topic="/gtbot3/imu"/>
+			<noise angle="0.000021 0.000021 0.000023" angular_velocity="0.00050 0.00056 0.00054" linear_acceleration="0.0013 0.0013 0.0023"/>
+			<ros_publisher topic="/gtbot3/imu_true"/>
 		</sensor>
 
 		<!-- 스러스터 4기: viz 메시의 프로펠러 지오메트리에서 추출한 실제 위치(림 90° 간격,
