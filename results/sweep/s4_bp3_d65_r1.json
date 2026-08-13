@@ -1,0 +1,27 @@
+{
+ "pos_rmse": {
+  "gtbot": 0.01620047392381377,
+  "gtbot2": 0.014221964122871114,
+  "gtbot3": 0.014711361437553161
+ },
+ "valid_ratio": 0.8747970035098748,
+ "heading_err": {
+  "gtbot": {
+   "median_deg": 1.5781646843758492,
+   "p95_deg": 4.991908138930376,
+   "median_deg_raw": 1.5781646843758492
+  },
+  "gtbot2": {
+   "median_deg": 1.222220522719162,
+   "p95_deg": 4.104236769539105,
+   "median_deg_raw": 1.222220522719162
+  },
+  "gtbot3": {
+   "median_deg": 1.3099255867946076,
+   "p95_deg": 3.571599830644748,
+   "median_deg_raw": 1.3099255867946076
+  }
+ },
+ "settled_before_collect": true,
+ "gate_s4_pass": true
+}
