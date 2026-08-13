@@ -72,7 +72,10 @@ def generate_launch_description():
                         parameters=[{'robot': r, 'seed': ParameterValue(
                             PythonExpression([LaunchConfiguration('seed_base'), '+', str(i)]),
                             value_type=int)}])
-                   for i, r in enumerate(['gtbot', 'gtbot2', 'gtbot3'])]
+                   for i, r in enumerate(['gtbot', 'gtbot2', 'gtbot3', 'platform'])]
+    # platform 포함(2026-08-13): 플랫폼 IMU가 로봇과 같은 기종으로 확정돼 같은 드리프트를
+    # 받는다. 플랫폼 yaw 오차는 platform_perception의 yaw_p를 통해 세 로봇의 월드 헤딩
+    # 추정에 1:1로 전파되므로, 빼놓으면 저하 시나리오가 실제보다 순해진다.
     return LaunchDescription([
         # LiDAR 지각 범위(r<5 m) 제약: 워밍업 중 리더가 먼저 출발하면 gtbot이 지각 범위 밖으로
         # 밀려나 state_est가 영구 invalid → k가 안 늘어 S2 전환이 오지 않는다(S6 실측 확인).

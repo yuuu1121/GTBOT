@@ -103,13 +103,13 @@
 		     완벽 정렬인지 미판별)이라 x값을 잠정 적용 — 기울임 시험 후 갱신할 것.
 		     **드리프트는 여기 없다**: Stonefish yaw_drift는 결정론적 램프뿐이라
 		     실측의 배회를 못 낸다. 로봇 3대는 imu_drift_shim이 주입한다(imu_true 경유).
-		     플랫폼은 기종 미정이라 백색잡음만 실측값을 잠정 적용하고 드리프트 미주입 —
-		     기종 확정 시 로봇과 같은 두 시험으로 갱신한다. -->
+		     플랫폼도 로봇과 같은 기종으로 확정(2026-08-13, 사용자)이라 동일 실측값을
+		     쓰고 드리프트도 로봇과 같이 imu_drift_shim으로 주입한다(imu_true 경유). -->
 		<sensor name="imu" type="imu" rate="100.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
 			<noise angle="0.000021 0.000021 0.000023" angular_velocity="0.00050 0.00056 0.00054" linear_acceleration="0.0013 0.0013 0.0023"/>
-			<ros_publisher topic="/platform/imu"/>
+			<ros_publisher topic="/platform/imu_true"/>
 		</sensor>
 		<!-- 커스텀 rotatinglidar — Ouster OS0-128 (REV7.1 데이터시트 + 실물 랩 구성
 		     gtbot_lidar_cluster: OS0-128-SR, 10Hz). 최상단 장착, 틸트 없음(스펙 결정).
