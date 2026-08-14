@@ -24,6 +24,8 @@ def generate_launch_description():
         DeclareLaunchArgument('dropout_mode', default_value='uniform'),
         # 실측 수준 곡선을 걸 수 있게 노출(기본 50 = 순한 가정)
         DeclareLaunchArgument('inc_phi_zero', default_value='50.0'),
+        # 입사각 진단 CSV(빈 값 = 끔)
+        DeclareLaunchArgument('phi_log', default_value=''),
         # 실물 랩 검출 파이프라인(gtbot_lidar_cluster) — 파라미터는 랩 launch의 실기
         # 튜닝값 그대로, 시뮬 기하에 따른 오버라이드 3개만 다르다:
         #   input_topic: 시뮬 OS0 토픽 / preprocess_max_range 3→5 (스폰 1.5 m + S6 과도
@@ -114,5 +116,6 @@ def generate_launch_description():
              # 바꾸면 ouster_cluster(실물 검출기) 출력을 소비한다 — 하류 동일.
              parameters=[{'input_mode': 'points', 'intensity_min': 100.0,
                           'lidar_yaw_bias': bias, 'det_dropout': dropout,
-                          'dropout_seed': dseed, 'dropout_mode': dmode, 'inc_phi_zero': pzero}]),
+                          'dropout_seed': dseed, 'dropout_mode': dmode, 'inc_phi_zero': pzero,
+                          'phi_log': LaunchConfiguration('phi_log')}]),
     ])

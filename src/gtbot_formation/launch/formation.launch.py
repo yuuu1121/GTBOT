@@ -86,6 +86,7 @@ def generate_launch_description():
         DeclareLaunchArgument('dropout_seed', default_value='0'),
         DeclareLaunchArgument('dropout_mode', default_value='uniform'),
         DeclareLaunchArgument('inc_phi_zero', default_value='50.0'),
+        DeclareLaunchArgument('phi_log', default_value=''),
         DeclareLaunchArgument('seed_base', default_value='100'),
     ] + loops + [
         IncludeLaunchDescription(PythonLaunchDescriptionSource([
@@ -95,7 +96,8 @@ def generate_launch_description():
                               'det_dropout': LaunchConfiguration('det_dropout'),
                               'dropout_seed': LaunchConfiguration('dropout_seed'),
                               'dropout_mode': LaunchConfiguration('dropout_mode'),
-                              'inc_phi_zero': LaunchConfiguration('inc_phi_zero')}.items()),
+                              'inc_phi_zero': LaunchConfiguration('inc_phi_zero'),
+                              'phi_log': LaunchConfiguration('phi_log')}.items()),
         Node(package='gtbot_formation', executable='leader_pilot',
              parameters=[{'waypoints': [60.0, 0.0]}],  # 직선 경로 — 게이트 S3 통과 구성(sim-results.md)
              condition=IfCondition(LaunchConfiguration('start_leader'))),

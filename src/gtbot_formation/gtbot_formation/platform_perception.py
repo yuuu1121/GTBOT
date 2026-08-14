@@ -14,6 +14,8 @@ OS0 클라우드 → BEV 라인 → 14×10cm plate 판정 → EMA 트래커 → 
 plate yaw는 π-대칭(mod 180°)이라 로봇 헤딩은 `fold_heading`이 베어링 사전정보
 (팔로워는 platform 지향)로 접어 해소한다 — 기대 헤딩에서 90° 넘게 벗어난 자세는
 원리적으로 복원 불가(마커 체계의 구조적 성질, S4 이탈로 문서화)."""
+import time
+
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -71,6 +73,9 @@ class PlatformPerception(Node):
                      # 실물 bag의 φ 통계는 '검출된 프레임'만 모은 것이라 편향돼 있어
                      # 기울기를 고정하지 못한다. 되먹임 유무(정성)를 보는 용도다.
                      ('dropout_mode', 'uniform'),
+                     # phi_log: 입사각 진단용 CSV 경로. 빈 문자열이면 끈다(기본).
+                     # 녹화 도구가 점군에서 따로 재는 φ와 대조하기 위한 것.
+                     ('phi_log', ''),
                      ('inc_phi_full', 80.0), ('inc_phi_zero', 50.0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
@@ -82,6 +87,11 @@ class PlatformPerception(Node):
         self.dropout_mode = str(p('dropout_mode'))
         self.phi_full = float(p('inc_phi_full'))
         self.phi_zero = float(p('inc_phi_zero'))
+        self.phi_log = open(str(p('phi_log')), 'w') if str(p('phi_log')) else None
+        if self.phi_log:
+            # yaw_p를 같이 남긴다 — origin은 이미 월드축 정렬이라, 점군 FLU 좌표로 재는
+            # 쪽과 짝지으려면 R(+yaw_p)·(x,−y) 변환을 되돌릴 수 있어야 한다.
+            self.phi_log.write('t,ox,oy,phi,kept,yaw_p\n')
         self.yaw_p = 0.0
         # 초기 트랙 = 스폰 상대 위치(로봇들은 편대 밖에서 출발 — Task 1 실측 반영)
         self.tracks = [np.array(o) for o in SPAWN_REL]
@@ -108,6 +118,7 @@ class PlatformPerception(Node):
             self.create_subscription(MarkerArray, '/ouster_cluster/boxes', self.on_boxes, 5)
         self.pubs = [self.create_publisher(Float64MultiArray, f'/{r}/state_est', 10)
                      for r in ROBOTS]
+        self.pub_phi = self.create_publisher(Float64MultiArray, '/platform/det_phi', 10)
 
     def on_imu(self, msg):
         q = msg.orientation
@@ -193,14 +204,26 @@ class PlatformPerception(Node):
         # 버려야 트랙 재획득·KF 외삽·valid 하강이 실기와 같은 경로로 일어난다.
         if self.dropout_mode == 'incidence' and dets:
             keep = []
+            # 진단 발행: [yaw_p, (ox, oy, phi, kept) × N]. 검출 생존을 실제로 결정한 φ를
+            # 그대로 내보내, 시각화가 점군에서 φ를 다시 재다 편의를 얹는 일을 없앤다.
+            phi_msg = [self.yaw_p]
             for d in dets:
                 origin, heading = d[0], d[1]
                 expected = np.arctan2(-origin[1], -origin[0])   # 로봇→플랫폼 베어링
                 delta = abs(wrap(heading - expected))           # 조준 이탈
                 phi = np.degrees(np.pi / 2 - delta)             # 시선-판 각(90°=정면)
                 pd = np.clip((self.phi_full - phi) / (self.phi_full - self.phi_zero), 0.0, 1.0)
-                if self.drop_rng.random() >= pd:
+                ok = self.drop_rng.random() >= pd
+                if ok:
                     keep.append(d)
+                phi_msg += [float(origin[0]), float(origin[1]), phi, float(ok)]
+                if self.phi_log:
+                    self.phi_log.write(f'{time.time():.3f},{origin[0]:.4f},'
+                                       f'{origin[1]:.4f},{phi:.2f},{int(ok)},'
+                                       f'{self.yaw_p:.5f}\n')
+            if self.phi_log:
+                self.phi_log.flush()
+            self.pub_phi.publish(Float64MultiArray(data=phi_msg))
             dets = keep
         elif self.det_dropout > 0.0 and dets:
             dets = [d for d in dets
