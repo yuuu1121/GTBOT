@@ -3,10 +3,11 @@
 #   가설: 편대가 흐트러짐 -> 판이 눕음 -> 검출 사망 -> 복귀 불가(양의 되먹임)
 #   대조군 dropout_mode=uniform(입사각 무관, 종전) / 시험군 incidence(입사각 의존)
 # 교란은 gtbot에 공통모드 추력(=yaw 스핀)을 8초 주입해 판을 강제로 눕히는 것이다.
-# 사용: bash tools/run_feedback_probe.sh <uniform|incidence> <출력접미>
+# 사용: bash tools/run_feedback_probe.sh <uniform|incidence> <출력접미> [phi_zero]
 # set -u 금지: ROS setup.bash가 미정의 변수를 참조해 즉시 죽는다
 MODE=${1:-uniform}
 TAG=${2:-r1}
+PZERO=${3:-50.0}   # incidence 곡선의 100% 지점(φ). 실측 맞춤값은 65.4
 SC=/tmp/claude-0/-root-home-gtbot-ws/b8adc266-2d62-49c6-bf70-1cbe16a16cea/scratchpad
 WS=/root/home/gtbot_ws
 OUT=$WS/results/feedback
@@ -27,7 +28,7 @@ source $WS/install/setup.bash
 
 rm -f /tmp/gtbot_formation_logs/koopman.csv
 setsid nohup ros2 launch gtbot_formation formation.launch.py start_leader:=false \
-  "dropout_mode:=$MODE" > $SC/fb_formation_${MODE}_${TAG}.log 2>&1 < /dev/null &
+  "dropout_mode:=$MODE" "inc_phi_zero:=$PZERO" > $SC/fb_formation_${MODE}_${TAG}.log 2>&1 < /dev/null &
 sleep 3
 setsid nohup ros2 run gtbot_formation leader_pilot --ros-args \
   -p "waypoints:=[0.0, 0.0]" > $SC/fb_leader_${MODE}_${TAG}.log 2>&1 < /dev/null &

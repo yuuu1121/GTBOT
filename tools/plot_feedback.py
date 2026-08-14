@@ -16,8 +16,10 @@ import matplotlib.pyplot as plt
 
 FB = '/root/home/gtbot_ws/results/feedback'
 TAG = sys.argv[1] if len(sys.argv) > 1 else 'r1'
+# 세 조건: 대조군 / 순한 곡선(φz=50, 가정) / 실측 맞춤 곡선(φz=65.4, 이동2 bag 앵커)
 CONDS = [('대조군 uniform', f'{FB}/fb_uniform_{TAG}.csv', '#1f77b4'),
-         ('시험군 incidence', f'{FB}/fb_incidence_{TAG}.csv', '#d62728')]
+         ('incidence 순한 φz50', f'{FB}/fb_incidence_{TAG}.csv', '#ff7f0e'),
+         ('incidence 실측 φz65', f'{FB}/fb_incidence_real.csv', '#d62728')]
 R = 'gtbot'          # 교란을 받은 로봇
 
 
@@ -71,13 +73,15 @@ for name, path, col in CONDS:
     s['rec'] = rec
     s['lost_s'] = 0.1 * (post & (d[f'{R}_valid'] < 0.5)).sum()
     s['smax'] = d[f'{R}_station_err'][post].max()
+    # '첫 회복'만 보면 재발을 놓친다 — 말미 30 s가 회복 상태인지 따로 판정한다.
+    s['sustained'] = bool(s['d_tail'] < 15.0 and s['v_tail'] > 80.0)
 
 for a in ax.ravel()[:3]:
     a.axvspan(30, 38, color='k', alpha=.12)
     a.set_xlabel('t [s]'); a.legend(fontsize=8)
 ax[0, 0].text(31, ax[0, 0].get_ylim()[1] * .92, '교란(스핀)', fontsize=8)
 a = ax[1, 1]
-names = [s['name'].split()[-1] for s in summary]
+names = [s['name'].replace(' ', '\n', 1) for s in summary]
 xs = np.arange(len(summary))
 w = 0.26
 a.bar(xs - w, [s['rec'] for s in summary], w, color='#1f77b4', label='회복까지 [s]')
@@ -103,5 +107,6 @@ for s in summary:
           f'{s["s_tail"]:12.3f}m{s["v_base"]:10.1f}%{s["v_post"]:11.1f}%{s["v_tail"]:10.1f}%')
 print()
 for s in summary:
-    print(f'{s["name"]}: 회복 +{s["rec"]:.1f} s, 검출 실패 {s["lost_s"]:.1f} s, '
-          f'최대 station {s["smax"]:.3f} m')
+    print(f'{s["name"]}: 첫 회복 +{s["rec"]:.1f} s, 검출 실패 {s["lost_s"]:.1f} s, '
+          f'최대 station {s["smax"]:.3f} m, '
+          f'말미 상태 {"회복 유지" if s["sustained"] else "**재발(갇힘)**"}')
