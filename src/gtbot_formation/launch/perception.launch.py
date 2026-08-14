@@ -13,11 +13,14 @@ def generate_launch_description():
     bias = ParameterValue(LaunchConfiguration('lidar_yaw_bias'), value_type=float)
     dropout = ParameterValue(LaunchConfiguration('det_dropout'), value_type=float)
     dseed = ParameterValue(LaunchConfiguration('dropout_seed'), value_type=int)
+    dmode = LaunchConfiguration('dropout_mode')
     return LaunchDescription([
         DeclareLaunchArgument('lidar_yaw_bias', default_value='0.0'),
         DeclareLaunchArgument('det_dropout', default_value='0.0'),
         # 반복 런이 같은 잡음 궤적을 반복하지 않도록 시드를 런마다 바꾼다
         DeclareLaunchArgument('dropout_seed', default_value='0'),
+        # 'incidence'면 입사각 의존 검출(실물 근거) — 기본은 종전 'uniform'
+        DeclareLaunchArgument('dropout_mode', default_value='uniform'),
         # 실물 랩 검출 파이프라인(gtbot_lidar_cluster) — 파라미터는 랩 launch의 실기
         # 튜닝값 그대로, 시뮬 기하에 따른 오버라이드 3개만 다르다:
         #   input_topic: 시뮬 OS0 토픽 / preprocess_max_range 3→5 (스폰 1.5 m + S6 과도
@@ -108,5 +111,5 @@ def generate_launch_description():
              # 바꾸면 ouster_cluster(실물 검출기) 출력을 소비한다 — 하류 동일.
              parameters=[{'input_mode': 'points', 'intensity_min': 100.0,
                           'lidar_yaw_bias': bias, 'det_dropout': dropout,
-                          'dropout_seed': dseed}]),
+                          'dropout_seed': dseed, 'dropout_mode': dmode}]),
     ])

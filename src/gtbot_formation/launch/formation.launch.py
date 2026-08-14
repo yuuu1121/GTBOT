@@ -84,6 +84,7 @@ def generate_launch_description():
         DeclareLaunchArgument('lidar_yaw_bias', default_value='0.0'),
         DeclareLaunchArgument('det_dropout', default_value='0.0'),
         DeclareLaunchArgument('dropout_seed', default_value='0'),
+        DeclareLaunchArgument('dropout_mode', default_value='uniform'),
         DeclareLaunchArgument('seed_base', default_value='100'),
     ] + loops + [
         IncludeLaunchDescription(PythonLaunchDescriptionSource([
@@ -91,7 +92,8 @@ def generate_launch_description():
             # 저하 시나리오 주입을 지각 스택으로 전달(기본 0 = 종전 동작)
             launch_arguments={'lidar_yaw_bias': LaunchConfiguration('lidar_yaw_bias'),
                               'det_dropout': LaunchConfiguration('det_dropout'),
-                              'dropout_seed': LaunchConfiguration('dropout_seed')}.items()),
+                              'dropout_seed': LaunchConfiguration('dropout_seed'),
+                              'dropout_mode': LaunchConfiguration('dropout_mode')}.items()),
         Node(package='gtbot_formation', executable='leader_pilot',
              parameters=[{'waypoints': [60.0, 0.0]}],  # 직선 경로 — 게이트 S3 통과 구성(sim-results.md)
              condition=IfCondition(LaunchConfiguration('start_leader'))),

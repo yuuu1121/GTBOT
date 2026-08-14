@@ -20,7 +20,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Imu
 from visualization_msgs.msg import MarkerArray
 from std_msgs.msg import Float64MultiArray
-from .mixer import yaw_of
+from .mixer import yaw_of, wrap
 from .perception_core import (lidar_to_world, decode_wirebox, fold_heading,
                               kf_step, assign_tracks)
 
@@ -60,7 +60,18 @@ class PlatformPerception(Node):
                      # det_dropout: 프레임별 검출 누락 확률. 젖은 판·수면 반사·큰
                      # 입사각으로 재귀반사가 죽는 실기 현상의 대리. 검출 자체를 버리므로
                      # 하류(트랙 재획득·KF 외삽·valid)가 실제와 같은 경로로 반응한다.
-                     ('det_dropout', 0.0), ('dropout_seed', 0)]:
+                     ('det_dropout', 0.0), ('dropout_seed', 0),
+                     # dropout_mode(2026-08-14): 'uniform'은 균일 확률(종전),
+                     # 'incidence'는 **입사각 의존**이다. 실물 bag 분석에서 미검출의
+                     # 원인이 속도가 아니라 시선-판 각 φ임이 드러났다 — 정지(φ85°)
+                     # 531프레임 미검출 0%, 손으로 눕힌 bag(φ중앙 74°) 41%.
+                     # φ = 90° − |조준 이탈|이다(로봇이 플랫폼을 정확히 향하면 판이 정면).
+                     # 모델: φ ≥ phi_full이면 0%, φ ≤ phi_zero면 100%, 사이는 선형.
+                     # **주의 — 이 곡선은 가정이다.** 실측이 고정하는 것은 φ85°에서 0%뿐이고,
+                     # 실물 bag의 φ 통계는 '검출된 프레임'만 모은 것이라 편향돼 있어
+                     # 기울기를 고정하지 못한다. 되먹임 유무(정성)를 보는 용도다.
+                     ('dropout_mode', 'uniform'),
+                     ('inc_phi_full', 80.0), ('inc_phi_zero', 50.0)]:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         self.z_off = p('z_water_offset')
@@ -68,6 +79,9 @@ class PlatformPerception(Node):
         self.lidar_yaw_bias = float(p('lidar_yaw_bias'))
         self.det_dropout = float(p('det_dropout'))
         self.drop_rng = np.random.default_rng(int(p('dropout_seed')))
+        self.dropout_mode = str(p('dropout_mode'))
+        self.phi_full = float(p('inc_phi_full'))
+        self.phi_zero = float(p('inc_phi_zero'))
         self.yaw_p = 0.0
         # 초기 트랙 = 스폰 상대 위치(로봇들은 편대 밖에서 출발 — Task 1 실측 반영)
         self.tracks = [np.array(o) for o in SPAWN_REL]
@@ -177,7 +191,18 @@ class PlatformPerception(Node):
     def _process(self, dets, t):
         # det_dropout(저하 시나리오 축 3): 검출을 프레임별로 독립 기각한다. 배정 전에
         # 버려야 트랙 재획득·KF 외삽·valid 하강이 실기와 같은 경로로 일어난다.
-        if self.det_dropout > 0.0 and dets:
+        if self.dropout_mode == 'incidence' and dets:
+            keep = []
+            for d in dets:
+                origin, heading = d[0], d[1]
+                expected = np.arctan2(-origin[1], -origin[0])   # 로봇→플랫폼 베어링
+                delta = abs(wrap(heading - expected))           # 조준 이탈
+                phi = np.degrees(np.pi / 2 - delta)             # 시선-판 각(90°=정면)
+                pd = np.clip((self.phi_full - phi) / (self.phi_full - self.phi_zero), 0.0, 1.0)
+                if self.drop_rng.random() >= pd:
+                    keep.append(d)
+            dets = keep
+        elif self.det_dropout > 0.0 and dets:
             dets = [d for d in dets
                     if self.drop_rng.random() >= self.det_dropout]
         out = [None] * 3
