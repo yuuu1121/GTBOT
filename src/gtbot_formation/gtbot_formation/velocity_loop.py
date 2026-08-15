@@ -109,7 +109,7 @@ class VelocityLoop(Node):
         path = p('log_csv')
         self.log = open(path, 'w', buffering=1) if path else None
         if self.log:
-            self.log.write('t,vx,vy,yaw,vrefx,vrefy,ax,ay,eix,eiy,s0,s1,s2,s3\n')
+            self.log.write('t,vx,vy,yaw,vrefx,vrefy,ax,ay,eix,eiy,s0,s1,s2,s3,src\n')
         self.create_subscription(Odometry, f'/{robot}/odometry', self.on_odom, 10)
         self.create_subscription(Float64MultiArray, f'/{robot}/accel_cmd', self.on_acc, 10)
         self.pub = self.create_publisher(Float64MultiArray, f'/{robot}/thrusters', 10)
@@ -308,6 +308,7 @@ class VelocityLoop(Node):
             # '시뮬 한정 단순화' 규약(하위 속도 루프 odometry = 온보드 센서 대역)과 동일한
             # 위치의 단순화다. plate yaw 측정은 S4 게이트의 평가 대상으로 유지(제어 미사용).
             syaw = self._syaw_track(yaw, yaw_ref)
+            src = 0                       # est 확정(신선 + 유효 스트릭 1s) — 정상 경로
         else:
             # plate 부트스트랩(2026-08-09): bearing 모드에서 est가 아직/더는 없을 때의 폴백
             # 목표를 스폰 헤딩(yaw0)이 아니라 **배치 베어링**(fallback_bearing, 알려진 초기
@@ -318,20 +319,28 @@ class VelocityLoop(Node):
             # 되어, 두절마다 로봇을 엉뚱한 쪽으로 돌리고 검출 버스트가 되돌리는 왕복
             # 발진을 만든다(실측: 정렬 8~13° 도달 후 120~150° 스윙 반복). bearing 분기가
             # 마지막으로 쓴 yaw_ref를 유지하면 두절 동안 지향이 보존된다.
-            fb = None
+            # src(2026-08-15 계측): 이 틱의 헤딩 목표가 폴백 사슬 어느 단계에서 왔는가.
+            # 0=est 확정 / 1=rel(스트릭 미충족) / 2=plat_odom / 3=last_yaw_ref / 4=배치 상수.
+            # 되먹임 시험에서 '검출이 끊기면 오히려 조준이 회복된다'는 관측이 나와,
+            # 폴백 개입 시각과 회복 시각을 같은 시간축에서 대조하려고 남긴다.
+            fb, src = None, None
             if self.odom_source == 'est' and self.rel is not None:
                 # est 모드: rel 자체가 플랫폼 상대 벡터 — plat_odom(월드)과 섞지 않는다.
                 # 이 분기는 est 신선(위 게이트 통과)·스트릭 미충족(<1s)일 때만 온다.
                 fb = float(np.arctan2(-self.rel[1], -self.rel[0]))
+                src = 1
             elif self.heading_mode == 'bearing' and getattr(self, 'plat_odom', None) is not None \
                     and t - self.plat_odom[1] < 1.0:
                 dp = self.plat_odom[0] - pos
                 fb = float(np.arctan2(dp[1], dp[0]))     # platform odometry 기준 실제 베어링
+                src = 2
             if fb is None:
                 fb = getattr(self, 'last_yaw_ref', None)
+                src = 3 if fb is not None else None
             if fb is None:
                 fb = self.fallback_bearing if (self.heading_mode == 'bearing'
                                                and not np.isnan(self.fallback_bearing)) else self.yaw0
+                src = 4
             if self.heading_mode == 'bearing':
                 syaw = self._syaw_track(yaw, fb)
             else:
@@ -340,7 +349,7 @@ class VelocityLoop(Node):
         self.pub.publish(Float64MultiArray(data=list(s)))
         if self.log:
             row = [t, v_world[0], v_world[1], yaw, self.v_ref[0], self.v_ref[1],
-                   self.a_cmd[0], self.a_cmd[1], self.ei[0], self.ei[1], *s]
+                   self.a_cmd[0], self.a_cmd[1], self.ei[0], self.ei[1], *s, src]
             self.log.write(','.join(f'{x:.5f}' for x in row) + '\n')
 
 def main():
