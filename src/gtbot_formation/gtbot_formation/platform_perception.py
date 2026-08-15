@@ -91,7 +91,7 @@ class PlatformPerception(Node):
         if self.phi_log:
             # yaw_p를 같이 남긴다 — origin은 이미 월드축 정렬이라, 점군 FLU 좌표로 재는
             # 쪽과 짝지으려면 R(+yaw_p)·(x,−y) 변환을 되돌릴 수 있어야 한다.
-            self.phi_log.write('t,ox,oy,phi,kept,yaw_p\n')
+            self.phi_log.write('t,ox,oy,phi,kept,yaw_p,px,py,phi_robot\n')
         self.yaw_p = 0.0
         # 초기 트랙 = 스폰 상대 위치(로봇들은 편대 밖에서 출발 — Task 1 실측 반영)
         self.tracks = [np.array(o) for o in SPAWN_REL]
@@ -209,9 +209,19 @@ class PlatformPerception(Node):
             phi_msg = [self.yaw_p]
             for d in dets:
                 origin, heading = d[0], d[1]
-                expected = np.arctan2(-origin[1], -origin[0])   # 로봇→플랫폼 베어링
-                delta = abs(wrap(heading - expected))           # 조준 이탈
-                phi = np.degrees(np.pi / 2 - delta)             # 시선-판 각(90°=정면)
+                # 기준점 정정(2026-08-15): 입사각은 **판**의 성질이므로 베어링도 판
+                # 중심에서 재야 한다. origin은 _det_from_flu가 판 중심 xy에서
+                # marker_offset을 빼 만든 **로봇 중심**이라, 그대로 쓰면 시차
+                # γ = atan(0.1386/r)만큼(1 m에서 7.8°) 낙관적으로 판정해 검출이
+                # 실제보다 늦게 죽는다. 실측 확인: 판 기준 φ는 점군에서 직접 잰 값과
+                # 0.79°(산포 2.34°)로 붙고, 로봇 기준은 8.17° 벌어진다.
+                cc, ss = np.cos(heading), np.sin(heading)
+                plate = origin + np.array([[cc, -ss], [ss, cc]]) @ self.marker_offset
+                expected = np.arctan2(-plate[1], -plate[0])    # 판→플랫폼 베어링
+                phi = np.degrees(np.pi / 2 - abs(wrap(heading - expected)))
+                # 진단용으로 옛 기준(로봇 중심)도 남긴다 — 정정 전후 대조에 쓴다.
+                phi_robot = np.degrees(np.pi / 2 - abs(wrap(
+                    heading - np.arctan2(-origin[1], -origin[0]))))
                 pd = np.clip((self.phi_full - phi) / (self.phi_full - self.phi_zero), 0.0, 1.0)
                 ok = self.drop_rng.random() >= pd
                 if ok:
@@ -220,7 +230,8 @@ class PlatformPerception(Node):
                 if self.phi_log:
                     self.phi_log.write(f'{time.time():.3f},{origin[0]:.4f},'
                                        f'{origin[1]:.4f},{phi:.2f},{int(ok)},'
-                                       f'{self.yaw_p:.5f}\n')
+                                       f'{self.yaw_p:.5f},{plate[0]:.4f},'
+                                       f'{plate[1]:.4f},{phi_robot:.2f}\n')
             if self.phi_log:
                 self.phi_log.flush()
             self.pub_phi.publish(Float64MultiArray(data=phi_msg))

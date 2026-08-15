@@ -16,9 +16,12 @@
 
 φ는 `/platform/det_phi`로 받아 쓴다 — 검출 생존을 실제로 결정한 그 값이다. 이 도구가
 점군에서 직접 재는 φ도 계산은 하지만(짝이 없을 때의 폴백, CSV 기록용) 화면에는 쓰지
-않는다: 클러스터링·장축 적합이 검출기와 달라 정면 부근에서 8.5° 낮게 읽는 편의가
-실측됐다(상관 0.962, tools/compare_phi.py). 시각화가 파이프라인을 대변해야 하므로
-파이프라인 값이 정본이다.
+않는다. 시각화가 파이프라인을 대변해야 하므로 파이프라인 값이 정본이다.
+
+한때 두 값이 8.2° 어긋났는데, 원인은 이 도구가 아니라 파이프라인이었다 — 입사각
+베어링을 판이 아니라 로봇 중심에서 잡아 시차 atan(0.1386/r)만큼 낙관적이었다.
+2026-08-15에 기준점을 판 중심으로 정정했고, 이후 두 값은 0.79°(산포 2.34°,
+상관 0.987)로 일치한다. 상세는 research/sim-results.md.
 
 사용: record_plate_cluster.py <초> <출력> [phi_full] [phi_zero]
   phi_zero 기본 65.4 = 실물 이동2 bag에 맞춘 값. 80/50을 주면 순한 가정 곡선.
@@ -164,8 +167,9 @@ def draw(msg):
             dpsi = math.atan2(vt[0][1], vt[0][0]) - math.atan2(c[1], c[0])
             phi_own = abs(math.degrees(math.atan2(math.sin(dpsi), math.cos(dpsi))))
             phi_own = 180.0 - phi_own if phi_own > 90.0 else phi_own
-            # 파이프라인 값을 우선 쓴다. 자체 측정은 클러스터링·장축 적합이 달라
-            # 정면 부근에서 8.5° 낮게 읽는 편의가 실측됐다(tools/compare_phi.py).
+            # 파이프라인 값을 우선 쓴다. 기준점 정정(2026-08-15) 후 두 값은 0.79°
+            # (산포 2.34°)로 일치한다 — 정정 전 8.2° 차이는 파이프라인이 판이 아니라
+            # 로봇 중심으로 베어링을 잡던 결함이었다(tools/compare_phi.py).
             hitp = phi_from_pipeline(c)
             phi = hitp[0] if hitp else phi_own
             pk = keep_prob(phi)
