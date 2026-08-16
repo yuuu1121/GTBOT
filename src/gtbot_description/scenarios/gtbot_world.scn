@@ -513,12 +513,20 @@
 		</base_link>
 
 		<sensor name="view" rate="10.0" type="camera">
-			<specs resolution_x="1280" resolution_y="720" horizontal_fov="90.0"/>
+			<!-- 해상도 640x360(2026-08-16): 1280x720에서는 선언 rate 10 Hz 대비 실효 1.9 Hz밖에
+			     안 나와 녹화가 뚝뚝 끊겼다(중복 프레임 37.2% 실측). 렌더링 부하를 1/4로 낮춘다.
+			     화각·위치는 그대로라 프레이밍은 불변. 관측 전용이라 게이트·물리에는 영향 없다. -->
+			<specs resolution_x="640" resolution_y="360" horizontal_fov="90.0"/>
 			<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 			<link name="base_link"/>
 			<ros_publisher topic="/gtbot_world/view"/>
 		</sensor>
 
-		<world_transform xyz="1.0 0.0 -6.0" rpy="0.0 0.0 0.0"/>
+		<!-- 배치(2026-08-15): 사각 경로 주행(leader_pilot 기본 웨이포인트 8×8 m, x·y 0~8)을
+		     한 화면에 담도록 중심을 (4,4)로 옮기고 13 m 높이로 올린다. 수직 화각은
+		     2·atan(tan(45°)·720/1280) = 58.7°이므로 13 m에서 세로 가시폭 14.6 m —
+		     8 m 경로에 여유 3 m씩. 종전 (1,0,-6)은 세로 6.8 m라 경로가 잘렸다.
+		     카메라 전용 변경이라 물리·센서·게이트에는 영향이 없다. -->
+		<world_transform xyz="4.0 4.0 -13.0" rpy="0.0 0.0 0.0"/>
 	</robot>
 </scenario>
