@@ -1,0 +1,21 @@
+{
+ "median_edge_err_tail30s": 0.16791171280963557,
+ "p90_edge_err_tail30s": 0.25797970898155187,
+ "max_edge_err_tail30s": 0.32599704940318697,
+ "min_surface_dist_gg": 0.9238690716720681,
+ "min_surface_dist_pg": 0.326383883664053,
+ "n_samples": 7669,
+ "valid_ratio_tail30s": {
+  "gtbot": 1.0,
+  "gtbot2": 1.0,
+  "gtbot3": 1.0
+ },
+ "aim_err_median_tail30s": {
+  "gtbot": 0.4174795129292294,
+  "gtbot2": 0.7454102133407469,
+  "gtbot3": 0.787353184422847
+ },
+ "gate_perc_pass": true,
+ "gate_aim_pass": true,
+ "gate_s6_pass": true
+}
