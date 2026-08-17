@@ -53,6 +53,22 @@ class VelocityLoop(Node):
                               # v_ref = v + a_cmd·tau 라 가속 지령이 곧 속도오차가 되어
                               # 감속 지령이 실제 감속으로 도달한다.
                               ('vref_tau', 0.0),
+                              # est_hold_s(2026-08-17): est 신선도 창(s). 이 시간을 넘게
+                              # 유효 검출이 없으면 종전대로 추력 0(자연 정지). 종전은 이 값이
+                              # 0.5로 하드코딩돼 있었고, LiDAR 발행률이 가동 시간에 따라
+                              # 10 -> 2.5 Hz로 열화하면 검출 간격이 창을 넘어 **틱의 83~87%가
+                              # 제어 법칙에 닿기도 전에 추력 0으로 반환**되는 것이 편대 붕괴의
+                              # 직접 기전이다(sim-results.md '편대 붕괴의 원인 규명').
+                              # 기본 0.5 = 종전 동작. 창을 늘리면 희소 검출 구간을 견디지만
+                              # 그만큼 오래된 위치를 믿게 되므로 아래 est_hold_max_m가 상한을
+                              # 건다. 25 s급 장기 두절은 어떤 창으로도 못 덮는다 — 그건
+                              # 발행률 자체를 고쳐야 한다.
+                              ('est_hold_s', 0.5),
+                              # est_hold_max_m(2026-08-17): 외삽 변위 상한(m). rel_vel은 KF
+                              # 상대속도의 EMA라 잡음이 있고, 창이 길어지면 그 잡음 × 시간이
+                              # 위치 추정을 날려버릴 수 있다. 상한은 실물 튜닝 노브 —
+                              # 0.2 m는 v_max 0.2 m/s에서 1 s 상당.
+                              ('est_hold_max_m', 0.2),
                               ('fallback_bearing', float('nan'))]:
             self.declare_parameter(name, default)
         p = lambda n: self.get_parameter(n).value
@@ -62,6 +78,7 @@ class VelocityLoop(Node):
         robot = p('robot')
         self.heading_mode, self.k_cf, self.kd = p('heading_mode'), p('k_cf'), p('kd')
         self.e_db, self.vref_tau = p('e_deadband'), p('vref_tau')
+        self.est_hold_s, self.est_hold_max_m = p('est_hold_s'), p('est_hold_max_m')
         self.fallback_bearing = float(p('fallback_bearing'))
         # yaw_source='imu'(2026-08-10): 헤딩 피드백을 odometry가 아니라 로봇 자체
         # IMU(AHRS 절대 yaw)에서 받는다 — 실기 hwt9053과 동일 의미론(시뮬 IMU도
@@ -161,7 +178,7 @@ class VelocityLoop(Node):
             # 연속 유효 스트릭: 직전 유효에서 0.5 s 넘게 끊겼으면 스트릭 재시작.
             # bearing 분기는 스트릭 1 s 이상에서만 진입(아래) — 간헐 깜빡임 한 발로
             # 제어 체제가 스위칭하며 로봇을 흔드는 것을 차단(상태기계 3안).
-            gap = self.t_est is None or now - self.t_est > 0.5
+            gap = self.t_est is None or now - self.t_est > self.est_hold_s
             if gap:
                 self.valid_since = now
             self.rel = np.array(d[0:2])
@@ -230,11 +247,20 @@ class VelocityLoop(Node):
             # 플랫폼 중앙집중 실기 설계: 위치·속도 = 플랫폼 LiDAR est(상대 프레임,
             # 월드축 정렬). est 두절(가림·통신 단절) 시 기존 odom-두절과 동일하게
             # 무추력 — 로봇이 스스로 멈추는 검증된 안전 경로.
-            if self.t_est is None or t - self.t_est > 0.5 or self.rel_vel is None:
+            if self.t_est is None or t - self.t_est > self.est_hold_s or self.rel_vel is None:
                 self.ei[:] = 0.0
                 self.pub.publish(Float64MultiArray(data=[0.0] * 4))
                 return
-            pos, v_world = self.rel, self.rel_vel
+            # 창 안에서는 마지막 유효 위치를 그대로 쓰지 않고 상대속도로 외삽한다.
+            # 종전(창 0.5 s)에도 최대 5 cm짜리 정정이지만, 창을 늘리면 이게 없을 때
+            # 오래된 위치가 **편의**로 남아 제어를 밀어낸다(0.1 m/s × 2 s = 20 cm).
+            # 변위는 est_hold_max_m로 잘라 rel_vel 잡음이 추정을 날리지 못하게 한다.
+            v_world = self.rel_vel
+            step = v_world * (t - self.t_est)
+            n = np.linalg.norm(step)
+            if n > self.est_hold_max_m:
+                step = step * (self.est_hold_max_m / n)
+            pos = self.rel + step
             yaw = self.imu_yaw if self.imu_yaw is not None else 0.0
             if self.t_imu is None or t - self.t_imu > 0.5:
                 self.ei[:] = 0.0
@@ -296,7 +322,7 @@ class VelocityLoop(Node):
         # 실측(2026-08-06): [a,a,a,a] 양의 setpoint -> yaw 감소(sw=+0.1에서 -215deg/4s,
         # 정상 rate -12 rad/s per unit). 따라서 yaw>yaw0일 때 sw>0이어야 되돌린다.
         if (self.heading_mode == 'bearing' and self.rel is not None
-                and self.t_est is not None and t - self.t_est < 0.5
+                and self.t_est is not None and t - self.t_est < self.est_hold_s
                 and self.valid_since is not None and t - self.valid_since >= 1.0):
             yaw_ref = np.arctan2(-self.rel[1], -self.rel[0])   # platform을 바라보는 방위
             self.last_yaw_ref = yaw_ref   # 두절 폴백용 최신 베어링 기억(스폰 상수 대체)

@@ -50,6 +50,12 @@ def generate_launch_description():
                                # → 0.18(H)로 여유 확보. ζ는 낮아지나 캡 0.06 미포화 영역 유지.
                                'kpsi': 0.18,
 
+                               # est_hold_s(2026-08-17): 검출 신선도 창. 기본 0.5는 종전
+                               # 동작이며, LiDAR 발행률이 열화해 검출 간격이 이를 넘으면
+                               # 추력이 통째로 끊긴다(붕괴 런 실측: 틱의 83~87%). 캠페인에서
+                               # 인자로 늘려 A/B 하려고 노출한다.
+                               'est_hold_s': ParameterValue(
+                                   LaunchConfiguration('est_hold_s'), value_type=float),
                                'fallback_bearing': fb[r],
                                'log_csv': f'{LOG_DIR}/vel_{r}.csv'}])
              for r in ['gtbot', 'gtbot2', 'gtbot3']]
@@ -88,6 +94,7 @@ def generate_launch_description():
         DeclareLaunchArgument('inc_phi_zero', default_value='50.0'),
         DeclareLaunchArgument('phi_log', default_value=''),
         DeclareLaunchArgument('seed_base', default_value='100'),
+        DeclareLaunchArgument('est_hold_s', default_value='0.5'),
     ] + loops + [
         IncludeLaunchDescription(PythonLaunchDescriptionSource([
             FindPackageShare('gtbot_formation'), '/launch/perception.launch.py']),
