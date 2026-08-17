@@ -14,7 +14,7 @@
 
 두께·장축은 주성분 표준편차의 4배(±2σ)로 정의한다 — 실물 분석과 동일 정의.
 
-사용: sim_plate_stats.py [측정초] [강도임계]
+사용: sim_plate_stats.py [측정초] [강도임계] [분석간격프레임]
 """
 import math
 import sys
@@ -30,6 +30,7 @@ from sensor_msgs_py import point_cloud2 as pc2
 
 DUR = float(sys.argv[1]) if len(sys.argv) > 1 else 60.0
 IMIN = float(sys.argv[2]) if len(sys.argv) > 2 else 5.0
+SKIP = int(sys.argv[3]) if len(sys.argv) > 3 else 10   # 판 분석은 이 간격마다 (발행률 계수는 매 프레임)
 BE = QoSProfile(depth=5, reliability=ReliabilityPolicy.BEST_EFFORT,
                 history=HistoryPolicy.KEEP_LAST)
 
@@ -56,11 +57,21 @@ def cluster(xy, link=0.3, min_pts=10):
 
 
 def on_pc(m):
+    # 도착 시각은 **항상** 기록하고(발행률), 무거운 판 분석은 SKIP 프레임마다 한 번만
+    # 한다. 종전엔 콜백에서 13만 점을 파이썬으로 다 돌아 콜백이 1 s 넘게 걸렸고,
+    # 그 결과 여기 찍히는 '발행률'이 발행 속도가 아니라 **이 도구의 처리 속도**였다
+    # (0.33~0.66 Hz로 나왔지만 계수만 하는 lidar_decay_probe는 같은 조건에서 ~5 Hz).
     t_stamp.append(time.time())
-    p = np.array([[a, b, c, d] for a, b, c, d in pc2.read_points(
-        m, field_names=('x', 'y', 'z', 'intensity'), skip_nans=True)])
-    if len(p) == 0:
+    if (len(t_stamp) - 1) % SKIP != 0:
         return
+    # 구조화 배열 그대로 받아 벡터로 변환한다. 종전의 점별 파이썬 루프는 13만 점에서
+    # 초 단위로 걸려 콜백이 발행 주기를 넘겼다.
+    s = pc2.read_points(m, field_names=('x', 'y', 'z', 'intensity'),
+                        skip_nans=True, reshape_organized_cloud=False)
+    if len(s) == 0:
+        return
+    p = np.column_stack([np.asarray(s['x']), np.asarray(s['y']),
+                         np.asarray(s['z']), np.asarray(s['intensity'])])
     sel = p[p[:, 3] >= IMIN]
     if len(sel) < 10:
         frames.append([])
@@ -68,10 +79,18 @@ def on_pc(m):
     rows = []
     for idx in cluster(sel[:, :2]):
         c = sel[idx]
-        xy = c[:, :2] - c[:, :2].mean(0)
-        w = np.linalg.svd(xy, compute_uv=False) / math.sqrt(len(xy))
+        ctr = c[:, :2].mean(0)
+        xy = c[:, :2] - ctr
+        u, w, vt = np.linalg.svd(xy, full_matrices=False)
+        w = w / math.sqrt(len(xy))
+        # 입사각: 판 법선(BEV 단축 방향)과 시선(원점->판 중심)의 각. 점수·강도는
+        # cos에 비례하므로 이걸 모르면 '이득이 낮은 것'과 '판이 돌아간 것'을 못 가른다.
+        # 실물 bag은 판을 정면으로 향한 조건(φ≈85°, cos≈1)이라 시뮬도 같은 조건만
+        # 골라야 비교가 성립한다 — 제어를 안 띄운 시뮬은 로봇이 아무 방향이나 본다.
+        n = vt[1] / (np.linalg.norm(vt[1]) + 1e-12)
+        v = ctr / (np.linalg.norm(ctr) + 1e-12)
         rows.append((len(c), 4 * w[0], 4 * w[1],
-                     np.linalg.norm(c[:, :2].mean(0)), np.median(c[:, 3])))
+                     np.linalg.norm(ctr), np.median(c[:, 3]), abs(float(n @ v))))
     frames.append(rows)
 
 
@@ -89,13 +108,22 @@ def line(name, val, lo, hi, fmt='{:.2f}'):
     ok = '통과' if val == val and lo <= val <= hi else '미달'
     print(f'{name:<10} {fmt.format(val):>12} {fmt.format(lo)+"~"+fmt.format(hi):>16}  {ok}')
 
-line('발행률Hz', hz, 9.5, 10.5)
+line("발행률Hz", hz, 9.5, 10.5)
 if not rows:
     print('\n판 클러스터 0개 — 강도 임계 아래이거나 로봇이 시야 밖이다.')
 else:
-    a = np.array(rows)
+    a0 = np.array(rows)
+    # 실물 촬영 조건(판 정면, cos>=0.9)에 해당하는 클러스터만 남긴다. 없으면 전체를
+    # 쓰되 그 사실을 알린다 — 조건이 다른 표본으로 낸 판정은 근거가 못 된다.
+    a = a0[a0[:, 5] >= 0.9]
+    if len(a) < 3:
+        print(f'\n주의: 정면(cos>=0.9) 클러스터가 {len(a)}개뿐이라 전체 {len(a0)}개로 판정한다 '
+              f'— cos 중앙 {np.median(a0[:, 5]):.2f}. 제어를 띄우지 않아 판이 돌아간 상태다.')
+        a = a0
+    else:
+        print(f'\n정면 조건(cos>=0.9) 클러스터 {len(a)}/{len(a0)}개로 판정 '
+              f'(전체 cos 중앙 {np.median(a0[:, 5]):.2f}).')
     # 점수와 강도는 1/r² 지표라 거리를 맞추지 않으면 비교가 성립하지 않는다.
-    # 시뮬 배치가 실물 촬영 거리(1.05 m)와 달라 실물 기준 거리로 환산해 판정한다.
     r_real, r_sim = 1.05, float(np.median(a[:, 3]))
     k = (r_sim / r_real) ** 2
     line('점수(환산)', float(np.median(a[:, 0])) * k, 134, 157, '{:.0f}')
