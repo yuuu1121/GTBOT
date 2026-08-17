@@ -12,6 +12,7 @@ find_package(ament_cmake REQUIRED)
 install(DIRECTORY
   data
   scenarios
+  config
   launch
   DESTINATION share/${PROJECT_NAME}
 )

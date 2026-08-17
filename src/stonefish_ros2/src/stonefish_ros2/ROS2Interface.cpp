@@ -62,6 +62,9 @@
 #include <Stonefish/sensors/scalar/Multibeam.h>
 #include <Stonefish/sensors/scalar/Profiler.h>
 #include <Stonefish/sensors/scalar/RotatingLidar.h>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
 #include <Stonefish/sensors/vision/ColorCamera.h>
 #include <Stonefish/sensors/vision/DepthCamera.h>
 #include <Stonefish/sensors/vision/Multibeam2.h>
@@ -564,6 +567,7 @@ void ROS2Interface::PublishMultibeam2(rclcpp::PublisherBase::SharedPtr pub, Mult
 
 void ROS2Interface::PublishRotatingLidar(rclcpp::PublisherBase::SharedPtr pub, RotatingLidar* lidar) const
 {
+    const auto tPub0 = std::chrono::steady_clock::now();
     const std::vector<LidarPoint>& points = lidar->getPointCloud();
 
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
@@ -601,6 +605,29 @@ void ROS2Interface::PublishRotatingLidar(rclcpp::PublisherBase::SharedPtr pub, R
     }
 
     lidar->newDataReady = false;
+
+    // 발행 소요시간 계측(2026-08-17): 레이캐스트를 병렬화해 스캔이 37 -> 7 ms가 됐는데도
+    // 발행률이 4~7 Hz에 머물러, 병목이 스캔 밖에 있는지 확인하려고 넣었다. 이 경로는
+    // 점 32,800개를 PCL 경유로 세 번 복사한다(점별 루프 -> toPCLPointCloud2 -> fromPCL).
+    // STONEFISH_LIDAR_TIMING=1 로 켠다(기본 꺼짐).
+    {
+        static bool on = []{
+            const char* e = std::getenv("STONEFISH_LIDAR_TIMING");
+            return e != nullptr && std::atoi(e) != 0;
+        }();
+        static unsigned int n = 0;
+        static auto tPrev = std::chrono::steady_clock::now();
+        auto tNow = std::chrono::steady_clock::now();
+        if(on && (++n % 20u) == 0u)
+        {
+            const double pubMs = std::chrono::duration<double, std::milli>(tNow - tPub0).count();
+            const double gapMs = std::chrono::duration<double, std::milli>(tNow - tPrev).count() / 20.0;
+            printf("[PublishLidar] %u회: 발행 %.1f ms, 호출 간격 평균 %.1f ms (%.2f Hz), 점 %zu\n",
+                   n, pubMs, gapMs, 1000.0 / gapMs, points.size());
+            fflush(stdout);
+            tPrev = tNow;
+        }
+    }
 }
 
 void ROS2Interface::PublishContact(rclcpp::PublisherBase::SharedPtr pub, Contact* cnt) const

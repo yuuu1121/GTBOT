@@ -5,7 +5,8 @@ from launch.actions import (DeclareLaunchArgument, IncludeLaunchDescription,
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.substitutions import (LaunchConfiguration, PathJoinSubstitution,
+                                  PythonExpression)
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -84,12 +85,22 @@ def generate_launch_description():
     # 받는다. 플랫폼 yaw 오차는 platform_perception의 yaw_p를 통해 세 로봇의 월드 헤딩
     # 추정에 1:1로 전파되므로, 빼놓으면 저하 시나리오가 실제보다 순해진다.
     return LaunchDescription([
+        # Fast DDS 공유메모리 프로파일(2026-08-17). /ouster/points 한 스캔이 512 KiB인데
+        # Fast DDS 기본 SHM 세그먼트가 정확히 512 KiB라 이 메시지는 SHM에 못 들어가고
+        # UDP로 폴백한다 — 1.5 KB MTU로 ~350 조각이 되어 하나만 잃어도 샘플 전체가
+        # 버려진다. 발행은 10.01 Hz인데 구독은 3~5 Hz(C++ 노드는 0.77 Hz)였던 원인이다.
+        # 세그먼트를 8 MiB로 키우면 구독이 9.75~10.02 Hz로 실물과 같아진다(실측).
+        # 이 컨테이너는 net.core.rmem_max가 sysctl 미노출이라 커널 버퍼 조정은 불가.
+        SetEnvironmentVariable('FASTRTPS_DEFAULT_PROFILES_FILE', PathJoinSubstitution([
+            FindPackageShare('gtbot_description'), 'config', 'fastdds_shm.xml'])),
         # BLAS 스레드 고정(2026-08-17 계측): numpy가 코어 수(32)만큼 OpenBLAS 워커를
         # 띄우는데, 이 노드들의 행렬은 분할 이득이 없을 만큼 작아 동기화 비용만 남는다
         # — RLS 갱신 실측이 32스레드 16.30 ms vs 1스레드 11.63 ms로 **많이 쓸수록 느리다**.
         # 게다가 OpenBLAS는 병렬 구간 사이에 워커를 재우지 않고 스핀시켜, 실계산이
-        # 1코어의 23%인데 ps에는 1866%(18코어)로 잡힌다. 그 헛돎이 Stonefish의 렌더
-        # 제출 스레드와 스케줄러를 다퉈 LiDAR 발행률을 5 Hz -> 1 Hz로 끌어내렸다.
+        # 1코어의 23%인데 ps에는 1866%(18코어)로 잡힌다. (**정정**: 이 헛돎이 LiDAR
+        # 발행률을 떨어뜨린다고 적었으나 실측으로 부정됐다 — CPU를 1.6%로 내려도
+        # 발행률은 그대로였다. 진짜 원인은 DDS 전송 유실이었고 위 SHM 프로파일이
+        # 그것을 고친다. 이 설정은 죽은 계산·헛돎 제거로서 여전히 유효하다.)
         # 첫 액션이어야 이후 노드·포함 런치가 모두 상속한다(numpy import 전에 걸려야 함).
         SetEnvironmentVariable('OPENBLAS_NUM_THREADS', '1'),
         SetEnvironmentVariable('OMP_NUM_THREADS', '1'),

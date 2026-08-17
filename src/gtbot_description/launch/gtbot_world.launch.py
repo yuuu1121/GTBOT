@@ -30,7 +30,8 @@ rendering_quality가 카메라 센서 이미지 품질에도 걸리는지 역시
 게이트 결과가 전부 무효가 된다.
 """
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import (DeclareLaunchArgument, IncludeLaunchDescription,
+                            SetEnvironmentVariable)
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
@@ -38,6 +39,14 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     args = [
+        # Fast DDS 공유메모리 프로파일(2026-08-17). /ouster/points 한 스캔이 512 KiB인데
+        # Fast DDS 기본 SHM 세그먼트가 정확히 512 KiB라 이 메시지는 SHM에 못 들어가고
+        # UDP로 폴백한다 — 1.5 KB MTU로 ~350 조각이 되어 하나만 잃어도 샘플 전체가
+        # 버려진다. 발행은 10.01 Hz인데 구독은 3~5 Hz(C++ 노드는 0.77 Hz)였던 원인이다.
+        # 세그먼트를 8 MiB로 키우면 구독이 9.75~10.02 Hz로 실물과 같아진다(실측).
+        # 이 컨테이너는 net.core.rmem_max가 sysctl 미노출이라 커널 버퍼 조정은 불가.
+        SetEnvironmentVariable('FASTRTPS_DEFAULT_PROFILES_FILE', PathJoinSubstitution([
+            FindPackageShare('gtbot_description'), 'config', 'fastdds_shm.xml'])),
         DeclareLaunchArgument('scenario', default_value='gtbot_world'),
         DeclareLaunchArgument('simulation_rate', default_value='100.0'),
         # GUI 창 전용 — 센서 경로와 무관. 종전 값은 1280/720/high.
