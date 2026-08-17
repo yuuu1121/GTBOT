@@ -8,9 +8,12 @@
 
 사용: ros2 launch gtbot_formation hardware_platform.launch.py sensor_hostname:=<OS0 IP>
 
-잔여 통합 지점: platform_perception은 /platform/imu(플랫폼 yaw)를 쓴다 — 실물
-플랫폼에 hwt9053을 달아 namespace platform으로 올리고 imu/data -> imu 리맵을
-걸면 충족된다(드라이버 기본 토픽이 imu/data라 리맵 없이는 안 물린다).
+플랫폼 IMU(2026-08-17 문서 정정): platform_perception은 /platform/imu(플랫폼 yaw)를
+쓰고, 아래 hwt9053 노드가 namespace platform + imu/ddpm -> imu 리맵으로 그것을
+공급한다 — **이미 구성돼 있다.** 종전 독스트링은 이 항목을 "잔여 통합 지점"으로
+남겨두고 리맵 대상도 imu/data로 적었으나, 둘 다 틀렸다(드라이버가 내는 자세 토픽은
+imu/ddpm이고 코드는 이미 그것을 리맵한다). 남은 것은 코드가 아니라 하드웨어 —
+플랫폼에 hwt9053을 물리적으로 장착하고 RS485 포트를 확인하는 일이다.
 """
 import os
 from ament_index_python.packages import get_package_share_directory
