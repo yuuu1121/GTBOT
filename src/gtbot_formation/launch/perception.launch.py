@@ -48,10 +48,14 @@ def generate_launch_description():
                  # 발자국(14cm 폭)과 yaw 기하는 불변. simplified: 실기 대조 시 재보정.
                  'preprocess_z_min': -0.25,  # 강도 컷 도입으로 넓게: 판 밴드(-0.14~-0.04)+여유
                  'preprocess_z_max': 0.10,
-                 # 반사강도 컷(2026-08-10): sim RotatingLidar가 판 명중에 255, 배경 1을
-                 # 발행(실물 레트로리플렉터 동등) — 선체 클러터를 재질로 분리, 기하
-                 # 게이트 부담 해소. 실기에서도 reflectivity 채널로 동일 사용 가능.
-                 'preprocess_min_intensity': 100.0,
+                 # 반사강도 컷(2026-08-17 실기 정본 복귀): 종전 100.0은 옛 이진 강도
+                 # (판 255 / 배경 1)에 맞춘 **시뮬 전용** 값이었다. 실물 판 강도는
+                 # 7~45라 100 컷이면 실기에서 아무것도 안 남고, 실제로 랩 정본
+                 # (ouster_cluster.launch.py)은 이 값을 아예 설정하지 않는다
+                 # (노드 기본 0.0 = 비활성, plane_detect.hpp:35). 강도 모델을 실물에
+                 # 맞춘 지금(I = 24.1*cos/r^2, 1.5 m에서 약 11) 100 컷은 전부 걸러낸다.
+                 # 실기와 동일하게 컷을 끄고 기하 게이트로 판을 찾게 한다.
+                 'preprocess_min_intensity': 0.0,
                  'preprocess_voxel_leaf': 0.0,
                  'elev_filter_enable': True,
                  'elev_min_deg': -30.0,
@@ -112,9 +116,14 @@ def generate_launch_description():
                  'scalar_field': 'intensity',
              }]),
         Node(package='gtbot_formation', executable='platform_perception',
-             # sim: 반사강도 클러스터링 직접 검출(points). 실기 전환 시 'boxes'로
-             # 바꾸면 ouster_cluster(실물 검출기) 출력을 소비한다 — 하류 동일.
-             parameters=[{'input_mode': 'points', 'intensity_min': 100.0,
+             # input_mode='boxes'(2026-08-17): 실기와 동일 경로로 전환. 종전 'points'는
+             # 시뮬 전용 지름길이었다 — platform_perception이 원 점군에서 강도 100 이상을
+             # 직접 클러스터링해 ouster_cluster를 통째로 우회했다. 실물 판 강도가 7~45라
+             # 그 지름길은 실기로 옮길 수 없고, 강도 모델을 실물에 맞춘 지금은 애초에
+             # 아무것도 안 걸린다. 이제 실물 검출기(ouster_cluster)의 /ouster_cluster/boxes를
+             # 소비한다 — 실기 hardware_platform.launch와 같은 구성이다.
+             # intensity_min은 'points' 경로 전용이라 이 모드에서는 쓰이지 않는다.
+             parameters=[{'input_mode': 'boxes', 'intensity_min': 100.0,
                           'lidar_yaw_bias': bias, 'det_dropout': dropout,
                           'dropout_seed': dseed, 'dropout_mode': dmode, 'inc_phi_zero': pzero,
                           'phi_log': LaunchConfiguration('phi_log')}]),
