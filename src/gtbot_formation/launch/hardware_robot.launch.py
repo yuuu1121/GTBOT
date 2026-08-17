@@ -27,7 +27,7 @@
   state_est(하행)·(선택) imu(상행)뿐이라 WiFi 대역폭 부담 없음.
 """
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, UnsetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -35,6 +35,13 @@ from launch_ros.actions import Node
 def generate_launch_description():
     robot = LaunchConfiguration('robot')
     return LaunchDescription([
+        # SHM 전용 DDS 프로파일 해제(2026-08-17 가드). 시뮬 런치는 512 KiB LiDAR
+        # 메시지의 UDP 조각 유실을 피하려고 FASTRTPS_DEFAULT_PROFILES_FILE로
+        # 공유메모리 전용 프로파일을 쓴다(useBuiltinTransports=false = UDP 끔).
+        # **그 값이 셸에 export된 상태로 이 런치를 돌리면 기계 간 통신이 통째로
+        # 끊긴다** — 실기는 플랫폼 1대 + 로봇 3대가 LAN으로 이어져야 한다.
+        # 시뮬 실험 셸에서 그대로 실기로 넘어오는 사고를 막으려고 여기서 지운다.
+        UnsetEnvironmentVariable('FASTRTPS_DEFAULT_PROFILES_FILE'),
         DeclareLaunchArgument('robot', default_value='gtbot'),
         Node(package='hwt9053_driver', executable='hwt9053_node',
              namespace=robot,
