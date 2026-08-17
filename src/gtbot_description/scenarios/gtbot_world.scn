@@ -120,15 +120,38 @@
 		       (RotatingLidar.cpp에서 위상 지터 제거).
 		     - vertical_fov 90.8: 대칭 ±45.4°(RotatingLidar가 대칭 분할).
 		     - range_min 0.5: FW 기본값(0.3 옵션). range_max 35: 10% 반사율 기준.
-		     - noise 0.01: precision ±0.8~4cm(근거리 ~0.8cm) 반영.
-		     - 레이 수 131k/스캔 = 검증된 480x120(57.6k) 대비 2.3배 — Hz 유지 실측 필요,
-		       미달 시 512x128(65.5k, OS0 정규 모드 512 @ 10 Hz)로 낮춘다. -->
+		     - noise 0.004(2026-08-17 실물 정합): 종전 0.01은 판 클러스터를 3.4 cm 두께로
+		       부풀려 실물 1.3 cm(정지 bag)의 2.6배였다(종횡비 시뮬 0.240 vs 실물 0.085).
+		       두께가 잡음에 거의 선형이라 0.01x1.3/3.4 = 0.004로 맞춘다. 데이터시트
+		       근거리 정밀도 ±0.8 cm 안쪽이라 스펙과도 정합. **주의**: 얇아지면 헤딩
+		       적합이 유리해져 기존 게이트 수치가 낙관 쪽으로 이동한다 — 재판정 대상.
+		     - 레이 수 131k/스캔 = 검증된 480x120(57.6k) 대비 2.3배. **여기가 발행률
+		       병목이다**(2026-08-17 규명): 이 센서는 렌더가 아니라 CPU 레이캐스트다
+		       (RotatingLidar.cpp가 레이마다 btCollisionWorld::rayTest, 단일 스레드).
+		       그래서 메시 감량·rendering_quality가 안 들었고 RTF는 0.998인데 LiDAR만
+		       1~5 Hz다. 262k에서 1.8 Hz, 131k에서 2~5 Hz로 레이 수에 반비례한다.
+		       **512x128 감축은 기각** — 판 위 점 수가 이미 실물보다 부족하다(시뮬 176
+		       @0.87 m를 1/r²로 1.05 m 환산 121점 vs 실물 134~157). 각분해능을 보존하며
+		       레이만 줄이는 경로(수직 시야 축소)나 레이캐스트 병렬화로 가야 한다. -->
 		<sensor name="lidar" type="rotatinglidar" rate="10.0">
 			<link name="base_link"/>
 			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.36"/>
 			<specs horizontal_steps="1024" vertical_steps="128" horizontal_fov="360.0"
 			       vertical_fov="90.8" range_min="0.5" range_max="35.0"/>
-			<noise range_stddev="0.01"/>
+			<noise range_stddev="0.004"/>
+			<!-- 반환강도 실물 정합(2026-08-17). 종전은 판=255/그외=1 이진이라 실물
+			     파이프라인(ouster_cluster)의 반사강도 필터를 켤 수 없었고, 시뮬 전용
+			     지름길(platform_perception input_mode='points', intensity_min=100)로
+			     우회하고 있었다 — 실물 강도 최대가 45라 그 지름길은 실기로 못 옮긴다.
+			     모델은 I = gain*cos(입사각)/r^2 (실물 signal이 거리·입사각 의존).
+			     plate_gain 22.1 = 실물 판 중앙 20 @1.05 m 역산(20*1.05^2).
+			     **bg_gain 1.0은 측정값이 아니라 가정이다** — 실물 bag이 검출 후
+			     산출물(box_points)이라 배경 강도 분포를 볼 수 없다. 판/배경 분리
+			     여유는 미검증이고, 원 점군(/ouster/points) bag이 있어야 고정된다.
+			     이 모델은 실물의 거리 한계도 재현한다: 2.1 m 밖에서 판 강도가
+			     ouster_cluster의 bev_refl_min 5.0 아래로 떨어진다(실측 스위트스폿
+			     ~1.5 m, 2.5~3 m 급락과 일치). -->
+			<intensity plate_gain="22.1" bg_gain="1.0" max="255.0"/>
 			<ros_publisher topic="/ouster/points"/>  <!-- ouster-ros 드라이버 규약과 동일 토픽: 실기·시뮬 검출기 설정 통일 -->
 		</sensor>
 		<ros_subscriber thrusters="/platform/thrusters"/>
