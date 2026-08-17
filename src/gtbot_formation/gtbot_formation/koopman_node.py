@@ -209,7 +209,16 @@ class KoopmanFormation(Node):
             self.logrow(t, X, np.zeros(6), float(sum(mask)) / 3.0)
             return
         z2 = z2_vector(X, self.sc_id)   # 식별용 리프팅(φ⁹ 제외)
-        if self.prev is not None:             # 전이 (ζ(k-1) → z2(k))로 RLS 갱신 지속
+        # RLS 갱신은 식별 Θ를 읽는 경로가 살아 있을 때만 돈다(2026-08-17 계측).
+        # Θ를 읽는 곳은 둘뿐이다 — 아래 'model' 분기와 finish_warmup의 S2 게이트.
+        # 기본 팔인 'analytic'은 참 그래디언트를 쓰므로 제어 단계에서 Θ를 아무도
+        # 읽지 않는데, bilinear의 P가 1477x1477 = 17.5 MB라 매 틱 outer product 생성·
+        # 뺄셈·대칭화로 이 배열을 여러 번 훑는다(실측 틱당 11.6 ms, 20 Hz 예산의 23%).
+        # 660 s 임무면 13,200틱이 통째로 죽은 계산이었고, 그 부하가 렌더 경로를 굶겨
+        # LiDAR 발행률을 5 Hz -> 1 Hz로 끌어내렸다(A1/A2 대조). S2는 워밍업 산출물이라
+        # 영향받지 않는다.
+        needs_theta = self.phase == 'warmup' or self.controller == 'model'
+        if self.prev is not None and needs_theta:   # 전이 (ζ(k-1) → z2(k))로 RLS 갱신
             Xp, z2p, Up = self.prev
             for m in ('linear', 'bilinear'):
                 self.rls[m].update(_zeta(self.sc_id, m, Xp, z2p, Up, self.z10, self.z20), z2)

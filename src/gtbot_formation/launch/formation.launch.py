@@ -1,6 +1,7 @@
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import (DeclareLaunchArgument, IncludeLaunchDescription,
+                            SetEnvironmentVariable)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
 from launch.conditions import IfCondition
@@ -83,6 +84,15 @@ def generate_launch_description():
     # 받는다. 플랫폼 yaw 오차는 platform_perception의 yaw_p를 통해 세 로봇의 월드 헤딩
     # 추정에 1:1로 전파되므로, 빼놓으면 저하 시나리오가 실제보다 순해진다.
     return LaunchDescription([
+        # BLAS 스레드 고정(2026-08-17 계측): numpy가 코어 수(32)만큼 OpenBLAS 워커를
+        # 띄우는데, 이 노드들의 행렬은 분할 이득이 없을 만큼 작아 동기화 비용만 남는다
+        # — RLS 갱신 실측이 32스레드 16.30 ms vs 1스레드 11.63 ms로 **많이 쓸수록 느리다**.
+        # 게다가 OpenBLAS는 병렬 구간 사이에 워커를 재우지 않고 스핀시켜, 실계산이
+        # 1코어의 23%인데 ps에는 1866%(18코어)로 잡힌다. 그 헛돎이 Stonefish의 렌더
+        # 제출 스레드와 스케줄러를 다퉈 LiDAR 발행률을 5 Hz -> 1 Hz로 끌어내렸다.
+        # 첫 액션이어야 이후 노드·포함 런치가 모두 상속한다(numpy import 전에 걸려야 함).
+        SetEnvironmentVariable('OPENBLAS_NUM_THREADS', '1'),
+        SetEnvironmentVariable('OMP_NUM_THREADS', '1'),
         # LiDAR 지각 범위(r<5 m) 제약: 워밍업 중 리더가 먼저 출발하면 gtbot이 지각 범위 밖으로
         # 밀려나 state_est가 영구 invalid → k가 안 늘어 S2 전환이 오지 않는다(S6 실측 확인).
         # start_leader:=false로 기동해 S2 전환(제어 진입) 확인 후 leader_pilot을 별도 실행한다.
