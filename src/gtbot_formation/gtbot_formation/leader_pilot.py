@@ -9,13 +9,30 @@ class LeaderPilot(Node):
     def __init__(self):
         super().__init__('leader_pilot')
         defaults = [('waypoints', [8.0, 0.0, 8.0, 8.0, 0.0, 8.0, 0.0, 0.0]),
-                    ('v_lead', 0.2), ('kp', 0.5), ('kv', 1.5), ('kpsi', 0.1), ('arrive_r', 0.5)]
+                    ('v_lead', 0.2), ('kp', 0.5), ('kv', 1.5), ('kpsi', 0.1), ('arrive_r', 0.5),
+                    # yaw0_deg(2026-08-16 진단): 유지할 헤딩을 강제한다. NaN(기본)이면
+                    # 종전대로 첫 odometry의 yaw를 쓴다. 사각 주행 실속도가 런마다
+                    # 0.058/0.106 m/s 두 값으로 갈리는데, syaw가 yaw0을 유지하고
+                    # 추력기가 몸체 고정이라 몸체축-경로축 정렬이 합력을 바꾼다는 가설을
+                    # 통제 실험으로 검증하려면 이 값을 고정할 수 있어야 한다.
+                    ('yaw0_deg', float('nan')),
+                    # log_csv(2026-08-17): 10 Hz 시계열. 60초 요약으로는 정지 구간도
+                    # 후반 변화도 안 보여 v 분기(0.058/0.106 m/s)를 못 가른다.
+                    ('log_csv', '')]
         for n, d in defaults:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
         self.wps = np.array(p('waypoints'), dtype=float).reshape(-1, 2)
         self.v_lead, self.kp, self.kv = p('v_lead'), p('kp'), p('kv')
         self.kpsi, self.arrive_r = p('kpsi'), p('arrive_r')
+        self.yaw0_forced = float(p('yaw0_deg'))
+        path = str(p('log_csv'))
+        self.log = open(path, 'w', buffering=1) if path else None
+        if self.log:
+            # dead = 데드밴드(웨이포인트 0.3 m 안 추력 차단) 활성 여부. '평균은 낮은데
+            # 순간 속력은 높다'를 이 열 하나로 판별한다.
+            self.log.write('t,x,y,vx,vy,v,yaw,wp,dead,s0,s1,s2,s3\n')
+        self.t_start = None
         self.i = 0
         self.odom = None
         self.yaw0 = None
@@ -35,7 +52,20 @@ class LeaderPilot(Node):
         self.odom = (np.array([msg.pose.pose.position.x, msg.pose.pose.position.y]),
                      np.array([c * tw.x - s * tw.y, s * tw.x + c * tw.y]), yaw)
         if self.yaw0 is None:
-            self.yaw0 = yaw
+            self.yaw0 = (yaw if np.isnan(self.yaw0_forced)
+                         else float(np.radians(self.yaw0_forced)))
+            # 계측(2026-08-16): 사각 주행 실속도가 런마다 0.058/0.106 m/s 두 값으로
+            # 갈리는 것을 추적한다. syaw가 yaw0을 유지하므로 몸체축과 경로축의 정렬이
+            # 런마다 달라지고, 추력기가 몸체 고정이라 같은 지령에 합력이 달라진다는
+            # 가설. yaw0은 파일럿이 받은 첫 odometry에서 정해지므로 정착 시점의
+            # 우연에 좌우된다 — 그 값을 남겨야 가설을 검증할 수 있다.
+            self.get_logger().info(
+                f'yaw0 = {np.degrees(self.yaw0):+.2f} deg '
+                f'({"강제" if not np.isnan(self.yaw0_forced) else "첫 odom"}, '
+                f'실제 yaw {np.degrees(yaw):+.2f}) '
+                f'pos {self.odom[0][0]:+.2f}, {self.odom[0][1]:+.2f}')
+            self.t_log = self.now()
+            self.p_log = self.odom[0].copy()
         self.t_odom = self.now()
 
     def tick(self):
@@ -72,7 +102,28 @@ class LeaderPilot(Node):
         # 같은 부호: syaw = kpsi*wrap(yaw - yaw0). kpsi=0.1은 동일 플랜트 실측(G≈12 rad/s/unit,
         # tau≈0.5s)에 맞춘 zeta≈0.7 값.
         syaw = self.kpsi * wrap(yaw - self.yaw0)
-        self.pub.publish(Float64MultiArray(data=list(setpoints(e_body, syaw, self.kv))))
+        s = setpoints(e_body, syaw, self.kv)
+        self.pub.publish(Float64MultiArray(data=list(s)))
+        if self.log:
+            if self.t_start is None:
+                self.t_start = self.now()
+            self.log.write(
+                f'{self.now()-self.t_start:.3f},{pos[0]:.4f},{pos[1]:.4f},'
+                f'{v[0]:.4f},{v[1]:.4f},{np.linalg.norm(v):.4f},{yaw:.5f},'
+                f'{self.i},{int(self.dead)},'
+                f'{s[0]:.4f},{s[1]:.4f},{s[2]:.4f},{s[3]:.4f}\n')
+        # 60 s마다 진단 한 줄 — 실속도가 지령(v_lead=0.2)에 얼마나 못 미치는지, 그리고
+        # 그 미달이 헤딩과 상관되는지 본다. 지령 v_cmd와 실제 v를 같이 남겨야
+        # '지령이 작다'와 '지령은 큰데 안 나간다'를 구분할 수 있다.
+        if self.now() - self.t_log >= 60.0:
+            d = float(np.linalg.norm(pos - self.p_log))
+            self.get_logger().info(
+                f'yaw {np.degrees(yaw):+7.2f} (yaw0 {np.degrees(self.yaw0):+7.2f})  '
+                f'v_cmd {np.linalg.norm(v_cmd):.3f}  v {np.linalg.norm(v):.3f}  '
+                f'60s 이동 {d:.2f} m -> {d/(self.now()-self.t_log):.3f} m/s  '
+                f'wp{self.i}  s[{s[0]:+.2f} {s[1]:+.2f} {s[2]:+.2f} {s[3]:+.2f}]')
+            self.t_log = self.now()
+            self.p_log = pos.copy()
 
 def main():
     rclpy.init()
