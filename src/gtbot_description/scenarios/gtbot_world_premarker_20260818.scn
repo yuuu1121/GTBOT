@@ -39,32 +39,7 @@
 				<mass value="0.1"/>
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.17"/>
 			</internal_part>
-
 		</base_link>
-
-		<!-- 액티브마커 = 점멸 LED만(2026-08-18). 내측은 ArUco 패턴(마커마다 다른 id), 외측은 링.
-		     **스크린 메시(external_part)는 붙이지 않는다** — 붙이면 흘수가 바뀐다.
-		     실측: gtbot odometry z 0.120 -> 0.023, 판이 센서 기준 -0.030 -> +0.034 m로
-		     6.7 cm 올라간다. Stonefish가 계산한 질량·부피는 그대로인데(8.150->8.152 kg,
-		     11991.7 cm3 불변) 부양이 달라진다 — physics floating/surface/submerged,
-		     buoyant="false", 물리 프록시 1/10 축소를 모두 시험했으나 전부 무효.
-		     LiDAR-반사판 상대 높이는 이 프로젝트 검출 성능의 전제라 건드릴 수 없다.
-		     조명만 쓰면 흘수가 기준선과 동일하다(0.1617/0.1199 vs 기준선 0.1616/0.1199).
-		     스포트가 선저에 패턴을 투사하므로 스크린 없이도 마커는 보인다.
-		     blink 0.1 s, cone 10도. rpy 180도는 스포트를 위(-z)로 돌려
-		     아래를 보는 스크린 면을 비추게 한다(참조는 면이 위라 rpy 0). -->
-		<light name="aruco_led">
-			<specs illuminance="5000.0" radius="0.06" cone_angle="10" blink="0.1" shape="aruco" aruco_id="8"/>
-			<color rgb="1.0 1.0 1.0"/>
-			<link name="base_link"/>
-			<origin xyz="0.0 0.0 0.659" rpy="3.1416 0.0 0.0"/>
-		</light>
-		<light name="led_outer">
-			<specs radius="0.105" cone_angle="10.0" blink="0.1" illuminance="5000.0" shape="circle_square_hole" inner_radius="0.07"/>
-			<color rgb="0.34 0.84 0.41"/>
-			<link name="base_link"/>
-			<origin xyz="0.0 0.0 1.174" rpy="3.1416 0.0 0.0"/>
-		</light>
 
 		<sensor name="odometry" type="odometry" rate="10.0">
 			<link name="base_link"/>
@@ -251,32 +226,7 @@
 				     붕괴: S4 66.7~68.5°, S6 13.0 m). -->
 				<compound_transform rpy="0.0 0.0 -1.5708" xyz="0.0014 -0.1386 -0.2847"/>
 			</external_part>
-
 		</base_link>
-
-		<!-- 액티브마커 = 점멸 LED만(2026-08-18). 내측은 ArUco 패턴(마커마다 다른 id), 외측은 링.
-		     **스크린 메시(external_part)는 붙이지 않는다** — 붙이면 흘수가 바뀐다.
-		     실측: gtbot odometry z 0.120 -> 0.023, 판이 센서 기준 -0.030 -> +0.034 m로
-		     6.7 cm 올라간다. Stonefish가 계산한 질량·부피는 그대로인데(8.150->8.152 kg,
-		     11991.7 cm3 불변) 부양이 달라진다 — physics floating/surface/submerged,
-		     buoyant="false", 물리 프록시 1/10 축소를 모두 시험했으나 전부 무효.
-		     LiDAR-반사판 상대 높이는 이 프로젝트 검출 성능의 전제라 건드릴 수 없다.
-		     조명만 쓰면 흘수가 기준선과 동일하다(0.1617/0.1199 vs 기준선 0.1616/0.1199).
-		     스포트가 선저에 패턴을 투사하므로 스크린 없이도 마커는 보인다.
-		     blink 0.1 s, cone 10도. rpy 180도는 스포트를 위(-z)로 돌려
-		     아래를 보는 스크린 면을 비추게 한다(참조는 면이 위라 rpy 0). -->
-		<light name="aruco_led">
-			<specs illuminance="5000.0" radius="0.06" cone_angle="10" blink="0.1" shape="aruco" aruco_id="17"/>
-			<color rgb="1.0 1.0 1.0"/>
-			<link name="base_link"/>
-			<origin xyz="0.0 -0.1386 0.699" rpy="3.1416 0.0 0.0"/>
-		</light>
-		<light name="led_outer">
-			<specs radius="0.105" cone_angle="10.0" blink="0.1" illuminance="5000.0" shape="circle_square_hole" inner_radius="0.07"/>
-			<color rgb="0.34 0.84 0.41"/>
-			<link name="base_link"/>
-			<origin xyz="0.0 -0.1386 1.214" rpy="3.1416 0.0 0.0"/>
-		</light>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
 		<sensor name="odometry" type="odometry" rate="10.0">
 			<link name="base_link"/>
@@ -398,32 +348,7 @@
 				     붕괴: S4 66.7~68.5°, S6 13.0 m). -->
 				<compound_transform rpy="0.0 0.0 -1.5708" xyz="0.0014 -0.1386 -0.2847"/>
 			</external_part>
-
 		</base_link>
-
-		<!-- 액티브마커 = 점멸 LED만(2026-08-18). 내측은 ArUco 패턴(마커마다 다른 id), 외측은 링.
-		     **스크린 메시(external_part)는 붙이지 않는다** — 붙이면 흘수가 바뀐다.
-		     실측: gtbot odometry z 0.120 -> 0.023, 판이 센서 기준 -0.030 -> +0.034 m로
-		     6.7 cm 올라간다. Stonefish가 계산한 질량·부피는 그대로인데(8.150->8.152 kg,
-		     11991.7 cm3 불변) 부양이 달라진다 — physics floating/surface/submerged,
-		     buoyant="false", 물리 프록시 1/10 축소를 모두 시험했으나 전부 무효.
-		     LiDAR-반사판 상대 높이는 이 프로젝트 검출 성능의 전제라 건드릴 수 없다.
-		     조명만 쓰면 흘수가 기준선과 동일하다(0.1617/0.1199 vs 기준선 0.1616/0.1199).
-		     스포트가 선저에 패턴을 투사하므로 스크린 없이도 마커는 보인다.
-		     blink 0.1 s, cone 10도. rpy 180도는 스포트를 위(-z)로 돌려
-		     아래를 보는 스크린 면을 비추게 한다(참조는 면이 위라 rpy 0). -->
-		<light name="aruco_led">
-			<specs illuminance="5000.0" radius="0.06" cone_angle="10" blink="0.1" shape="aruco" aruco_id="58"/>
-			<color rgb="1.0 1.0 1.0"/>
-			<link name="base_link"/>
-			<origin xyz="0.0 -0.1386 0.699" rpy="3.1416 0.0 0.0"/>
-		</light>
-		<light name="led_outer">
-			<specs radius="0.105" cone_angle="10.0" blink="0.1" illuminance="5000.0" shape="circle_square_hole" inner_radius="0.07"/>
-			<color rgb="0.34 0.84 0.41"/>
-			<link name="base_link"/>
-			<origin xyz="0.0 -0.1386 1.214" rpy="3.1416 0.0 0.0"/>
-		</light>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
 		<sensor name="odometry" type="odometry" rate="10.0">
 			<link name="base_link"/>
@@ -540,32 +465,7 @@
 				     붕괴: S4 66.7~68.5°, S6 13.0 m). -->
 				<compound_transform rpy="0.0 0.0 -1.5708" xyz="0.0014 -0.1386 -0.2847"/>
 			</external_part>
-
 		</base_link>
-
-		<!-- 액티브마커 = 점멸 LED만(2026-08-18). 내측은 ArUco 패턴(마커마다 다른 id), 외측은 링.
-		     **스크린 메시(external_part)는 붙이지 않는다** — 붙이면 흘수가 바뀐다.
-		     실측: gtbot odometry z 0.120 -> 0.023, 판이 센서 기준 -0.030 -> +0.034 m로
-		     6.7 cm 올라간다. Stonefish가 계산한 질량·부피는 그대로인데(8.150->8.152 kg,
-		     11991.7 cm3 불변) 부양이 달라진다 — physics floating/surface/submerged,
-		     buoyant="false", 물리 프록시 1/10 축소를 모두 시험했으나 전부 무효.
-		     LiDAR-반사판 상대 높이는 이 프로젝트 검출 성능의 전제라 건드릴 수 없다.
-		     조명만 쓰면 흘수가 기준선과 동일하다(0.1617/0.1199 vs 기준선 0.1616/0.1199).
-		     스포트가 선저에 패턴을 투사하므로 스크린 없이도 마커는 보인다.
-		     blink 0.1 s, cone 10도. rpy 180도는 스포트를 위(-z)로 돌려
-		     아래를 보는 스크린 면을 비추게 한다(참조는 면이 위라 rpy 0). -->
-		<light name="aruco_led">
-			<specs illuminance="5000.0" radius="0.06" cone_angle="10" blink="0.1" shape="aruco" aruco_id="59"/>
-			<color rgb="1.0 1.0 1.0"/>
-			<link name="base_link"/>
-			<origin xyz="0.0 -0.1386 0.699" rpy="3.1416 0.0 0.0"/>
-		</light>
-		<light name="led_outer">
-			<specs radius="0.105" cone_angle="10.0" blink="0.1" illuminance="5000.0" shape="circle_square_hole" inner_radius="0.07"/>
-			<color rgb="0.34 0.84 0.41"/>
-			<link name="base_link"/>
-			<origin xyz="0.0 -0.1386 1.214" rpy="3.1416 0.0 0.0"/>
-		</light>
 		<!-- 자세 디버깅용 임시 odometry (추후 팔로워 제어에도 유용) -->
 		<sensor name="odometry" type="odometry" rate="10.0">
 			<link name="base_link"/>
