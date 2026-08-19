@@ -1,0 +1,142 @@
+# BlueROV2 Vehicle Dynamics Parameters
+#
+# ============================================================================
+# SINGLE SOURCE OF TRUTH FOR BLUEROV2 DYNAMICS
+# ============================================================================
+# ALL controllers MUST read mass, inertia, COG, COB from this file.
+# DO NOT duplicate these values in other config files (pid_params.yaml, etc.)
+#
+# Primary Reference: bluerov2.scn (Stonefish scenario file)
+# All values calculated from active components in bluerov2.scn
+#
+# Coordinate Convention:
+#   Body Frame: FRD (Forward-Right-Down)
+#   - X: Forward (surge)
+#   - Y: Right (sway)
+#   - Z: Down (heave)
+#
+# Note: For model-based control (is_model_based=True)
+#       Basic PID (is_model_based=False) only uses: mass, inertial, cog, cob, volume
+
+/**:
+  ros__parameters:
+    # =============================================================================
+    # Mass Properties (from bluerov2.scn active components)
+    # =============================================================================
+    # Total mass calculation (PASSIVE STABILITY CONFIG):
+    #   FoamTop (0.5 kg) + BallastBottom (19.631 kg)
+    #   = 20.131 kg (NEUTRAL BUOYANCY)
+    #
+    # Weight: W = 20.131 × 9.82 = 197.7 N
+    # Buoyancy: B = 1028 × 9.82 × 0.019582 = 197.7 N
+    # Net force: B - W ≈ 0 N (neutral buoyancy)
+    mass: 20.131  # kg
+
+    # =============================================================================
+    # Inertia Tensor (kg⋅m²) - Point mass approximation from .scn
+    # =============================================================================
+    # Calculated from component positions relative to CoG
+    # I = Σ m_i * r_i² where r_i is distance from CoG
+    #
+    # Dominant component: BallastBottom (19.631 kg at z=0.18m)
+    #   I_xx ≈ I_yy ≈ 19.631 × 0.18² ≈ 0.636 kg·m²
+    #   I_zz ≈ 19.631 × 0.08² ≈ 0.126 kg·m² (ballast radius)
+    # Minor component: FoamTop (0.5 kg, box 0.25×0.20×0.26m at z=-0.10m)
+    #   I_xx_foam ≈ 0.01, I_yy_foam ≈ 0.01, I_zz_foam ≈ 0.005 kg·m²
+    # Total: I_xx ≈ 0.646, I_yy ≈ 0.646, I_zz ≈ 0.131 kg·m²
+    inertial:
+      ixx: 0.65    # Roll axis (about X)
+      iyy: 0.65    # Pitch axis (about Y)
+      izz: 0.13    # Yaw axis (about Z)
+      ixy: 0.0     # Products of inertia
+      ixz: 0.0
+      iyz: 0.0
+
+    # =============================================================================
+    # Center of Gravity (m) - Body frame
+    # =============================================================================
+    # Calculated as weighted average of component positions
+    # CoG = Σ(m_i * pos_i) / Σm_i
+    #
+    # FoamTop:    0.5 kg at z = -0.10 m
+    # BallastBottom: 19.631 kg at z = +0.18 m
+    # Total: 20.131 kg (internal parts only)
+    #
+    # COG_z = (0.5×(-0.10) + 19.631×0.18) / 20.131
+    #       = (-0.05 + 3.534) / 20.131
+    #       = 3.484 / 20.131 ≈ 0.173 m
+    cog: [0.0, 0.0, 0.173]
+
+    # =============================================================================
+    # Center of Buoyancy (m) - Body frame
+    # =============================================================================
+    # Geometric center of buoyant parts
+    # FoamTop (box 0.25×0.20×0.26m) centered at z = -0.10m
+    # (Negative Z = upward in FRD frame, Down is positive)
+    cob: [0.0, 0.0, -0.10]
+
+    # =============================================================================
+    # Metacentric Height (Passive Stability)
+    # =============================================================================
+    # GM = COB_z - COG_z = -0.10 - 0.173 = -0.273 m
+    # |GM| = 0.273 m > 0.15 m (MEETS DESIGN REQUIREMENT ✓)
+    #
+    # Restoring moment for roll/pitch:
+    #   τ_restoring ≈ (B - W) × GM × sin(θ)
+    #   τ_restoring ≈ 2.6 N × 0.262 m × sin(θ) ≈ 0.68 Nm at θ=90°
+    #
+    # Expected settling time for roll/pitch: 5-10 seconds (passive damping)
+
+    # =============================================================================
+    # Volume and Fluid Properties
+    # =============================================================================
+    # Volume of buoyant parts: FoamTop box (0.29 × 0.25 × 0.2701 m)
+    # V = 0.29 × 0.25 × 0.2701 = 0.019582 m³
+    # Buoyancy = 1028 × 9.82 × 0.019582 = 197.7N
+    # Net buoyancy = 197.7 - 197.7 = 0N (neutral buoyancy)
+    volume: 0.019582  # m³
+
+    # Fluid density (saltwater)
+    density: 1028.0  # kg/m³
+
+    # Gravity acceleration
+    gravity: 9.82  # m/s²
+
+    # =============================================================================
+    # Bounding Box Dimensions (m)
+    # =============================================================================
+    # From .scn geometry (approximate)
+    length: 0.457  # X-axis (forward)
+    width: 0.338   # Y-axis (lateral)
+    height: 0.254  # Z-axis (vertical)
+
+    # =============================================================================
+    # Hydrodynamic Coefficients (NOT USED by basic PID controllers)
+    # =============================================================================
+    # These parameters are for model-based control (is_model_based=True)
+    # Basic PID controllers (is_model_based=False) do NOT use these
+    # Stonefish simulator calculates these internally from .scn geometry
+    #
+    # To measure these values, run System Identification experiments:
+    #   - Added mass: Step input → measure acceleration → Ma = F/a - M
+    #   - Damping: Steady state → measure velocity → D = F/v
+    #
+    # COMMENTED OUT - Not used by current controllers
+    #
+    # Ma:  # Added mass matrix (6×6)
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #
+    # linear_damping:  # Linear damping coefficients (6×6)
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    #
+    # quad_damping: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # Quadratic damping (6×1)

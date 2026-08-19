@@ -1,0 +1,53 @@
+# PKRC Controller Default Parameters
+# 이 파일을 수정하여 기본값을 변경할 수 있습니다.
+
+wall_following_controller:
+  ros__parameters:
+    # Wall Following
+    target_distance: 1.0        # 벽과의 목표 거리 (m)
+    approach_threshold: 0.3     # 접근 모드 -> 추종 모드 전환 임계값 (m)
+    approach_speed: 0.4         # 접근 속도 (0-1)
+    follow_speed: 0.3           # 벽 따라가기 속도 (0-1)
+    surge_trim: 0.95            # 전방 스러스터 비대칭 보정
+    sway_trim: 1.05             # 측면 스러스터 비대칭 보정
+    enabled: true
+
+    # Wall Following PID
+    kp: 1.5
+    ki: 0.1
+    kd: 0.2
+    yaw_gain: 0.1
+
+    # Depth Control
+    target_depth: 1.0           # 목표 깊이 (m)
+    depth_offset: 0.0           # 깊이 센서 오프셋 (m)
+
+    # Depth PID
+    depth_kp: 0.8
+    depth_ki: 0.35
+    depth_kd: 1.2
+
+    # Thruster Control
+    max_current: 5.0            # 최대 전류 (A)
+    current_scale: 3.0          # PWM -> 전류 변환 스케일
+    can_channel: 'can0'         # CAN 버스 채널
+
+depth_controller:
+  ros__parameters:
+    target_depth: 1.0
+    depth_offset: 0.0
+    kp: 0.8
+    ki: 0.35
+    kd: 1.2
+    max_current: 5.0
+    current_scale: 3.0
+    can_channel: 'can0'
+    standalone_mode: false      # true: heave만 제어, false: teleop과 함께
+    enabled: true
+
+teleop_depth:
+  ros__parameters:
+    depth_step: 0.5             # W/S 키로 변경할 깊이 단위 (m)
+    min_depth: 0.0
+    max_depth: 10.0
+    initial_depth: 1.0

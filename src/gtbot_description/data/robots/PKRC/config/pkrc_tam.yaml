@@ -1,0 +1,42 @@
+tam:
+# ============================================================================
+# Thruster Allocation Matrix (TAM) for PKRC Robot
+# ============================================================================
+#
+# This 6x6 matrix maps thruster forces to 6DOF body forces and torques:
+#   [Fx, Fy, Fz, Tx, Ty, Tz]^T = TAM * [T1, T2, T3, T4, T5, T6]^T
+#
+# Thruster Configuration (Based on pkrc.scn):
+# ----------------------------------------------------------------------------
+#   T1: Surge_left   @ (0.0, -0.15, -0.09) - X direction thrust (forward)
+#   T2: Surge_right  @ (0.0,  0.15, -0.09) - X direction thrust (forward)
+#   T3: Sway_left    @ (0.15,  0.0, -0.09) - Y direction thrust (left/right)
+#   T4: Sway_right   @ (-0.15, 0.0, -0.09) - Y direction thrust (left/right)
+#   T5: Heave_left   @ (0.0,  0.16,  0.12) - Z direction thrust (up/down)
+#   T6: Heave_right  @ (0.0, -0.16,  0.12) - Z direction thrust (up/down)
+# ----------------------------------------------------------------------------
+#
+# Coordinate System (Stonefish/ROS):
+#   X: Forward (Surge)
+#   Y: Left (Sway)
+#   Z: Up (Heave)
+#
+# TAM Matrix (6 rows x 6 columns):
+#         T1(SuL)  T2(SuR)  T3(SwL)  T4(SwR)  T5(HL)   T6(HR)
+- [      1.0,      1.0,     0.0,     0.0,     0.0,     0.0]    # Row 0: Fx (Surge) - both surge thrusters push forward
+- [      0.0,      0.0,     1.0,     1.0,     0.0,     0.0]    # Row 1: Fy (Sway) - both sway thrusters push sideways
+- [      0.0,      0.0,     0.0,     0.0,     1.0,     1.0]    # Row 2: Fz (Heave) - both heave thrusters push up/down
+- [      0.0,      0.0,     0.0,     0.0,     0.16,   -0.16]   # Row 3: Tx (Roll) = Fz * y_pos (heave differential)
+- [      0.0,      0.0,     0.09,    0.09,    0.0,     0.0]    # Row 4: Ty (Pitch) = Fy * z_pos (sway at z=-0.09)
+- [     -0.15,     0.15,    0.15,   -0.15,    0.0,     0.0]    # Row 5: Tz (Yaw) = Fx * y_pos + Fy * x_pos
+# ============================================================================
+#
+# Control Capabilities:
+#   - Surge: T1 + T2 (same direction)
+#   - Sway: T3 + T4 (same direction)
+#   - Heave: T5 + T6 (same direction)
+#   - Roll: T5 - T6 (heave differential)
+#   - Pitch: T3 - T4 (sway differential, limited due to z_pos)
+#   - Yaw: (T2 - T1) or (T3 - T4) (surge or sway differential)
+#
+# ============================================================================

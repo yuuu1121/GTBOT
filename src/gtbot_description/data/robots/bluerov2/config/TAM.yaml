@@ -1,0 +1,52 @@
+tam:
+# ============================================================================
+# Thruster Allocation Matrix (TAM) for BlueROV2 Heavy Configuration
+# ============================================================================
+#
+# This 6x8 matrix maps thruster forces to 6DOF body forces and torques:
+#   [Fx, Fy, Fz, Tx, Ty, Tz]^T = TAM * [F1, F2, F3, F4, F5, F6, F7, F8]^T
+#
+# Where:
+#   - Fx, Fy, Fz: Forces in body-frame X, Y, Z directions [N]
+#   - Tx, Ty, Tz: Torques around body-frame X, Y, Z axes [N⋅m]
+#   - F1-F8: Individual thruster forces [N]
+#
+# Frame: Body frame (base_link), origin at vehicle center
+# Coordinate system: X-forward, Y-right, Z-down (FRD/NED convention)
+# ============================================================================
+
+# Thruster Configuration (8 Thrusters):
+# ----------------------------------------------------------------------------
+# Horizontal Thrusters (T1-T4): Mounted at 45° angles for omnidirectional motion
+#   T1: FrontRight  @ ( 0.1355,  0.1000,  0.05126524164) m, yaw=-45° (SE direction)
+#   T2: FrontLeft   @ ( 0.1355, -0.1000,  0.05126524164) m, yaw=+45° (SW direction)
+#   T3: BackRight   @ (-0.1475,  0.1000,  0.05126524164) m, yaw=-135° (NE direction)
+#   T4: BackLeft    @ (-0.1475, -0.1000,  0.05126524164) m, yaw=+135° (NW direction)
+#
+# Vertical Thrusters (T5-T8): Pointing downward for heave and roll/pitch control
+#   T5: DiveFrontRight @ ( 0.1200,  0.2180,  0.0000) m, pitch=-90° (down)
+#   T6: DiveFrontLeft  @ ( 0.1200, -0.2180,  0.0000) m, pitch=-90° (down)
+#   T7: DiveBackRight  @ (-0.1200,  0.2180,  0.0000) m, pitch=-90° (down)
+#   T8: DiveBackLeft   @ (-0.1200, -0.2180,  0.0000) m, pitch=-90° (down)
+# ----------------------------------------------------------------------------
+
+# TAM Matrix (6 rows x 8 columns):
+# Each row represents the contribution of each thruster to a specific DOF
+# Each column represents the force/torque contribution of one thruster
+#
+#   T1 (FR)           T2 (FL)           T3 (BR)           T4 (BL)           T5 (DFR)  T6 (DFL)  T7 (DBR)  T8 (DBL)
+- [ 0.7071067812,     0.7071067812,     0.7071067812,     0.7071067812,     0.0,      0.0,      0.0,      0.0]    # Row 0: Fx (Surge) = cos(45°) for all horizontal thrusters
+- [-0.7071067812,     0.7071067812,     0.7071067812,    -0.7071067812,     0.0,      0.0,      0.0,      0.0]    # Row 1: Fy (Sway) = sin(45°) with sign based on thruster position
+- [ 0.0,              0.0,              0.0,              0.0,             -1.0,      1.0,      1.0,     -1.0]    # Row 2: Fz (Heave) = ±1.0 for vertical thrusters (sign: down=+, up=-)
+- [ 0.05126524164,   -0.05126524164,   -0.05126524164,    0.05126524164,   -0.218,   -0.218,    0.218,    0.218]  # Row 3: Tx (Roll) = Fz_thruster × y_position (right-hand rule)
+- [ 0.05126524164,    0.05126524164,    0.05126524164,    0.05126524164,    0.120,   -0.120,    0.120,   -0.120]  # Row 4: Ty (Pitch) = Fz_thruster × x_position (right-hand rule)
+- [-0.166523647,      0.166523647,     -0.166523647,      0.166523647,      0.0,      0.0,      0.0,      0.0]    # Row 5: Tz (Yaw) = Fx × y - Fy × x (cross product for horizontal thrusters)
+#
+# Notes:
+#   - sqrt(2)/2 ≈ 0.7071067812 (cos/sin of 45°)
+#   - Torque calculations use cross product: τ = r × F
+#   - For Roll (Tx): τ = Fz × y (vertical thrusters only)
+#   - For Pitch (Ty): τ = Fz × x (vertical thrusters only)
+#   - For Yaw (Tz): τ = Fx × y - Fy × x (horizontal thrusters only)
+#   - Values calculated based on exact thruster positions from bluerov2.scn
+# ============================================================================

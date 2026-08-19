@@ -1,0 +1,135 @@
+# PKRC 추종 시스템 — 구조, 실기 명령, sim-to-real 판단
+
+2026-08-19. 수중 PKRC가 upward 카메라로 로봇 하부 aruco LED를 보고 상대위치를
+추정하면, 플랫폼이 이를 월드좌표로 변환해 따라가고 gtbot 편대는 플랫폼을 따라간다.
+vlm_ws의 blueboat↔ROV 추종(`pathfollower/rov_world_position.py`,
+`blueboat_path_follower.py`) 구조를 이 편대 시스템에 이식한 것.
+
+## 1. 구조 (시뮬 기준, 검증된 배선)
+
+```
+[PKRC 탑재분 — pkrc_sim_stack.launch.py]
+  depth_controller_sim : /pkrc/pressure(Pa) → PID → /pkrc/setpoint/pwm heave(4·5ch), 수심 4 m 유지
+                         부가 발행: /pkrc/depth/current(m), /pkrc/pressure_mbar(ukfm용 절대압)
+  aruco_detector_6dof  : /pkrc/up/image_color → 마커 8·17·58·59 검출 → /aruco/pose_array
+  ukfm_localization    : IMU+깊이+aruco 융합 → /ukfm/odom_validated (마커맵=편대 오프셋 프레임)
+  (pkrc_mover          : 시뮬 전용 배회 패턴 — 실기엔 없음, PKRC는 자체 미션으로 움직임)
+
+[플랫폼 탑재분 — pkrc_follow.launch.py]
+  pkrc_world_position  : PKRC월드 = 플랫폼월드 + ukfm상대 (1 m 데드밴드 월드잠금)
+                         → /pkrc/world_position, /platform/calibrated_odom
+  platform_follower    : /pkrc/world_position 을 이동 목표로 leader_pilot 제어 재사용
+                         (P 속도지령 + yaw0 유지 + 0.3/0.5 m 스테이션 키핑 데드밴드)
+                         ⚠ leader_pilot 과 /platform/thrusters 경합 — 동시 기동 금지
+
+[gtbot 편대] 기존 스택 그대로 — 플랫폼 LiDAR est 하행, 플랫폼을 추종하므로 자동 동행
+```
+
+시뮬에서 잡은 이식 결함 3건(원본 코드 버그 포함):
+- 시뮬 pkrc heave 스러스터는 +PWM=상승(실측) — 제어기 heave 부호 반전 필요
+- `rclpy.parameter.SetParametersResult`는 없는 API — 파라미터 변경 시 노드 사망(원본 버그)
+- ukfm pressure 입력은 **mbar 절대압**(내부에서 1013.25 감산) — 깊이(m)를 물리면 z가 −10 m에 박힘
+
+## 2. 실기 명령 (기계별)
+
+멀티캐스트 디스커버리로 토픽이 이어지는 LAN 전제. **시뮬용 SHM 프로파일
+(`FASTRTPS_DEFAULT_PROFILES_FILE`)이 셸에 남아 있으면 기계 간 통신이 통째로
+끊긴다** — 실기 런치가 스스로 unset하지만 수동 실행 시 주의.
+
+### 플랫폼 PC (3개 터미널)
+```bash
+# 1) FAST-LIO SLAM (OS0 드라이버가 내는 /ouster/points·/ouster/imu 소비 → /Odometry)
+ros2 launch fast_lio mapping.launch.py config_file:=ouster64.yaml   # OS0에 맞게 파라미터 검수 필요
+
+# 2) 지각+편대 제어 (OS0 드라이버 + 반사판 검출 + koopman + hwt9053)
+ros2 launch gtbot_formation hardware_platform.launch.py sensor_hostname:=<OS0 IP>
+
+# 3) PKRC 추종 (leader_pilot 대신 이것만)
+ros2 launch pkrc_controller pkrc_follow.launch.py \
+    platform_odom_topic:=/Odometry ned_convert:=true
+```
+
+### gtbot 3대 (각 로봇 PC에서 1줄)
+```bash
+ros2 launch gtbot_formation hardware_robot.launch.py robot:=gtbot   # gtbot2 / gtbot3
+```
+
+### PKRC PC
+```bash
+# 1) 깊이 유지 (MS5837 + VESC heave, 실기용 제어기)
+ros2 launch pkrc_controller depth_controller.launch.py target_depth:=4.0
+
+# 2) 마커 검출 (stellarHD 직결 — /dev/video4, LED용 노출 설정 내장)
+ros2 run pkrc_controller aruco_detector_6dof \
+    --ros-args -p marker_ids:="[8, 17, 58, 59]"  # + 실기 마커맵 파라미터
+
+# 3) 위치 추정 (DVL A50 있으면 dvl_msgs 설치돼 자동 융합)
+ros2 run pkrc_controller ukfm_localization --ros-args -p imu_inverted:=true  # 실물 장착 방향 확인
+
+# (선택) 깊이 목표 키보드 조절
+ros2 run pkrc_controller teleop_depth --ros-args -p initial_depth:=4.0   # 기본 1.0이라 반드시 4.0 지정
+```
+
+**통신 전제 확인 필요**: /ukfm/odom_validated가 플랫폼 PC에 닿아야 한다. 수중에서
+Wi-Fi는 불가 — PKRC가 테더(이더넷)로 플랫폼/지상국과 이어져 있어야 이 구조가
+성립한다. vlm_ws의 blueboat↔ROV 구성과 동일한 전제.
+
+## 3. sim-to-real gap 판단
+
+당장 갭을 만드는 것 (영향 큰 순):
+
+1. **마커 장착 깊이·광학**. 현재 scn의 aruco LED는 수면 위 ~0.5 m에 있다(사용자
+   배치). 실물은 선체 하부 수중 장착이라 시뮬은 공기-물 굴절 경로, 실물은 수중
+   직시 — 검출 기하가 다르다. **scn 마커를 실물 장착 깊이(수면 아래)로 옮기는
+   것이 갭 축소 1순위.** 지금 시뮬 검출률 0.26 Hz의 유력 원인이기도 하다.
+2. **카메라 자체**. 시뮬 640×360 무왜곡 vs 실물 stellarHD 1600×1200 + plumb_bob
+   왜곡 + LED용 수동 노출(exposure 1, brightness −64). 검출기는 camera_info를
+   쓰므로 코드 경로는 같지만, 검출률·포즈 정확도는 실기 백에서 회귀 확인해야
+   한다. 실물 백 하나로 검출기 파라미터(CLAHE, clip)를 고정할 것.
+3. **4 Hz 점멸 × 노출**. 30 Hz 카메라에서 절반의 프레임은 LED off. 실물은 저노출로
+   LED만 남기는 설계라 off 프레임 검출 0 — 유효 검출률 상한이 절반이다. 점멸이
+   ID 식별에 필수가 아니면 상시 점등이 추종 품질에 유리.
+4. **플랜트 차이**. 시뮬 heave 부호 반전(+PWM=상승)은 시뮬 제어기에만 넣었다 —
+   실기 제어기는 원래 부호 그대로. PID 이득(0.8/0.35/1.2)은 시뮬 재현이 잘 됐지만
+   VESC 전류 제어 플랜트는 다르므로 실기 재튜닝 필요.
+5. **좌표 변환 검증**. FAST-LIO FLU→NED 변환(`ned_convert`)과 'ukfm 상대좌표를
+   플랫폼 yaw로 회전하지 않는 근사'(원본 vlm 코드와 동일)는 플랫폼 yaw≈0 전제.
+   실기에서 플랫폼이 크게 선회하는 운용이면 pkrc_world_position에 yaw 회전을
+   넣어야 한다.
+6. **헤딩 기준**. hwt9053 yaw 32°/h 드리프트(imu_run1 실측) — 편대 est 경로 문제와
+   동일. 추종 자체는 상대거리 기반이라 둔감하지만, yaw0 유지형 플랫폼 제어는
+   드리프트를 그대로 먹는다.
+7. **DVL**. 시뮬 ukfm은 IMU+깊이+aruco만(수평 속도 무보정 → 마커 놓치면 드리프트).
+   실기는 DVL A50 융합으로 더 낫다. 갭을 줄이려면 stonefish /pkrc/dvl을
+   dvl_msgs/DVL로 중계하는 브리지를 만들어 시뮬에서도 융합을 켜는 것.
+
+정리하면: **코드 경로는 시뮬·실기 동일**(토픽·노드 구조 일치)하고, 갭은 센서
+물리(마커 깊이·카메라·점멸)와 플랜트 이득에 있다. 1·2·3을 먼저 하면 시뮬 검증이
+실기 예측력을 갖는다.
+
+## 4. 추종 데모 5회 반복의 판정 (2026-08-19, seed 921 계열)
+
+| 회차 | 조치 | 결과(플랫폼-PKRC 거리) |
+|:---|:---|:---|
+| 1차 | 초기 배선 그대로 | 발산 26 m — 마커 수면 위 + 회전 오염 + 편류 추종 |
+| 2차 | (실험) 마커 수중 이동 | 발산 16 m — PKRC 회전이 보정 오염 |
+| 3차 | yaw 고정 배회 | 발산 12 m, 단 t=181 s에 1.05 m 근접 성공 |
+| 4차 | aruco 신선도 게이트 | 유계 9~14 m — 발산은 멈춤 |
+| 5차 | 마커 사용자 원본 복원 + 허위검출 거리 게이트 | 유계, 중앙 7.9 m / 최대 12.3 m |
+
+수심 유지는 5회 전부 4.00 m 고정(완벽). 추종 잔여 오차의 지배 요인은 **마커
+관측 품질**로 확정:
+
+- cone_angle 10° → 마커가 PKRC 정수리 ±10°(4 m 수심에서 반경 ~0.7 m)에서만 밝음.
+  gtbot 마커 3개는 시선각 ~22°라 사실상 항상 소등 상태로 보임 (up 카메라 프레임 실측)
+- illuminance 5000 → 흰 셀 블룸이 번져 패턴이 뭉개짐. ID 59가 17로 오독되는 사례
+  다수, 방향(tvec) 정보 상실 → ukfm 보정이 "PKRC≈마커 지도 중심"으로 수렴
+- 그 결과 est ≈ 플랫폼 자신 위치가 되어 **플랫폼이 자기 마커를 쫓는 자기참조
+  루프**가 형성 — 보정 편향이 누적되며 한 방향으로 서서히 이동(5차에서 +y로 8 m)
+- 수면 위 마커 배치는 물-공기 굴절 + 내부전반사 반사상(거리 7~14 m 허위 검출)을
+  추가로 만든다. 거리 게이트(0.2~5.5 m)로 일부만 기각 가능
+
+이 한계는 파이프라인이 아니라 관측 기하의 문제다. 개선 경로(효과 순):
+① 마커를 실물처럼 수면 아래·광각(콘각 60°+)·적정 밝기로 — 2차 실험에서 검출
+175회·1 m 근접이 재현됨 ② DVL 융합(stonefish /pkrc/dvl → dvl_msgs 브리지)으로
+관측 공백의 편류 제거 ③ 상시 점등(4 Hz 점멸은 유효 프레임을 절반으로 깎음).
