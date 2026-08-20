@@ -101,18 +101,27 @@ class PlatformFollower(Node):
         n = np.linalg.norm(v_cmd)
         if n > self.v_max:
             v_cmd *= self.v_max / n
-        # 스테이션 키핑 데드밴드 — leader_pilot과 동일(근거는 그쪽 주석)
+        # 데드밴드 0.25/0.4 (2026-08-20 재조정): 0.1/0.2로 좁혔더니 잔추력 보정이
+        # 끊이지 않아 hull 요동으로 팔로워 est가 0%까지 붕괴했다(실측 — 원래 0.3/0.5를
+        # 실측으로 잡은 이유 그대로). 대신 추력 지령 저역필터(아래)로 스위칭을 완화해
+        # 연속 추종과 편대 지각을 양립시킨다.
         d = float(np.linalg.norm(self.target - pos))
-        if self.dead and d > 0.5:
+        if self.dead and d > 0.4:
             self.dead = False
-        elif not self.dead and d < 0.3:
+        elif not self.dead and d < 0.25:
             self.dead = True
         if self.dead:
             v_cmd[:] = 0.0
         e_body = world_to_body(*(v_cmd - v), yaw)
         syaw = self.kpsi * wrap(yaw - self.yaw0)
-        s = setpoints(e_body, syaw, self.kv)
-        self.pub.publish(Float64MultiArray(data=list(s)))
+        s = np.asarray(setpoints(e_body, syaw, self.kv), dtype=float)
+        # 추력 지령 저역필터(2026-08-20): 급격한 추력 스위칭이 hull을 흔들어
+        # LiDAR 반사판 검출(팔로워 est)을 부수는 것이 실측 확인 — 1차 필터
+        # (alpha 0.1 @20 Hz, tau≈0.5 s)로 보정을 부드럽게 만든다.
+        if not hasattr(self, 's_filt'):
+            self.s_filt = np.zeros_like(s)
+        self.s_filt = 0.9 * self.s_filt + 0.1 * s
+        self.pub.publish(Float64MultiArray(data=list(self.s_filt)))
         if self.now() - self.t_log >= 10.0:
             self.get_logger().info(
                 f'target ({self.target[0]:+.2f}, {self.target[1]:+.2f})  '

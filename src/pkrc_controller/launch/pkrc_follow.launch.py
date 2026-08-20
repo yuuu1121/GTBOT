@@ -22,10 +22,12 @@ def generate_launch_description():
                           'ned_convert': LaunchConfiguration('ned_convert'),
                           # 실시간 추종(2026-08-20): 1.0 m 잠금은 목표 갱신을 띄엄띄엄
                           # 만들어 플랫폼이 PKRC를 놓친다(사용자 관찰) — 0.4로 낮춤
-                          'lock_threshold': 0.4}]),
+                          'lock_threshold': 0.15}]),
         Node(package='pkrc_controller', executable='platform_follower',
              output='screen',
              # 실시간 추종: 플랫폼 플랜트는 지령 0.2에 실속도 0.06~0.11 m/s만 나온다
              # (leader_pilot 실측) — 지령 상한과 P이득을 올려 실속도를 끌어올린다
-             parameters=[{'v_max': 0.3, 'kp': 0.8}]),
+             # 편대 안전 대역(2026-08-20): 0.3 이상 연속 주행 시 팔로워 est가 0~18%로
+             # 붕괴해 편대가 와해된다(실측) — 팔로워 추종 대역 내 저속 연속 추종.
+             parameters=[{'v_max': 0.15, 'kp': 0.8}]),
     ])
