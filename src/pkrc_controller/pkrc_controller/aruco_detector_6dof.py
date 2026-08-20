@@ -24,6 +24,17 @@ class ArucoDetector6DOF(Node):
         self.declare_parameter('image_topic', '/stellarHD/image_raw')
         self.declare_parameter('camera_info_topic', '/stellarHD/camera_info')
         self.declare_parameter('scale_factor', 3.0)
+        # 굴절 배율 보정(2026-08-20): 수중 카메라가 수면 위 마커를 보면 물-공기
+        # 굴절로 각크기가 n(물)≈1.33배 확대돼 PnP 거리가 1/n로 줄어든다(정지 실측:
+        # 4.53 m 실거리 → 3.59 m 추정, 비 1.26≈n). marker_size는 실물 0.12 그대로
+        # 두고 tvec에 이 배율을 곱해 보정한다. 실기는 마커가 수중이라 경계가
+        # 없으므로 기본 1.0 — 시뮬 런치에서만 1.33을 준다.
+        self.declare_parameter('tvec_scale', 1.0)
+        # 수평 2×2 실측 보정(2026-08-20, 단일 마커 캘리브레이션 1,709쌍): 굴절의
+        # 베어링 압축 + 카메라 장착 회전이 섞여 수평 성분은 균일 스케일이 아니라
+        # 2×2 변환이 필요하다(잔차 중앙 0.24 m). [axx, axy, ayx, ayy] 순.
+        # 기본 항등 — 시뮬 런치에서만 실측값을 준다. PKRC yaw 고정 운용 전제.
+        self.declare_parameter('tvec_xy_A', [1.0, 0.0, 0.0, 1.0])
         self.declare_parameter('min_depth', 0.2)   # Minimum valid depth (m)
         self.declare_parameter('max_depth', 15.0)  # Maximum valid depth (m)
 
@@ -109,6 +120,9 @@ class ArucoDetector6DOF(Node):
         self.image_topic = self.get_parameter('image_topic').value
         self.camera_info_topic = self.get_parameter('camera_info_topic').value
         self.scale_factor = self.get_parameter('scale_factor').value
+        self.tvec_scale = self.get_parameter('tvec_scale').value
+        _a = [float(v) for v in self.get_parameter('tvec_xy_A').value]
+        self.tvec_xy_A = np.array([[_a[0], _a[1]], [_a[2], _a[3]]])
         self.min_depth = self.get_parameter('min_depth').value
         self.max_depth = self.get_parameter('max_depth').value
 
@@ -538,6 +552,9 @@ class ArucoDetector6DOF(Node):
 
                 rvec = rvec.flatten()
                 tvec = tvec.flatten()
+                # 실측 보정: 수평은 2×2(회전·반사 포함), 수직은 굴절 스케일
+                tvec[:2] = self.tvec_xy_A @ tvec[:2]
+                tvec[2] *= self.tvec_scale
 
                 # 거리 게이트(2026-08-19 추가): min/max_depth 파라미터가 선언만 되고
                 # 어디서도 쓰이지 않던 결함을 살린다. 기하학적으로 불가능한 거리의

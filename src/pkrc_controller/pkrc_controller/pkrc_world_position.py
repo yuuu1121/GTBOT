@@ -20,6 +20,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseArray, PoseStamped
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Imu
 from scipy.spatial.transform import Rotation as R
 
 
@@ -38,7 +39,14 @@ class PkrcWorldPosition(Node):
                     # 가고, 플랫폼이 그 허상을 쫓아 발산했다. 마지막 검출이 이 시간
                     # 이내일 때만 목표를 갱신 — 관측 없는 동안은 마지막 확인 위치 유지.
                     ('aruco_topic', '/aruco/pose_array'),
-                    ('aruco_fresh_s', 2.0)]
+                    ('aruco_fresh_s', 2.0),
+                    # yaw 합성(2026-08-20): 정사각 수조의 90° 대칭 때문에 FAST-LIO
+                    # yaw는 동등한 4방향 사이를 널뛴다(정지 실측 —170→+82→−134°).
+                    # 위치는 ±0.25 m로 건강하므로, yaw만 IMU에서 가져와 합성한다.
+                    # imu_yaw_topic이 비어 있으면 종전대로 odom의 yaw를 쓴다.
+                    ('imu_yaw_topic', ''),
+                    ('imu_yaw_sign', 1.0),
+                    ('imu_yaw_offset_deg', 0.0)]
         for n, d in defaults:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
@@ -54,6 +62,12 @@ class PkrcWorldPosition(Node):
         self.ukfm_pos = None
         self.t_aruco = None
 
+        self.imu_yaw = None
+        self.imu_sign = float(p('imu_yaw_sign'))
+        self.imu_off = float(np.radians(p('imu_yaw_offset_deg')))
+        imu_topic = str(p('imu_yaw_topic'))
+        if imu_topic:
+            self.create_subscription(Imu, imu_topic, self.on_imu, 50)
         self.world_pub = self.create_publisher(PoseStamped, p('output_topic'), 10)
         self.calib_pub = self.create_publisher(Odometry, p('calibrated_odom_topic'), 10)
         self.create_subscription(Odometry, p('platform_odom_topic'), self.on_platform, 10)
@@ -64,6 +78,10 @@ class PkrcWorldPosition(Node):
             f"ukfm={p('ukfm_odom_topic')} ned_convert={self.ned_convert} "
             f"lock={self.lock_th} m")
 
+    def on_imu(self, msg):
+        q = msg.orientation
+        self.imu_yaw = R.from_quat([q.x, q.y, q.z, q.w]).as_euler('xyz')[2]
+
     def on_platform(self, msg):
         pos = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y,
                         msg.pose.pose.position.z])
@@ -73,6 +91,8 @@ class PkrcWorldPosition(Node):
             # FAST-LIO FLU -> NED (원본 bb_body_to_world_ned와 동일)
             pos = np.array([pos[0], -pos[1], -pos[2]])
             yaw = -yaw
+        if self.imu_yaw is not None:
+            yaw = self.imu_sign * self.imu_yaw + self.imu_off
         if self.last_plat is not None and \
                 np.linalg.norm(pos[:2] - self.last_plat[:2]) > self.max_jump:
             self.get_logger().warn('플랫폼 odom 점프 — 무시', throttle_duration_sec=1.0)

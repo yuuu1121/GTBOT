@@ -26,7 +26,13 @@ class PlatformFollower(Node):
         defaults = [('odom_topic', '/platform/calibrated_odom'),
                     ('target_topic', '/pkrc/world_position'),
                     ('v_max', 0.2), ('kp', 0.5), ('kv', 1.5), ('kpsi', 0.1),
-                    ('target_stale_s', 5.0), ('yaw0_deg', float('nan'))]
+                    ('target_stale_s', 5.0), ('yaw0_deg', float('nan')),
+                    # 안전 클램프(2026-08-20, 8차에서 상대 반경으로 수정): 목표를
+                    # 자기 위치 기준 반경 bound_rel 이내로 자른다. 절대좌표(±6) 클램프는
+                    # 위치원(FAST-LIO) 프레임이 드리프트하면 자기위치와 어긋나 추종을
+                    # 부수는 것이 8차에서 실측됐다 — 상대 반경은 프레임 드리프트에 불변이고
+                    # 잘못된 목표로의 폭주(벽 충돌)도 같은 정도로 막는다.
+                    ('bound_rel', 5.0)]
         for n, d in defaults:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
@@ -64,7 +70,14 @@ class PlatformFollower(Node):
         self.t_odom = self.now()
 
     def on_target(self, msg):
-        self.target = np.array([msg.pose.position.x, msg.pose.position.y])
+        t = np.array([msg.pose.position.x, msg.pose.position.y])
+        if self.odom is not None:
+            b = float(self.get_parameter('bound_rel').value)
+            d = t - self.odom[0]
+            n = np.linalg.norm(d)
+            if n > b:
+                t = self.odom[0] + d * (b / n)
+        self.target = t
         self.t_target = self.now()
 
     def tick(self):
