@@ -61,6 +61,12 @@ class PkrcWorldPosition(Node):
         self.locked = None          # 잠금된 PKRC 월드좌표
         self.ukfm_pos = None
         self.t_aruco = None
+        # 점프 복구(2026-08-20): 기각만 하면 odom이 동결돼 추종기가 낡은 자기위치로
+        # 오염된 목표를 쫓는다(실관찰 — 플랫폼이 벽까지 감). 기각이 연속되면 LIO가
+        # 재정위한 것으로 보고 새 위치에 재앵커하고, 옛 프레임에서 계산된 잠금
+        # 목표도 무효화한다.
+        self.jump_count = 0
+        self.jump_reanchor_n = 20   # 10 Hz 기준 2 s
 
         self.imu_yaw = None
         self.imu_sign = float(p('imu_yaw_sign'))
@@ -95,8 +101,15 @@ class PkrcWorldPosition(Node):
             yaw = self.imu_sign * self.imu_yaw + self.imu_off
         if self.last_plat is not None and \
                 np.linalg.norm(pos[:2] - self.last_plat[:2]) > self.max_jump:
-            self.get_logger().warn('플랫폼 odom 점프 — 무시', throttle_duration_sec=1.0)
-            return
+            self.jump_count += 1
+            if self.jump_count < self.jump_reanchor_n:
+                self.get_logger().warn('플랫폼 odom 점프 — 무시', throttle_duration_sec=1.0)
+                return
+            # 연속 기각 → LIO 재정위로 판단, 재앵커 + 잠금 목표 무효화
+            self.get_logger().warn(
+                f'플랫폼 odom 재앵커: ({pos[0]:.2f}, {pos[1]:.2f}) — 잠금 목표 리셋')
+            self.locked = None
+        self.jump_count = 0
         self.plat_pos, self.plat_yaw, self.last_plat = pos, yaw, pos.copy()
 
         out = Odometry()

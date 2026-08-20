@@ -1,0 +1,51 @@
+/**:
+    ros__parameters:
+        feature_extract_enable: false
+        point_filter_num: 3
+        max_iteration: 3
+        filter_size_surf: 0.5
+        filter_size_map: 0.5
+        cube_side_length: 1000.0
+        runtime_pos_log_enable: false
+        map_file_path: "./blueboat_map.pcd"
+
+        common:
+            lid_topic:  "/blueboat/mid360/points"
+            imu_topic:  "/blueboat/imu"
+            time_sync_en: false
+            time_offset_lidar_to_imu: 0.0
+
+        preprocess:
+            lidar_type: 5                # 5+ for generic PointXYZI input (default handler)
+            scan_line:  100              # vertical_steps from sensor config
+            blind: 0.5                   # minimum range
+            timestamp_unit: 0            # 0: second, 1: ms, 2: us, 3: ns
+            scan_rate: 10                # matches sensor rate
+
+        mapping:
+            acc_cov: 0.1
+            gyr_cov: 0.1
+            b_acc_cov: 0.0001
+            b_gyr_cov: 0.0001
+            fov_degree:    360.0
+            det_range:     40.0          # matches range_max from sensor
+            extrinsic_est_en:  true      # enable online estimation of IMU-LiDAR extrinsic
+            # Extrinsic from IMU to LiDAR (LiDAR position in IMU frame)
+            # IMU at (0.35, -0.35, -0.2), LiDAR at (0.0, 0.0, -0.8)
+            # T = LiDAR_pos - IMU_pos = (-0.35, 0.35, -0.6)
+            extrinsic_T: [ -0.35, 0.35, -0.6 ]
+            extrinsic_R: [ 1., 0., 0.,
+                           0., 1., 0.,
+                           0., 0., 1.]
+
+        publish:
+            path_en: true                # publish Path
+            effect_map_en: false
+            map_en: true                 # publish Map cloud
+            scan_publish_en:  true
+            dense_publish_en: false
+            scan_bodyframe_pub_en: true
+
+        pcd_save:
+            pcd_save_en: true
+            interval: -1                 # -1: all frames in one PCD file

@@ -35,6 +35,11 @@ class ArucoDetector6DOF(Node):
         # 2×2 변환이 필요하다(잔차 중앙 0.24 m). [axx, axy, ayx, ayy] 순.
         # 기본 항등 — 시뮬 런치에서만 실측값을 준다. PKRC yaw 고정 운용 전제.
         self.declare_parameter('tvec_xy_A', [1.0, 0.0, 0.0, 1.0])
+        # yaw 불변 보정(2026-08-20): PKRC는 yaw 제어가 없어 자유 표류한다. 고정 A는
+        # 캘리브레이션 시점 yaw를 굽고 있어 yaw가 돌면 보정이 통째로 회전(방향 반전
+        # 추종 실관찰). tvec_yaw_topic이 설정되면 A를 yaw=0 기준 M으로 해석하고
+        # 실시간 yaw로 회전시켜 적용한다: rel_world = R(yaw)·M·tvec.
+        self.declare_parameter('tvec_yaw_topic', '')
         self.declare_parameter('min_depth', 0.2)   # Minimum valid depth (m)
         self.declare_parameter('max_depth', 15.0)  # Maximum valid depth (m)
 
@@ -123,6 +128,16 @@ class ArucoDetector6DOF(Node):
         self.tvec_scale = self.get_parameter('tvec_scale').value
         _a = [float(v) for v in self.get_parameter('tvec_xy_A').value]
         self.tvec_xy_A = np.array([[_a[0], _a[1]], [_a[2], _a[3]]])
+        self.body_yaw = 0.0
+        yaw_topic = str(self.get_parameter('tvec_yaw_topic').value)
+        self.use_body_yaw = bool(yaw_topic)
+        if yaw_topic:
+            from sensor_msgs.msg import Imu as _Imu
+            def _on_yaw(m):
+                q = m.orientation
+                self.body_yaw = np.arctan2(2*(q.w*q.z + q.x*q.y),
+                                           1 - 2*(q.y*q.y + q.z*q.z))
+            self.create_subscription(_Imu, yaw_topic, _on_yaw, 50)
         self.min_depth = self.get_parameter('min_depth').value
         self.max_depth = self.get_parameter('max_depth').value
 
@@ -552,8 +567,13 @@ class ArucoDetector6DOF(Node):
 
                 rvec = rvec.flatten()
                 tvec = tvec.flatten()
-                # 실측 보정: 수평은 2×2(회전·반사 포함), 수직은 굴절 스케일
-                tvec[:2] = self.tvec_xy_A @ tvec[:2]
+                # 실측 보정: 수평은 2×2(회전·반사 포함), 수직은 굴절 스케일.
+                # yaw 소스가 있으면 M(yaw=0 기준)을 실시간 yaw로 회전시켜 적용.
+                xy = self.tvec_xy_A @ tvec[:2]
+                if self.use_body_yaw:
+                    c, sn = np.cos(self.body_yaw), np.sin(self.body_yaw)
+                    xy = np.array([c*xy[0] - sn*xy[1], sn*xy[0] + c*xy[1]])
+                tvec[:2] = xy
                 tvec[2] *= self.tvec_scale
 
                 # 거리 게이트(2026-08-19 추가): min/max_depth 파라미터가 선언만 되고

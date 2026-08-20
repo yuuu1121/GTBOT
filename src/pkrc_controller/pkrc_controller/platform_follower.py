@@ -71,6 +71,16 @@ class PlatformFollower(Node):
 
     def on_target(self, msg):
         t = np.array([msg.pose.position.x, msg.pose.position.y])
+        now = self.now()
+        # 슬루 제한(2026-08-20): 위치원 글리치로 목표가 순간 점프해도 초당 0.5 m
+        # 이상 끌려가지 않는다 — LIO 글리치 2 s 동안 플랫폼 이탈을 1 m로 제한.
+        if self.target is not None and self.t_target is not None:
+            dt = max(1e-3, min(1.0, now - self.t_target))
+            d = t - self.target
+            n = np.linalg.norm(d)
+            lim = 0.5 * dt
+            if n > lim:
+                t = self.target + d * (lim / n)
         if self.odom is not None:
             b = float(self.get_parameter('bound_rel').value)
             d = t - self.odom[0]
@@ -78,7 +88,7 @@ class PlatformFollower(Node):
             if n > b:
                 t = self.odom[0] + d * (b / n)
         self.target = t
-        self.t_target = self.now()
+        self.t_target = now
 
     def tick(self):
         stale = (self.odom is None or self.now() - self.t_odom > 0.5 or

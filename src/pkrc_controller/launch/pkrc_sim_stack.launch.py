@@ -45,7 +45,10 @@ def generate_launch_description():
                           # 수직은 굴절 스케일 1.35, 수평은 2×2(회전·반사 포함, 잔차 0.24 m).
                           # 실기(수중 마커·직시)는 tvec_scale 1.0 + 항등 A.
                           'tvec_scale': 1.35,
-                          'tvec_xy_A': [0.688, -0.840, -0.476, 0.165],
+                          # yaw-0 기준 M(2차 캘리브레이션 1,712쌍, yaw 보상 적합 —
+                          # 잔차 0.044 m). 검출기가 /pkrc/imu yaw로 실시간 회전 적용.
+                          'tvec_xy_A': [-0.025, -1.357, -1.160, 0.024],
+                          'tvec_yaw_topic': '/pkrc/imu',
                           # 보정 후 유효 슬랜트 상한도 1.33배로 (4 m 수심 + 수면 위 0.5 m 마커)
                           'max_depth': 7.0,
                           'marker_map_ids': MARKER_IDS,

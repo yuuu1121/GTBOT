@@ -1,0 +1,53 @@
+# gtbot_ws 시뮬용 (2026-08-20): Stonefish 실물정합 OS0 + 플랫폼 IMU.
+# 시뮬 점군은 x/y/z/intensity만 있고 t·ring이 없다 — 전처리에서 0으로 채워져
+# deskew만 무효가 된다(플랫폼 0.1 m/s급 저속이라 무해). IMU는 /platform/imu
+# (ENU, 정지 시 +9.81 z — 실측). LiDAR는 베이스보다 0.36 m 위(scn z=-0.36 NED).
+/**:
+    ros__parameters:
+        feature_extract_enable: false
+        point_filter_num: 1   # 정사각 수조는 코너만이 yaw 특징 — 점을 버리지 않는다
+        max_iteration: 3
+        filter_size_surf: 0.25
+        filter_size_map: 0.25  # 0.5는 코너를 뭉개 yaw 표류(±115° 실측)를 방치했다
+        cube_side_length: 1000.0
+        runtime_pos_log_enable: false
+        map_file_path: "./test.pcd"
+
+        common:
+            lid_topic:  "/ouster/points"
+            imu_topic:  "/platform/imu_true"   # /platform/imu는 hwt9053 드리프트 주입판(shim) — 실기 FAST-LIO는 Ouster 내장 IMU를 쓰므로 시뮬 대응물은 imu_true
+            time_sync_en: false
+            time_offset_lidar_to_imu: 0.0
+
+        preprocess:
+            lidar_type: 3                # ouster
+            scan_line: 128
+            timestamp_unit: 3
+            # blind 4.0 (2026-08-20 복원): 0.5로 낮췄더니 1~2 m의 편대 로봇
+            # (움직이는 대형 반사체)이 지도에 들어가, 편대가 이동하면 지도가 끌려
+            # LIO가 반대 방향(+y)으로 드리프트했다 — 반복 실측. 정적 특징(수조 벽·
+            # 랜드마크)만 지도에 넣는 원본 값이 맞다.
+            blind: 4.0
+
+        mapping:
+            acc_cov: 0.05
+            gyr_cov: 0.01   # 시뮬 자이로는 깨끗 — yaw는 자이로를 더 믿게
+            b_acc_cov: 0.0001
+            b_gyr_cov: 0.0001
+            fov_degree:    360.0
+            det_range:     100.0
+            extrinsic_est_en:  false
+            extrinsic_T: [ 0.0, 0.0, 0.36 ]   # LiDAR가 IMU(베이스)보다 0.36 m 위
+            extrinsic_R: [1., 0., 0.,
+                        0., 1., 0.,
+                        0., 0., 1.]
+
+        publish:
+            path_en:  false
+            scan_publish_en:  false
+            dense_publish_en: false
+            scan_bodyframe_pub_en: false
+
+        pcd_save:
+            pcd_save_en: false
+            interval: -1
