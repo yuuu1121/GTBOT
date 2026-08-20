@@ -1,0 +1,60 @@
+# HERO-Lab lidar_slam fast_lio — gtbot 시뮬용 (2026-08-20).
+# 실기가 쓰는 저장소(HERO-Lab-POSTECH/lidar_slam)의 fast_lio를 시뮬 Ouster에 물린다.
+# 값은 구 FAST_LIO_ROS2 gtbot_sim.yaml에서 실측 검증된 것을 그대로 이식.
+# lidar_type 3(oust64_handler): enum상 4는 MID360 핸들러라 tag/line 필드를 찾는다
+# (yaml 원 주석 '4=기타'는 오기 — 실측 LIO 발산). 시뮬 점군(x/y/z/intensity,
+# t·ring 없음)은 t가 0으로 채워져 deskew만 무효(저속이라 무해).
+/**:
+    ros__parameters:
+        feature_extract_enable: false
+        point_filter_num: 4   # 전부하(카메라+검출기 동시)에서 88k점 전처리가 executor를
+                              # 점유해 스캔률 4.4 Hz로 추락 → 이동 중 예측 실패 연쇄로 발산
+                              # 실측. 22k점이면 수조 벽·코너 특징은 충분하고 10 Hz가 유지된다.
+        max_iteration: 3
+        filter_size_surf: 0.25
+        filter_size_map: 0.25  # 0.5는 코너를 뭉개 yaw 표류(±115° 실측)를 방치
+        cube_side_length: 1000.0
+
+        tf:
+            odom_frame: "odom"
+            body_frame: "base_link"
+
+        common:
+            lid_topic:  "/ouster/points"
+            imu_topic:  "/platform/imu_true"   # 실기 FAST-LIO는 LiDAR 내장 IMU — 시뮬 대응물
+            time_sync_en: false
+            time_offset_lidar_to_imu: 0.0
+
+        preprocess:
+            lidar_type: 3                # ouster(oust64_handler)
+            scan_line: 128
+            timestamp_unit: 3
+            scan_rate: 10
+            # blind 4.0: 1~2 m의 편대 로봇(움직이는 반사체)이 지도에 들어가면
+            # 편대 이동에 지도가 끌려 +y 드리프트 — 반복 실측. 정적 특징만 넣는다.
+            blind: 4.0
+
+        mapping:
+            acc_cov: 0.05
+            gyr_cov: 0.01   # 시뮬 자이로는 깨끗 — yaw는 자이로를 더 믿게
+            b_acc_cov: 0.0001
+            b_gyr_cov: 0.0001
+            fov_degree:    360.0
+            det_range:     100.0
+            extrinsic_est_en:  false
+            extrinsic_T: [ 0.0, 0.0, 0.36 ]   # LiDAR가 IMU(베이스)보다 0.36 m 위
+            extrinsic_R: [1., 0., 0.,
+                          0., 1., 0.,
+                          0., 0., 1.]
+
+        publish:
+            scan_bodyframe_pub_en: false
+            path_en: false
+            map_en: false
+            scan_publish_en: false
+            effect_map_en: false
+            dense_publish_en: false
+
+        pcd_save:
+            pcd_save_en: false
+            interval: -1

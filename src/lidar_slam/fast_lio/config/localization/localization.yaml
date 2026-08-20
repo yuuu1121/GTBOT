@@ -1,0 +1,106 @@
+# ============================================================================
+# Fast-LIO localization mode parameters (Livox MID360 + IMU + prior map)
+# ============================================================================
+# Parameter Types:
+#   [Static]  - Read-only, requires node restart
+#   [Dynamic] - Can be changed at runtime via ros2 param set
+# ============================================================================
+localization_node:
+  ros__parameters:
+
+    # ==========================================================================
+    # MAP [Static]
+    # ==========================================================================
+    # Map file path (required)
+    map_path: ""
+
+    # ==========================================================================
+    # REGISTRATION [Static]
+    # ==========================================================================
+    # Voxel size for fine registration (meters) - reference uses 0.05
+    voxel_size_fine: 0.05  # [m] [Static]
+
+    # Localization frequency (Hz)
+    loc_frequency: 2.0  # [Hz] [Static]
+
+    # Fitness threshold for accepting registration result (0-1)
+    # Higher = more strict, lower = more permissive
+    fitness_threshold: 0.5  # [Static]
+
+    # Submap radius for cropping (meters)
+    # Larger = more context but slower
+    submap_radius: 50.0  # [m] [Static]
+
+    # Maximum points for source (scan) cloud
+    max_points_source: 100000  # [Static]
+
+    # Maximum points for target (map) cloud
+    max_points_target: 500000  # [Static]
+
+    # ==========================================================================
+    # INITIAL POSE [Static]
+    # ==========================================================================
+    # Initial pose [x, y, z, roll, pitch, yaw] (degrees for rotation)
+    # If near origin (0,0,0), global localization will be attempted
+    initial_pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # [m, m, m, deg, deg, deg] [Static]
+
+    # ==========================================================================
+    # GLOBAL LOCALIZATION [Static]
+    # ==========================================================================
+    # Global localization (FPFH + RANSAC)
+    # Automatically finds initial pose without user input
+    use_global_localization: true  # [Static]
+    voxel_size_global: 0.25         # [m] For FPFH feature extraction (larger = more robust for indoor)
+    fitness_threshold_global: 0.15  # [Static] Threshold for accepting global localization
+
+    # ==========================================================================
+    # KALMAN FILTER [Static]
+    # ==========================================================================
+    # Kalman filter parameters [process_variance, measurement_variance]
+    # Lower process_var = smoother, higher = more responsive
+    # Lower meas_var = trust measurements more
+    # Z-axis typically uses tighter params to reduce height jitter
+    kalman_x: [0.001, 0.002]  # [Static]
+    kalman_y: [0.001, 0.005]  # [Static]
+    kalman_z: [0.00001, 0.04]  # [Static]
+
+    # ==========================================================================
+    # SUBMAP UPDATE [Static]
+    # ==========================================================================
+    # Distance-based submap update (meters)
+    # Only recompute submap when robot moves more than this distance
+    # Reduces computation when stationary or moving slowly
+    dis_updatemap: 3.0  # [m] [Static]
+
+    # Point cloud queue size
+    # Number of scans to accumulate for denser point cloud
+    pcd_queue_maxsize: 5  # [Static]
+
+    # ==========================================================================
+    # DEBUG [Static]
+    # ==========================================================================
+    # Debug options
+    save_scan: false  # [Static]
+    save_scan_path: "/tmp/localization_scans/"  # [Static]
+
+    # ==========================================================================
+    # TF FRAMES [Static]
+    # ==========================================================================
+    # TF frame names
+    # TF tree: map -> odom -> base_link
+    # Localization broadcasts: map -> odom
+    # FAST-LIO Mapping broadcasts: odom -> base_link
+    map_frame: "map"
+    odom_frame: "odom"
+    body_frame: "base_link"
+
+    # ==========================================================================
+    # OCCUPANCY GRID [Static]
+    # ==========================================================================
+    # OccupancyGrid generation from loaded PCD map
+    # Published once at startup with transient_local QoS
+    occupancy_grid:
+      publish: true           # Enable/disable OccupancyGrid publishing
+      resolution: 0.05        # [m] Grid cell size
+      z_min: -0.5             # [m] Minimum Z height to include
+      z_max: 1.5              # [m] Maximum Z height to include

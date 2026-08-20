@@ -195,3 +195,37 @@ FAST-LIO는 병행 가동(관측·기록·실기 대비). **실기 전환 시 �
 `/Odometry`의 twist가 비어 있으면 추종기가 같은 이유로 편대를 부순다 —
 위치 미분으로 속도를 추정하는 경로를 추종기에 추가하거나 fastlio twist 채움을
 확인할 것. 영상: results/video/pkrc_follow_demo_h264.mp4 (합격 런).
+
+## 8. GT 제거 — 실기 지정 lidar_slam(FAST-LIO)로 완주 (2026-08-20, 18~24차)
+
+사용자 지시로 GT odometry를 제어 루프에서 제거하고, 실기가 실제로 쓰는
+`HERO-Lab-POSTECH/lidar_slam`의 fast_lio를 시뮬 사슬에 넣었다(`src/lidar_slam/`,
+livox_driver는 sensor_packages에서, Livox SDK는 /usr/local 설치). 설정은
+`src/pkrc_controller/config/fastlio_gtbot_sim.yaml`(검증값 이식: /ouster/points +
+/platform/imu_true, lidar_type 3, blind 4.0). Open3D(localization 노드 전용,
+공식 프리빌드가 libc++라 ROS와 링크 불가)는 CMakeLists 최소 패치로 선택화 —
+SLAM 노드는 원본 그대로다. **주의: lidar_type 4는 '기타'가 아니라 MID360
+핸들러다**(yaml 주석 오기, enum MID360=4 — tag/line 필드를 찾다 발산).
+
+| 회차 | 조치 | 결과 |
+|:---|:---|:---|
+| 18차 | lidar_slam 투입(원본 그대로) | 이동 시 LIO 수십 km 발산(정지에서는 구판과 동급 안정 — A/B 실측) |
+| 19차 | **IMU 구독 QoS 수정**: sensor_qos(best_effort·depth 5)→reliable | 사각 주행 240 s 유계(발산 소멸) — 저부하 한정 |
+| 20차 | 전부하(카메라+검출기) 데모 | 재발산 — depth 10도 전처리 스톨에 부족 |
+| 21차 | IMU depth 2000 + point_filter_num 1→4(전처리 4배 감축) | 발산 지연(50 s)·미해결 |
+| 22차 | 속도 위치미분(1 s 창)+클램프 0.3 + 수조 경계 게이트 | 폭주 목표 차단, est는 여전히 100 s께 붕괴 |
+| 23차 | 위치 저역필터(tau 1 s) | 동일 — 위치 노이즈가 원인 아님 |
+| 24차 | **yaw 소스 분리: 제어 yaw를 LIO→IMU(/platform/imu_true)로** | **합격** — 500 s LIO 무발산, 거리 중앙 0.37/최대 0.78 m, est 99~100%, 변오차 0.09 m |
+
+붕괴의 최종 기전: kpsi가 **LIO yaw 드리프트를 쫓아 플랫폼을 실제로 회전**시키고,
+회전이 hull 요동·스캔 왜곡(deskew 없음)을 낳아 LIO가 더 열화하는 되먹임.
+자세(yaw)를 깨끗한 IMU로 분리하는 순간 되먹임이 끊기고 LIO도 전 구간 건강해졌다.
+GT 합격 런(0.40/0.77 m)과 동급 성능을 GT 없이 재현.
+
+**실기 이전 노트**: ① lidar_slam 저장소의 IMU 구독 `pkrc_qos::sensor_qos()`
+(best_effort·depth 5)는 실기에서도 같은 유실 위험 — reliable·깊은 큐로 상향해
+upstream 반영 권장(`qos_reliability` 파라미터는 선언만 되고 미사용). ② 추종기
+yaw는 IMU(`imu_yaw_topic`)에서 받는다 — 실기는 hwt9053/Ouster 내장 IMU.
+③ 추종기 속도는 odom twist가 비면 위치 미분(1 s 창, 0.3 m/s 클램프)으로 자동
+대체 — fastlio는 twist를 채우지 않으므로(소스 grep 0건) 이 경로가 상시 작동한다.
+영상: results/video/pkrc_follow_demo_h264.mp4 (24차 합격 런으로 갱신).

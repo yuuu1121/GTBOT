@@ -14,6 +14,44 @@
 	     실물 14 kg. phy 메시는 Y-up이라 NED(Z-down)로 rpy=-1.571 회전(pkrc.scn 컨벤션).
 	     phy 메시 폐부피 12.66 L < 14 kg → 메시만으론 침몰하므로 실물 부유체를 대신하는
 	     Foam internal part(24 L)로 배수량 보충. CG는 선저 근처(z=-0.05)로 내려 복원력 확보. -->
+
+	<!-- Watertank (2026-08-20, 사용자 지정: vlm pkrc_world.scn 환경 이식) — 16x16 m,
+	     수면 위 2.4 m + 수중 18 m 벽. FAST-LIO가 잡을 기하 구조를 제공한다.
+	     (벽 없는 바다에서는 스캔 정합이 수평 퇴화해 /Odometry가 발산했다 — 실측) -->
+	<looks>
+		<look name="watertank" gray="0.8" roughness="0.4"/>
+	</looks>
+	<static name="Watertank" type="model">
+		<physical>
+			<mesh filename="data/models/watertank/meshes/watertank.obj" scale="0.02"/>
+			<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+		</physical>
+		<visual>
+			<mesh filename="data/models/watertank/meshes/watertank.obj" scale="0.02"/>
+			<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+		</visual>
+		<material name="Rock"/>
+		<look name="watertank"/>
+		<world_transform xyz="0.0 0.0 18.0" rpy="3.14 0.0 0.0"/>
+	</static>
+
+	<!-- 비대칭 구조물 2기(2026-08-20, 사용자 승인): 정사각 수조는 90° 회전 대칭이라
+	     스캔 정합의 yaw 해가 4개 존재 — FAST-LIO yaw가 분지 사이를 널뛰고 이동 중엔
+	     위치 적분까지 오염된다(실측). 모양·크기가 다른 두 구조물을 벽가(주행 영역 밖)에
+	     놓아 방향을 유일하게 만든다. 수면 위·아래 걸쳐 LiDAR 전 고도에서 보인다. -->
+	<static name="LandmarkBoxE" type="box">
+		<dimensions xyz="1.0 2.5 4.0"/>
+		<material name="Rock"/>
+		<look name="watertank"/>
+		<world_transform xyz="7.2 -3.0 0.5" rpy="0.0 0.0 0.0"/>
+	</static>
+	<static name="LandmarkPillarNW" type="cylinder">
+		<dimensions radius="0.5" height="5.0"/>
+		<material name="Rock"/>
+		<look name="watertank"/>
+		<world_transform xyz="-6.5 5.5 0.5" rpy="0.0 0.0 0.0"/>
+	</static>
+
 	<robot name="platform" fixed="false" self_collisions="false">
 		<base_link name="base_link" type="compound" physics="floating">
 			<external_part name="Hull" type="model" physics="floating" buoyant="true">
@@ -165,6 +203,20 @@
 		</sensor>
 		<ros_subscriber thrusters="/platform/thrusters"/>
 		<world_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+
+		<!-- Active Marker (attached to bottom) -->
+		<light name="aruco_led_platform">
+			<specs illuminance="5000.0" radius="0.06" cone_angle="10" blink="0.125" shape="aruco" aruco_id="59"/>
+			<color rgb="1.0 1.0 1.0"/>
+			<link name="base_link"/>
+		<origin xyz="0.0 -0.0 -0.68" rpy="0.0 0.0 0.0"/>
+		</light>
+		<light name="LED_OUTER_PLATFORM">
+			<specs radius="0.105" cone_angle="10.0" blink="0.125" illuminance="5000.0" shape="circle_square_hole" inner_radius="0.07"/>
+			<color rgb="0.34 0.84 0.41"/>
+			<link name="base_link"/>
+			<origin xyz="0.0 -0.0 -1.195" rpy="0.0 0.0 0.0"/>
+		</light>
 	</robot>
 
 	<!-- 팔로워: GTBOT
@@ -291,6 +343,20 @@
 
 		<ros_subscriber thrusters="/gtbot/sim_thrusters"/>  <!-- 실기 동일 경로: velocity_loop→bridge→thruster_rpm→rpm_to_sim→여기 -->
 		<world_transform rpy="0.0 0.0 0.0" xyz="1.5 0.0 0.0"/>
+
+		<!-- Active Marker (attached to bottom) -->
+		<light name="aruco_led1">
+			<specs illuminance="5000.0" radius="0.06" cone_angle="10" blink="0.125" shape="aruco" aruco_id="8"/>
+			<color rgb="1.0 1.0 1.0"/>
+			<link name="base_link"/>
+		<origin xyz="0.0 -0.138 -0.65" rpy="0.0 0.0 0.0"/>
+		</light>
+		<light name="LED_OUTER_1">
+			<specs radius="0.105" cone_angle="10.0" blink="0.125" illuminance="5000.0" shape="circle_square_hole" inner_radius="0.07"/>
+			<color rgb="0.34 0.84 0.41"/>
+			<link name="base_link"/>
+			<origin xyz="0.0 -0.138 -1.165" rpy="0.0 0.0 0.0"/>
+		</light>
 	</robot>
 
 	<robot name="gtbot2" fixed="false" self_collisions="false">
@@ -413,6 +479,20 @@
 
 		<ros_subscriber thrusters="/gtbot2/sim_thrusters"/>  <!-- 실기 동일 경로: velocity_loop→bridge→thruster_rpm→rpm_to_sim→여기 -->
 		<world_transform rpy="0.0 0.0 0.0" xyz="-0.75 1.3 0.0"/>
+
+		<!-- Active Marker (attached to bottom) -->
+		<light name="aruco_led2">
+			<specs illuminance="5000.0" radius="0.06" cone_angle="10" blink="0.125" shape="aruco" aruco_id="17"/>
+			<color rgb="1.0 1.0 1.0"/>
+			<link name="base_link"/>
+		<origin xyz="0.0 -0.138 -0.65" rpy="0.0 0.0 0.0"/>
+		</light>
+		<light name="LED_OUTER_2">
+			<specs radius="0.105" cone_angle="10.0" blink="0.125" illuminance="5000.0" shape="circle_square_hole" inner_radius="0.07"/>
+			<color rgb="0.34 0.84 0.41"/>
+			<link name="base_link"/>
+			<origin xyz="0.0 -0.138 -1.165" rpy="0.0 0.0 0.0"/>
+		</light>
 	</robot>
 
 	<robot name="gtbot3" fixed="false" self_collisions="false">
@@ -530,6 +610,20 @@
 
 		<ros_subscriber thrusters="/gtbot3/sim_thrusters"/>  <!-- 실기 동일 경로: velocity_loop→bridge→thruster_rpm→rpm_to_sim→여기 -->
 		<world_transform rpy="0.0 0.0 0.0" xyz="-0.75 -1.3 0.0"/>
+
+		<!-- Active Marker (attached to bottom) -->
+		<light name="aruco_led3">
+			<specs illuminance="5000.0" radius="0.06" cone_angle="10" blink="0.125" shape="aruco" aruco_id="58"/>
+			<color rgb="1.0 1.0 1.0"/>
+			<link name="base_link"/>
+		<origin xyz="0.0 -0.138 -0.65" rpy="0.0 0.0 0.0"/>
+		</light>
+		<light name="LED_OUTER_3">
+			<specs radius="0.105" cone_angle="10.0" blink="0.125" illuminance="5000.0" shape="circle_square_hole" inner_radius="0.07"/>
+			<color rgb="0.34 0.84 0.41"/>
+			<link name="base_link"/>
+			<origin xyz="0.0 -0.138 -1.165" rpy="0.0 0.0 0.0"/>
+		</light>
 	</robot>
 
 	<!-- 고정 관측 카메라: 두 로봇(platform x=0, gtbot x=2, 중간점 x=1) 위에서 수직으로 내려다봄.
@@ -560,5 +654,181 @@
 		     8 m 경로에 여유 3 m씩. 종전 (1,0,-6)은 세로 6.8 m라 경로가 잘렸다.
 		     카메라 전용 변경이라 물리·센서·게이트에는 영향이 없다. -->
 		<world_transform xyz="4.0 4.0 -13.0" rpy="0.0 0.0 0.0"/>
+	</robot>
+
+	<looks>
+		<look name="pkrc" gray="0.8" roughness="0.4" metalness="0.3"/>
+		<look name="blue" rgb="0.0 0.5 1.0" roughness="0.3"/>
+		<look name="foam_green" rgb="0.0 1.0 0.0" roughness="0.5"/>
+		<look name="ballast_red" rgb="1.0 0.0 0.0" roughness="0.5"/>
+	</looks>
+
+	<robot name="pkrc" fixed="false" self_collisions="false">
+		<base_link name="base_link" type="compound" physics="submerged">
+			<external_part name="Hull" type="model" physics="submerged" buoyant="true">
+				<physical>
+					<mesh filename="data/robots/PKRC/meshes/PKRC_robot.obj" scale="0.01"/>
+					<origin rpy="-1.571 0.0 0.0" xyz="0.0 0.0 0.0"/>
+					<thickness value="0.005"/>
+				</physical>
+				<visual>
+					<mesh filename="data/robots/PKRC/meshes/PKRC_robot.obj" scale="0.01"/>
+					<origin rpy="-1.571 0.0 0.0" xyz="0.0 0.0 0.0"/>
+				</visual>
+				<material name="Fiberglass"/>
+				<look name="pkrc"/>
+				<compound_transform rpy="0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			</external_part>
+
+			<internal_part name="FoamTop" type="box" physics="submerged" buoyant="true">
+				<dimensions xyz="0.4 0.25 0.25"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Neutral"/>
+				<look name="foam_green"/>
+				<mass value="0.5"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.4"/>
+			</internal_part>
+
+			<internal_part name="BallastBottom" type="sphere" physics="submerged" buoyant="false">
+				<dimensions radius="0.15"/>
+				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+				<material name="Steel"/>
+				<look name="ballast_red"/>
+				<mass value="11.5"/>
+				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.4"/>
+			</internal_part>
+		</base_link>
+
+		<!-- Thrusters -->
+        <actuator name="Surge_left" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.0 -0.15 -0.09" rpy="1.5707963268 3.14 0.0"/>
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="false"/>
+			<propeller diameter="0.076" right="true">
+				<mesh filename="data/robots/bluerov2/meshes/ccw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="blue"/>
+			</propeller>
+		</actuator>
+
+        <actuator name="Surge_right" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.0 0.15 -0.09" rpy="1.5707963268 3.14 0.0"/>
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="true"/>
+			<propeller diameter="0.076" right="false">
+				<mesh filename="data/robots/bluerov2/meshes/cw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="blue"/>
+			</propeller>
+		</actuator>
+
+		<actuator name="Sway_left" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.15 0.0 -0.09" rpy="3.14 3.14 1.5707963268"/>
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="false"/>
+			<propeller diameter="0.076" right="true">
+				<mesh filename="data/robots/bluerov2/meshes/ccw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="blue"/>
+			</propeller>
+		</actuator>
+
+        <actuator name="Sway_right" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="-0.15 0.0 -0.09" rpy="3.14 3.14 1.5707963268"/>
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="true"/>
+			<propeller diameter="0.076" right="false">
+				<mesh filename="data/robots/bluerov2/meshes/cw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="blue"/>
+			</propeller>
+		</actuator>
+
+        <actuator name="Heave_left" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.0 0.16 0.12" rpy="0 1.5707963268 0"/>
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="false"/>
+			<propeller diameter="0.076" right="true">
+				<mesh filename="data/robots/bluerov2/meshes/ccw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="blue"/>
+			</propeller>
+		</actuator>
+
+        <actuator name="Heave_right" type="thruster">
+			<link name="base_link"/>
+			<origin xyz="0.0 -0.16 0.12" rpy="0 1.5707963268 0"/>
+			<specs thrust_coeff="0.5" torque_coeff="0.016" max_rpm="3600.0" inverted="true"/>
+			<propeller diameter="0.076" right="false">
+				<mesh filename="data/robots/bluerov2/meshes/cw.obj" scale="1.0"/>
+				<material name="Neutral"/>
+				<look name="blue"/>
+			</propeller>
+		</actuator>
+
+		<!-- Sensors -->
+		<sensor name="odometry" type="odometry" rate="100.0">
+			<link name="base_link"/>
+			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			<ros_publisher topic="/pkrc/odometry"/>
+		</sensor>
+
+		<sensor name="imu" type="imu" rate="100.0">
+			<link name="base_link"/>
+			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			<noise angle="0.000001745" angular_velocity="0.00001745"/>
+			<ros_publisher topic="/pkrc/imu"/>
+		</sensor>
+
+		<sensor name="pressure" type="pressure" rate="10.0">
+			<link name="base_link"/>
+			<origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
+			<noise pressure="5.0"/>
+			<ros_publisher topic="/pkrc/pressure"/>
+		</sensor>
+
+		<sensor name="dvl" type="dvl" rate="10.0">
+			<link name="base_link"/>
+			<origin rpy="1.571 0.0 1.571" xyz="0.0 0.0 0.0"/>
+			<specs beam_angle="30.0"/>
+			<range velocity="9.0 9.0 9.0" altitude_min="0.2" altitude_max="100.0"/>
+			<noise velocity="0.0015" altitude="0.001"/>
+			<ros_publisher topic="/pkrc/dvl" altitude_topic="/pkrc/altitude"/>
+		</sensor>
+
+		<sensor name="camera_front1" type="camera" rate="30.0">
+			<link name="base_link"/>
+			<origin rpy="1.571 0.0 -1.571" xyz="-0.1 -0.051 0.33"/>
+			<specs resolution_x="1280" resolution_y="720" horizontal_fov="80.0"/>
+			<ros_publisher topic="/pkrc/camera_front1"/>
+		</sensor>
+
+		<sensor name="camera_front2" type="camera" rate="30.0">
+			<link name="base_link"/>
+			<origin rpy="1.571 0.0 -1.571" xyz="-0.1 0.051 0.33"/>
+			<specs resolution_x="1280" resolution_y="720" horizontal_fov="80.0"/>
+			<ros_publisher topic="/pkrc/camera_front2"/>
+		</sensor>
+
+		<sensor name="camera_up" rate="60.0" type="camera">
+			<specs resolution_x="1600" resolution_y="1200" horizontal_fov="82.0" />
+			<origin xyz="0.0 0.0 -0.45" rpy="3.14 0.0 1.571"/>
+			<link name="base_link"/>
+			<ros_publisher topic="/pkrc/up"/>
+		</sensor>
+
+		<!-- Line Laser (always visible, with scanning) -->
+		<linelaser name="front_laser">
+			<specs range="20.0" line_width="0.002" num_rays="100" line_angle="45.0" scan_angle="20.0" scan_speed="20.0"/>
+			<color rgb="0.0 1.0 0.0"/>
+			<origin xyz="0.01 0.0 0.52" rpy="0.0 1.047 3.14"/>
+			<!-- 90도 정면 -->
+			<!-- <origin xyz="0.01 0.0 0.52" rpy="0.0 1.571 3.14"/> -->
+			<link name="base_link"/>
+		</linelaser>
+
+		<world_transform xyz="0.0 0.0 4.0" rpy="0.0 0.0 0.0"/>
+		<ros_base_link_transforms publish="true"/>
+		<ros_subscriber thrusters="/pkrc/setpoint/pwm"/>
 	</robot>
 </scenario>

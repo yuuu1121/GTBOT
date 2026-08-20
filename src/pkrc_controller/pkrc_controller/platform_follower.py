@@ -32,7 +32,12 @@ class PlatformFollower(Node):
                     # 위치원(FAST-LIO) 프레임이 드리프트하면 자기위치와 어긋나 추종을
                     # 부수는 것이 8차에서 실측됐다 — 상대 반경은 프레임 드리프트에 불변이고
                     # 잘못된 목표로의 폭주(벽 충돌)도 같은 정도로 막는다.
-                    ('bound_rel', 5.0)]
+                    ('bound_rel', 5.0),
+                    # yaw 소스 분리(2026-08-20): LIO yaw 드리프트를 kpsi가 쫓으면
+                    # 플랫폼이 실제로 회전해 반사판 관측각이 바뀌고 편대 est가 붕괴
+                    # (6차 반복 실측 — 위치 필터로도 안 잡힘). 자세는 깨끗한 IMU로.
+                    # 실기도 헤딩은 IMU(hwt9053/Ouster 내장)가 정석.
+                    ('imu_yaw_topic', '/platform/imu_true')]
         for n, d in defaults:
             self.declare_parameter(n, d)
         p = lambda n: self.get_parameter(n).value
@@ -45,6 +50,11 @@ class PlatformFollower(Node):
         self.target = None
         self.t_target = None
         self.dead = False
+        self.imu_yaw = None
+        imu_t = str(p('imu_yaw_topic'))
+        if imu_t:
+            from sensor_msgs.msg import Imu
+            self.create_subscription(Imu, imu_t, self.on_imu, 50)
         self.create_subscription(Odometry, p('odom_topic'), self.on_odom, 10)
         self.create_subscription(PoseStamped, p('target_topic'), self.on_target, 10)
         self.pub = self.create_publisher(Float64MultiArray, '/platform/thrusters', 10)
@@ -56,13 +66,54 @@ class PlatformFollower(Node):
     def now(self):
         return self.get_clock().now().nanoseconds * 1e-9
 
+    def on_imu(self, msg):
+        q = msg.orientation
+        self.imu_yaw = yaw_of(q.x, q.y, q.z, q.w)
+
     def on_odom(self, msg):
         q = msg.pose.pose.orientation
         yaw = yaw_of(q.x, q.y, q.z, q.w)
+        if self.imu_yaw is not None:
+            yaw = self.imu_yaw
         tw = msg.twist.twist.linear
         c, s = np.cos(yaw), np.sin(yaw)
-        self.odom = (np.array([msg.pose.pose.position.x, msg.pose.pose.position.y]),
-                     np.array([c * tw.x - s * tw.y, s * tw.x + c * tw.y]), yaw)
+        pos = np.array([msg.pose.pose.position.x, msg.pose.pose.position.y])
+        v_world = np.array([c * tw.x - s * tw.y, s * tw.x + c * tw.y])
+        # 속도 추정(2026-08-20): FAST-LIO 계열 odometry는 twist를 채우지 않는다 —
+        # v=0으로 읽히면 kv 감쇠항이 죽어 비감쇠 제어의 지속 요동이 반사판 검출을
+        # 부순다(이분법 실측). twist가 0이면 위치 미분(저역 tau≈0.5 s)으로 대체한다.
+        # 미분 기준선 1 s(2026-08-20 재조정): 메시지 간격(0.1 s)으로 미분하면 LIO
+        # 위치 지터 ±5 cm가 0.5~1 m/s 속도 노이즈가 되고(v 0.909 실측), 감쇠항이
+        # 그 노이즈를 추력에 주입해 hull 요동 → 팔로워 est 10% 붕괴. 1 s 창이면 10배 감쇠.
+        now = self.now()
+        if np.linalg.norm(v_world) < 1e-6:
+            if not hasattr(self, '_vp_hist'):
+                from collections import deque
+                self._vp_hist = deque()
+            self._vp_hist.append((now, pos.copy()))
+            while len(self._vp_hist) > 2 and now - self._vp_hist[0][0] > 1.2:
+                self._vp_hist.popleft()
+            t0, p0 = self._vp_hist[0]
+            dt = now - t0
+            if dt > 0.5:
+                raw = (pos - p0) / dt
+                if not hasattr(self, '_v_filt'):
+                    self._v_filt = np.zeros(2)
+                self._v_filt = 0.8 * self._v_filt + 0.2 * raw
+                # 물리 클램프: 플랫폼 실제 속도는 0.2 m/s급 — 위치원 발산 시 감쇠항이
+                # 폭주 추력을 만드는 되먹임(요동→LIO 열화→v 노이즈→요동)을 끊는다.
+                n_v = np.linalg.norm(self._v_filt)
+                if n_v > 0.3:
+                    self._v_filt *= 0.3 / n_v
+                v_world = self._v_filt
+        # 위치 저역필터(2026-08-20): FAST-LIO 위치는 스캔 지터 ±5~10 cm로 GT보다
+        # 50~100배 시끄럽다 — P항이 이 지터를 추력 노이즈로 바꿔 hull 요동 → 팔로워
+        # est 붕괴(구간 분석: 정지 유지 100 s est 99%, 연속 이동 시작 직후 붕괴).
+        # tau≈1 s, 0.15 m/s 주행에서 지연 0.15 m는 데드밴드(0.25) 안이라 무해.
+        if not hasattr(self, '_p_filt'):
+            self._p_filt = pos.copy()
+        self._p_filt = 0.9 * self._p_filt + 0.1 * pos
+        self.odom = (self._p_filt, v_world, yaw)
         if self.yaw0 is None:
             self.yaw0 = (yaw if np.isnan(self.yaw0_forced)
                          else float(np.radians(self.yaw0_forced)))

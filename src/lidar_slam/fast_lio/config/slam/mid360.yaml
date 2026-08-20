@@ -1,0 +1,88 @@
+# ============================================================================
+# Fast-LIO mapping mode parameters (Livox MID360 + IMU)
+# ============================================================================
+# Parameter Types:
+#   [Static]  - Read-only, requires node restart
+#   [Dynamic] - Can be changed at runtime via ros2 param set
+# ============================================================================
+/**:
+    ros__parameters:
+        feature_extract_enable: false  # [Static] enable edge/plane feature extraction
+        point_filter_num: 2            # [Static] downsample ratio (keep 1 in N points)
+        max_iteration: 3               # [Static] max IEKF iterations per scan
+        filter_size_surf: 0.5          # [m] [Static] voxel size for surface downsampling
+        filter_size_map: 0.5           # [m] [Static] voxel size for map downsampling
+        cube_side_length: 1000.0       # [m] [Static] local map cube half-size
+
+        # ==========================================================================
+        # TF [Static]
+        # ==========================================================================
+        tf:
+            odom_frame: "odom"              # REP-105: odometry frame
+            body_frame: "base_link"         # robot body frame
+
+        # ==========================================================================
+        # COMMON [Static]
+        # ==========================================================================
+        common:
+            lid_topic:  "/sensor/lidar/livox_mid360/points"
+            imu_topic:  "/sensor/ins/livox_mid360/imu"
+            time_sync_en: false         # ONLY turn on when external time synchronization is really not possible
+            time_offset_lidar_to_imu: 0.0 # [s] Time offset between lidar and IMU calibrated by other algorithms, e.g. LI-Init (can be found in README).
+                                        # This param will take effect no matter what time_sync_en is. So if the time offset is not known exactly, please set as 0.0
+
+        # ==========================================================================
+        # PREPROCESS [Static]
+        # ==========================================================================
+        preprocess:
+            lidar_type: 1                # 1 for Livox serials LiDAR, 2 for Velodyne LiDAR, 3 for ouster LiDAR, 4 for any other pointcloud input
+            scan_line:  4                # [Static] number of scan lines
+            blind: 0.5                   # [m] [Static] minimum valid range (blind zone radius)
+            timestamp_unit: 3            # [Static] 0=s, 1=ms, 2=us, 3=ns
+            scan_rate: 10                # [Hz] [Static] lidar scan rate
+
+        # ==========================================================================
+        # MAPPING [Static]
+        # ==========================================================================
+        mapping:
+            acc_cov: 0.1               # [Static] IMU accel noise covariance
+            gyr_cov: 0.1               # [Static] IMU gyro noise covariance
+            b_acc_cov: 0.0001          # [Static] IMU accel bias covariance
+            b_gyr_cov: 0.0001          # [Static] IMU gyro bias covariance
+            fov_degree:    360.0       # [deg] [Static] sensor horizontal FOV
+            det_range:     100.0       # [m] [Static] max detection range
+            extrinsic_est_en:  true      # true: enable the online estimation of IMU-LiDAR extrinsic
+            extrinsic_T: [ -0.011, -0.02329, 0.04412 ]  # [m] [Static] LiDAR-to-IMU translation
+            extrinsic_R: [ 1., 0., 0.,
+                            0., 1., 0.,
+                            0., 0., 1.]  # [Static] LiDAR-to-IMU rotation matrix (row-major)
+
+        # ==========================================================================
+        # PUBLISH [Dynamic]
+        # ==========================================================================
+        publish:
+            scan_bodyframe_pub_en: true  # point cloud in body-frame (required for localization)
+            # Debug topics: silent by default. Workspace consumers (pkrc_visualizer)
+            # subscribe to /slam/fast_lio/* production topics and reconstruct
+            # path/world-cloud locally. Flip a flag below to true to opt-in for
+            # standalone debugging (e.g. running fast_lio without the visualizer).
+            path_en: false               # /slam/fast_lio/debug/path (nav_msgs/Path)
+            path_max_poses: 3600         # Cap when path_en=true (~1h @ 1Hz). 0 or negative = unbounded.
+            map_en: false                # /slam/fast_lio/debug/map (accumulated PointCloud2)
+            scan_publish_en: false       # /slam/fast_lio/debug/points_world (world-frame cloud)
+            effect_map_en: false         # /slam/fast_lio/debug/points_effected
+            dense_publish_en: true       # dense vs sparse point cloud output
+
+        # ==========================================================================
+        # PCD_SAVE [Static]
+        # ==========================================================================
+        pcd_save:
+            pcd_save_en: true
+            save_path: ""                # Empty: use default path (ROOT_DIR/PCD/scans.pcd). If specified, save to this path on shutdown.
+            filter_size: 0.1             # [m] Voxel size for saved map. 0.1 = dense, 0 = no filter (very large file)
+            interval: 6000               # Frames per part flush (10 min @ 10Hz). RAM cap = interval × ~160KB ≈ 960MB.
+                                         # -1 disables flush (RAM-only, original behavior — risk of OOM on long runs).
+            consolidate_on_shutdown: true # On shutdown, merge all <save_path>_partNNN.pcd into single <save_path>.
+            cleanup_parts_after_consolidate: true # After successful consolidate, delete the per-part PCD files.
+                                                  # Prevents disk fill-up on always-on runs (~3 GB/day at default interval).
+                                                  # Set false to keep parts for debugging.

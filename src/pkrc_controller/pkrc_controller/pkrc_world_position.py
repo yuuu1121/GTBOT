@@ -99,6 +99,11 @@ class PkrcWorldPosition(Node):
             yaw = -yaw
         if self.imu_yaw is not None:
             yaw = self.imu_sign * self.imu_yaw + self.imu_off
+        # 물리 타당성 게이트(2026-08-20): 수조는 16×16 m — 경계 밖 좌표는 위치원(LIO)
+        # 발산이므로 기각한다. 재앵커 로직만으로는 발산 프레임에 계속 끌려갔다(실측).
+        if abs(pos[0]) > 9.0 or abs(pos[1]) > 9.0:
+            self.get_logger().warn('플랫폼 odom 수조 밖 — 기각', throttle_duration_sec=5.0)
+            return
         if self.last_plat is not None and \
                 np.linalg.norm(pos[:2] - self.last_plat[:2]) > self.max_jump:
             self.jump_count += 1
