@@ -44,13 +44,18 @@ formation control, Koopman operator, unmanned surface vehicles, optimal control,
 \end{IEEEkeywords}
 
 \section{Introduction}
-Multi-USV formations promise cooperative coverage, escort, and inspection capabilities beyond a single vehicle. Among data-driven approaches, Zhao and Tao~\cite{tao2023merged} proposed an optimal-control framework in which navigation objectives---goal reaching, cruise speed, and collision avoidance---are encoded as utility functions, the joint robot state is lifted into a Koopman observable space, the lifted dynamics are approximated by a bilinear model, and the control input maximizing the one-step utility increase is obtained by a linear program (LP) at every step. Related Koopman treatments of multi-robot coordination address formation prediction~\cite{wang2022koopman} and game-theoretic guidance~\cite{zhao2023stackelberg}, but none combines utility-function encoding with LP-based optimal control for formation keeping: in~\cite{tao2023merged} the only inter-robot utility is a repulsive collision term, which cannot hold a formation shape.
+Underwater inspection and intervention increasingly depend on surface support: unmanned surface vehicles (USVs) relay communication and positioning to underwater assets that cannot receive GNSS. A single support vehicle, however, provides only one vantage point---its coverage moves with it, and its loss interrupts the mission. A \emph{formation} of USVs addresses these limits structurally: holding a prescribed geometry provides a spatially distributed, mobile baseline for surface-assisted localization and communication over an underwater work site, extends sensing coverage beyond one hull, and adds redundancy against single-vehicle failure. The value of the formation lies precisely in \emph{keeping} its geometry while moving---which makes formation keeping, not mere flocking, the control problem of interest.
+
+Among data-driven approaches to multi-robot navigation, Zhao and Tao~\cite{tao2023merged} proposed an optimal-control framework in which navigation objectives---goal reaching, cruise speed, and collision avoidance---are encoded as utility functions, the joint robot state is lifted into a Koopman observable space, the lifted dynamics are approximated by a bilinear model, and the control input maximizing the one-step utility increase is obtained by a linear program (LP) at every step. Related Koopman treatments of multi-robot coordination address formation prediction~\cite{wang2022koopman} and game-theoretic guidance~\cite{zhao2023stackelberg}, but none combines utility-function encoding with LP-based optimal control for formation keeping: in~\cite{tao2023merged} the only inter-robot utility is a repulsive collision term, which cannot hold a formation shape.
 
 This work extends the framework with a \emph{formation-keeping utility} and validates the extension through a staged simulation campaign, from numerical benchmarks to high-fidelity vessel dynamics, as a step toward field deployment on our USV platforms.
 
-\todo{FIGURE 1 HERE: method overview --- (left) utility curves comparing the repulsive collision term vs.\ the proposed formation-keeping term peaking at the desired distance; (right) block diagram of the pipeline: utilities $\rightarrow$ Koopman lifting $\rightarrow$ bilinear approximation $\rightarrow$ LP. New drawing, one figure.}
+\todo{FIGURE 1 HERE (author-drawn): system overview --- USV formation escorting/supporting an underwater work site; shows why the formation geometry matters (distributed baseline, coverage, redundancy).}
 
 \section{Formation-Keeping Utility}
+
+\todo{FIGURE 2 HERE (author-drawn): flowchart of the control pipeline --- utility functions (goal, cruise, collision, formation-keeping) $\rightarrow$ Koopman lifting $\rightarrow$ bilinear approximation $\rightarrow$ per-step LP $\rightarrow$ vehicle inputs.}
+
 For robots $i$ and $j$ with planar center distance $\lVert r_{ij}\rVert$, we define
 \begin{equation}
 \varphi^{(7)}_i(X)=\textstyle\sum_{j:(i,j)\in E}\exp\!\big(-(\lVert r_{ij}\rVert-d^{*}_{ij})^{2}/\sigma^{2}\big),
