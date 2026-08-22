@@ -36,7 +36,7 @@
 \maketitle
 
 \begin{abstract}
-Coordinated formations of unmanned surface vehicles (USVs) can extend single-vehicle marine operations to cooperative survey and escort missions. A recent utility-function framework casts multi-robot navigation as optimal control of a Koopman-lifted system, where heterogeneous objectives are encoded as utility functions and the control input is obtained by linear programming at every step. The published framework, however, provides no mechanism for formation keeping: its only inter-robot term is a collision-avoidance penalty that monotonically favors separation. We introduce a formation-keeping utility term that peaks when the inter-vehicle distance equals a desired value, and show that it preserves the input-affine structure of the lifted dynamics, so the original identification and linear-programming pipeline is reused without modification. The extended framework is validated in two stages: numerical benchmarks, where the formation objective converges four orders of magnitude below its initial value with centimeter-level edge errors and no collisions while scaling to seven vehicles within real-time budgets, and a high-fidelity vessel-dynamics simulation with a leader platform and three follower USVs, where the formation holds a maximum edge error of 0.23 m over the evaluation window. The full paper will detail the formulation, the identifiability limits encountered, and an actuation-delay compensation that proved decisive under realistic vessel dynamics.
+Coordinated formations of unmanned surface vehicles (USVs) can extend single-vehicle marine operations to cooperative survey and escort missions. A recent utility-function framework casts multi-robot navigation as optimal control of a Koopman-lifted system, where heterogeneous objectives are encoded as utility functions and the control input is obtained by linear programming at every step. The published framework, however, provides no mechanism for formation keeping: its only inter-robot term is a collision-avoidance penalty that monotonically favors separation. We introduce a formation-keeping utility term that peaks when the inter-vehicle distance equals a desired value, and show that it preserves the input-affine structure of the lifted dynamics, so the original identification and linear-programming pipeline is reused without modification. The extension is validated in numerical benchmarks---a four-orders-of-magnitude objective decrease, centimeter-level edge errors, no collisions, and real-time scaling to seven vehicles---and in a high-fidelity vessel-dynamics simulation with a leader platform and three follower USVs, which holds a maximum edge error of 0.23 m. The full paper will detail the formulation, the identifiability limits encountered, and a decisive actuation-delay compensation.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -44,7 +44,7 @@ formation control, Koopman operator, unmanned surface vehicles, optimal control,
 \end{IEEEkeywords}
 
 \section{Introduction}
-Underwater inspection and intervention increasingly depend on surface support: unmanned surface vehicles (USVs) relay communication and positioning to underwater assets that cannot receive GNSS. A single support vehicle, however, provides only one vantage point---its coverage moves with it, and its loss interrupts the mission. A \emph{formation} of USVs addresses these limits structurally: holding a prescribed geometry provides a spatially distributed, mobile baseline for surface-assisted localization and communication over an underwater work site, extends sensing coverage beyond one hull, and adds redundancy against single-vehicle failure. The value of the formation lies precisely in \emph{keeping} its geometry while moving---which makes formation keeping, not mere flocking, the control problem of interest.
+Underwater inspection and intervention increasingly depend on surface support: unmanned surface vehicles (USVs) relay communication and positioning to underwater assets that cannot receive GNSS. A single support vehicle, however, provides only one vantage point, and its loss interrupts the mission. A \emph{formation} of USVs addresses these limits structurally: a prescribed geometry provides a distributed, mobile baseline for surface-assisted localization and communication, extends coverage, and adds redundancy. The value of the formation lies precisely in \emph{keeping} its geometry while moving---which makes formation keeping, not mere flocking, the control problem of interest.
 
 Among data-driven approaches to multi-robot navigation, Zhao and Tao~\cite{tao2023merged} proposed an optimal-control framework in which navigation objectives---goal reaching, cruise speed, and collision avoidance---are encoded as utility functions, the joint robot state is lifted into a Koopman observable space, the lifted dynamics are approximated by a bilinear model, and the control input maximizing the one-step utility increase is obtained by a linear program (LP) at every step. Related Koopman treatments of multi-robot coordination address formation prediction~\cite{wang2022koopman} and game-theoretic guidance~\cite{zhao2023stackelberg}, but none combines utility-function encoding with LP-based optimal control for formation keeping: in~\cite{tao2023merged} the only inter-robot utility is a repulsive collision term, which cannot hold a formation shape.
 
@@ -54,7 +54,12 @@ This work extends the framework with a \emph{formation-keeping utility} and vali
 
 \section{Formation-Keeping Utility}
 
-\todo{FIGURE 2 HERE (author-drawn): flowchart of the control pipeline --- utility functions (goal, cruise, collision, formation-keeping) $\rightarrow$ Koopman lifting $\rightarrow$ bilinear approximation $\rightarrow$ per-step LP $\rightarrow$ vehicle inputs.}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig/pipeline_flowchart.png}
+\caption{Control pipeline: utility functions (including the proposed formation-keeping term $\varphi^{(7)}$) are lifted into a Koopman observable space, the lifted dynamics are approximated by a bilinear model updated online by RLS, and a per-step LP yields the vehicle inputs; the platform LiDAR closes the loop in leader-relative coordinates.}
+\label{fig:pipeline}
+\end{figure}
 
 For robots $i$ and $j$ with planar center distance $\lVert r_{ij}\rVert$, we define
 \begin{equation}
@@ -69,23 +74,25 @@ Two findings from reproducing the base framework inform the full paper: (i) with
 In double-integrator benchmarks with three robots, the formation objective decreases from 151.4 to $1.9\times10^{-4}$ (baseline without the new term: 6.10), final edge errors are at most 0.013 m (baseline: up to 1.94 m), the run is collision-free, and the accumulated objective is lower than the baseline. At the desired spacing no conflict between the collision and formation terms is observed. The formulation scales to $N{=}3/5/7$ robots with per-step LP times of about 0.8/1.4/2.7 ms, an 18--62$\times$ margin against a 50 ms real-time budget.
 
 \subsection{High-fidelity vessel dynamics}
-The pipeline is then ported to a Stonefish simulation with full vessel hydrodynamics (buoyancy, drag, thruster dynamics): one leader platform and three follower USVs (Fig.~\ref{fig:stonefish}) in a hierarchical architecture (utility LP $\rightarrow$ velocity loop $\rightarrow$ thruster mixer). Online bilinear identification by recursive least squares succeeds in this layered setting, and the formation gate passes with a maximum edge error of 0.233 m over the final 30 s (criterion: 0.3 m), a median error of 0.024 m, and no collisions; Fig.~\ref{fig:stonefish} shows one lap of a square-circuit run. Toward fieldable output feedback, the platform LiDAR estimates each follower's relative position and heading from reflector plates---adding the plates reduces the heading-error median from 6.0$^\circ$ to 0.5$^\circ$ (Fig.~\ref{fig:heading})---and estimate-fed formation keeping passes in two consecutive runs with median edge errors of 0.108 and 0.159 m. Two negative results are preserved for the full paper: the identification-model control arm diverges under realistic dynamics (edge errors of 54--147 m), echoing~\cite{rosenfelder2024data}, and an actuation delay of 0.16 s---measured by input--acceleration cross-correlation---induces a relay-type limit cycle that is removed by delay-compensated state prediction, which proved decisive for passing the gate.
+The pipeline is then ported to a Stonefish simulation with full vessel hydrodynamics (buoyancy, drag, thruster dynamics): one leader platform and three follower USVs in a hierarchical architecture (utility LP $\rightarrow$ velocity loop $\rightarrow$ thruster mixer). Online bilinear identification by recursive least squares succeeds in this layered setting, and the formation gate passes with a maximum edge error of 0.233 m over the final 30 s (criterion: 0.3 m), a median error of 0.024 m, and no collisions; Fig.~\ref{fig:stonefish} shows one lap of a square-circuit run. Toward fieldable output feedback, the platform LiDAR estimates each follower's relative position and heading from reflector plates---adding the plates reduces the heading-error median from 6.0$^\circ$ to 0.5$^\circ$ (Fig.~\ref{fig:heading})---and estimate-fed formation keeping passes in two consecutive runs with median edge errors of 0.108 and 0.159 m. Two negative results are preserved for the full paper: the identification-model control arm diverges under realistic dynamics (edge errors of 54--147 m), echoing~\cite{rosenfelder2024data}, and a measured 0.16-s actuation delay induces a relay-type limit cycle, removed by delay-compensated state prediction.
+
+
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.88\columnwidth]{fig/square_traj.png}
+\includegraphics[width=0.75\columnwidth]{fig/square_traj.png}
 \caption{One lap of a square-circuit formation run in the high-fidelity simulation: trajectories of the leader platform and the three follower USVs against the commanded 8$\times$8 m square (dashed). Median station-keeping error per follower is 0.14--0.16 m.}
 \label{fig:stonefish}
 \end{figure}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.78\columnwidth]{fig/heading_cdf.png}
+\includegraphics[width=0.68\columnwidth]{fig/heading_cdf.png}
 \caption{LiDAR-based follower heading estimation on the platform: cumulative distribution of the absolute heading error before and after adding reflector plates to the followers (median 6.0$^\circ$ to 0.5$^\circ$, 95th percentile 15.6$^\circ$ to 1.5$^\circ$; onboard IMU shown as control reference).}
 \label{fig:heading}
 \end{figure}
 
-\todo{TABLE I HERE (optional): gate summary --- numerical benchmarks (objective decrease, edge errors, collision-free, N=3/5/7 control time) and Stonefish (max/median edge error) in one table. May be dropped if redundant with the text.}
+
 
 \section{Conclusion}
 A formation-keeping utility extends the utility-function Koopman optimal-control framework to multi-USV formation driving while reusing its identification and LP machinery unchanged. The staged campaign---numerical gates through high-fidelity vessel dynamics---supports the extension and surfaces deployment-relevant findings on identifiability and actuation delay. Integration with underwater-target following and field experiments on our USV fleet are ongoing and will be reported in the full paper.
