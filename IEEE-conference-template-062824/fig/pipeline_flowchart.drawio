@@ -9,35 +9,35 @@
         <mxCell id="grpU" value="Utility functions" style="rounded=1;fillColor=none;strokeColor=#666666;dashed=1;verticalAlign=top;fontSize=13;fontStyle=1;align=center;spacingTop=4;" vertex="1" parent="1">
           <mxGeometry x="40" y="60" width="200" height="260" as="geometry" />
         </mxCell>
-        <mxCell id="u1" value="Goal reaching" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="u1" value="Goal reaching" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="60" y="95" width="160" height="36" as="geometry" />
         </mxCell>
-        <mxCell id="u2" value="Cruise speed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="u2" value="Cruise speed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="60" y="141" width="160" height="36" as="geometry" />
         </mxCell>
-        <mxCell id="u3" value="Collision avoidance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="u3" value="Collision avoidance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="60" y="187" width="160" height="36" as="geometry" />
         </mxCell>
-        <mxCell id="u4" value="&lt;b&gt;Formation keeping φ⁷&lt;/b&gt;&lt;br&gt;(proposed)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="u4" value="&lt;b&gt;Formation keeping φ⁷&lt;/b&gt;&lt;br&gt;(proposed)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#000000;strokeWidth=2;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="60" y="233" width="160" height="50" as="geometry" />
         </mxCell>
 
         <!-- 파이프라인 블록 -->
-        <mxCell id="b1" value="Koopman lifting&lt;br&gt;(observable space)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="b1" value="Koopman lifting&lt;br&gt;(observable space)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="300" y="150" width="150" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="b2" value="Bilinear&lt;br&gt;approximation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="b2" value="Bilinear&lt;br&gt;approximation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="500" y="150" width="140" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="b3" value="Linear program&lt;br&gt;(per step)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="b3" value="Linear program&lt;br&gt;(per step)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="690" y="150" width="140" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="b4" value="USVs&lt;br&gt;(leader + followers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="b4" value="USVs&lt;br&gt;(leader + followers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="890" y="150" width="150" height="60" as="geometry" />
         </mxCell>
 
         <!-- 온라인 식별 (LP 위) -->
-        <mxCell id="b5" value="Online identification&lt;br&gt;(RLS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;dashed=0;" vertex="1" parent="1">
+        <mxCell id="b5" value="Online identification&lt;br&gt;(RLS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;dashed=0;" vertex="1" parent="1">
           <mxGeometry x="500" y="40" width="140" height="50" as="geometry" />
         </mxCell>
 
