@@ -1,0 +1,78 @@
+<mxfile host="app.diagrams.net" modified="2026-08-22T00:00:00.000Z" agent="claude" version="24.0.0">
+  <diagram name="pipeline" id="pipeline-1">
+    <mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="420" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- 효용함수 그룹 박스 -->
+        <mxCell id="grpU" value="Utility functions" style="rounded=1;fillColor=none;strokeColor=#666666;dashed=1;verticalAlign=top;fontSize=13;fontStyle=1;align=center;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="200" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="u1" value="Goal reaching" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="95" width="160" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="u2" value="Cruise speed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="141" width="160" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="u3" value="Collision avoidance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="187" width="160" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="u4" value="&lt;b&gt;Formation keeping φ⁷&lt;/b&gt;&lt;br&gt;(proposed)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="233" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- 파이프라인 블록 -->
+        <mxCell id="b1" value="Koopman lifting&lt;br&gt;(observable space)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="300" y="150" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" value="Bilinear&lt;br&gt;approximation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="500" y="150" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" value="Linear program&lt;br&gt;(per step)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="690" y="150" width="140" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" value="USVs&lt;br&gt;(leader + followers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="890" y="150" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- 온라인 식별 (LP 위) -->
+        <mxCell id="b5" value="Online identification&lt;br&gt;(RLS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="500" y="40" width="140" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- 화살표 -->
+        <mxCell id="e0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="grpU" target="b1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="b1" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="b2" target="b3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="control input U" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=11;" edge="1" parent="1" source="b3" target="b4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="state feedback (leader-relative coordinates)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;fontSize=11;" edge="1" parent="1" source="b4" target="grpU">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="965" y="370" />
+              <mxPoint x="140" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" value="measured states/inputs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=0;entryX=1;entryY=0.5;fontSize=11;dashed=1;" edge="1" parent="1" source="b4" target="b5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="965" y="65" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" value="model update" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;fontSize=11;dashed=1;" edge="1" parent="1" source="b5" target="b2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
