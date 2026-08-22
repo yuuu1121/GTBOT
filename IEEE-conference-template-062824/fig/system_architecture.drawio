@@ -6,13 +6,13 @@
         <mxCell id="1" parent="0" />
 
         <!-- ================= PLATFORM 컨테이너 ================= -->
-        <mxCell id="plat" value="Platform (leader vessel)" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=14;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
+        <mxCell id="plat" value="Leader USV" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=14;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
           <mxGeometry x="40" y="30" width="1120" height="250" as="geometry" />
         </mxCell>
-        <mxCell id="pl1" value="Ouster OS0&lt;br&gt;LiDAR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="pl1" value="3D LiDAR&lt;br&gt;(10 Hz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="65" y="80" width="130" height="54" as="geometry" />
         </mxCell>
-        <mxCell id="pl2" value="AHRS&lt;br&gt;(platform yaw)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="pl2" value="AHRS&lt;br&gt;(own yaw, 50 Hz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="65" y="170" width="130" height="54" as="geometry" />
         </mxCell>
         <mxCell id="pl3" value="Reflector-plate / mast&lt;br&gt;cluster detection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
@@ -42,13 +42,13 @@
         </mxCell>
 
         <!-- ================= GTBOT 1 ================= -->
-        <mxCell id="g1" value="gtbot 1 (follower USV)" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=13;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
+        <mxCell id="g1" value="Follower USV 1" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=13;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
           <mxGeometry x="40" y="420" width="350" height="270" as="geometry" />
         </mxCell>
         <mxCell id="g1m" value="Reflector plates + dual masts&lt;br&gt;(passive LiDAR markers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;dashed=1;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="60" y="455" width="310" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="g1a" value="AHRS&lt;br&gt;(own heading)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="g1a" value="AHRS&lt;br&gt;(own heading, 50 Hz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="60" y="520" width="120" height="50" as="geometry" />
         </mxCell>
         <mxCell id="g1v" value="Velocity loop&lt;br&gt;(station keeping +&lt;br&gt;heading alignment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
@@ -65,13 +65,13 @@
         </mxCell>
 
         <!-- ================= GTBOT 2 ================= -->
-        <mxCell id="g2" value="gtbot 2 (follower USV)" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=13;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
+        <mxCell id="g2" value="Follower USV 2" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=13;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
           <mxGeometry x="425" y="420" width="350" height="270" as="geometry" />
         </mxCell>
         <mxCell id="g2m" value="Reflector plates + dual masts&lt;br&gt;(passive LiDAR markers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;dashed=1;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="445" y="455" width="310" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="g2a" value="AHRS&lt;br&gt;(own heading)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="g2a" value="AHRS&lt;br&gt;(own heading, 50 Hz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="445" y="520" width="120" height="50" as="geometry" />
         </mxCell>
         <mxCell id="g2v" value="Velocity loop&lt;br&gt;(station keeping +&lt;br&gt;heading alignment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
@@ -88,13 +88,13 @@
         </mxCell>
 
         <!-- ================= GTBOT 3 ================= -->
-        <mxCell id="g3" value="gtbot 3 (follower USV)" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=13;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
+        <mxCell id="g3" value="Follower USV 3" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=13;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
           <mxGeometry x="810" y="420" width="350" height="270" as="geometry" />
         </mxCell>
         <mxCell id="g3m" value="Reflector plates + dual masts&lt;br&gt;(passive LiDAR markers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;dashed=1;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="830" y="455" width="310" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="g3a" value="AHRS&lt;br&gt;(own heading)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="g3a" value="AHRS&lt;br&gt;(own heading, 50 Hz)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="830" y="520" width="120" height="50" as="geometry" />
         </mxCell>
         <mxCell id="g3v" value="Velocity loop&lt;br&gt;(station keeping +&lt;br&gt;heading alignment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
