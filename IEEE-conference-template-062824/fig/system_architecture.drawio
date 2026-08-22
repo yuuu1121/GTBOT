@@ -24,7 +24,7 @@
         <mxCell id="pl5" value="&lt;b&gt;Koopman utility-LP&lt;br&gt;formation controller&lt;/b&gt;&lt;br&gt;(incl. formation-keeping φ⁷)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#000000;strokeWidth=2;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="730" y="72" width="210" height="72" as="geometry" />
         </mxCell>
-        <mxCell id="pl6" value="Leader pilot (waypoint tracking)&lt;br&gt;→ thruster mixer → thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
+        <mxCell id="pl6" value="Waypoint tracking → thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="730" y="180" width="210" height="54" as="geometry" />
         </mxCell>
         <!-- 플랫폼 내부 화살표 -->
@@ -54,7 +54,7 @@
         <mxCell id="g1v" value="Velocity loop&lt;br&gt;(station keeping +&lt;br&gt;heading alignment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="210" y="513" width="160" height="64" as="geometry" />
         </mxCell>
-        <mxCell id="g1t" value="Thruster bridge → CAN → thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="g1t" value="Thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="90" y="615" width="250" height="44" as="geometry" />
         </mxCell>
         <mxCell id="g1e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="g1a" target="g1v">
@@ -77,7 +77,7 @@
         <mxCell id="g2v" value="Velocity loop&lt;br&gt;(station keeping +&lt;br&gt;heading alignment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="595" y="513" width="160" height="64" as="geometry" />
         </mxCell>
-        <mxCell id="g2t" value="Thruster bridge → CAN → thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="g2t" value="Thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="475" y="615" width="250" height="44" as="geometry" />
         </mxCell>
         <mxCell id="g2e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="g2a" target="g2v">
@@ -100,7 +100,7 @@
         <mxCell id="g3v" value="Velocity loop&lt;br&gt;(station keeping +&lt;br&gt;heading alignment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="980" y="513" width="160" height="64" as="geometry" />
         </mxCell>
-        <mxCell id="g3t" value="Thruster bridge → CAN → thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+        <mxCell id="g3t" value="Thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
           <mxGeometry x="860" y="615" width="250" height="44" as="geometry" />
         </mxCell>
         <mxCell id="g3e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="g3a" target="g3v">
