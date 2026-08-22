@@ -66,30 +66,30 @@ Two findings from reproducing the base framework inform the full paper: (i) with
 
 \section{Simulation Validation}
 \subsection{Numerical benchmarks}
-In double-integrator benchmarks with three robots (Fig.~\ref{fig:numeric}), the formation objective decreases from 151.4 to $1.9\times10^{-4}$ (baseline without the new term: 6.10), final edge errors are at most 0.013 m (baseline: up to 1.94 m), the run is collision-free, and the accumulated objective is lower than the baseline. At the desired spacing no conflict between the collision and formation terms is observed. The formulation scales to $N{=}3/5/7$ robots with per-step LP times of about 0.8/1.4/2.7 ms, an 18--62$\times$ margin against a 50 ms real-time budget.
-
-\begin{figure}[t]
-\centering
-\begin{minipage}[b]{0.48\columnwidth}
-\includegraphics[width=\linewidth]{fig/e2_traj_phi7.png}
-\centerline{\footnotesize (a)}
-\end{minipage}\hfill
-\begin{minipage}[b]{0.50\columnwidth}
-\includegraphics[width=\linewidth]{fig/e2_objective.png}
-\centerline{\footnotesize (b)}
-\end{minipage}
-\caption{Numerical benchmark with three robots: (a) trajectories converging from scattered starts to the desired triangular formation (shaded circles: target regions); (b) formation objective over time---with the formation-keeping term the objective converges to near zero, whereas the baseline without it rebounds.}
-\label{fig:numeric}
-\end{figure}
+In double-integrator benchmarks with three robots, the formation objective decreases from 151.4 to $1.9\times10^{-4}$ (baseline without the new term: 6.10), final edge errors are at most 0.013 m (baseline: up to 1.94 m), the run is collision-free, and the accumulated objective is lower than the baseline. At the desired spacing no conflict between the collision and formation terms is observed. The formulation scales to $N{=}3/5/7$ robots with per-step LP times of about 0.8/1.4/2.7 ms, an 18--62$\times$ margin against a 50 ms real-time budget.
 
 \subsection{High-fidelity vessel dynamics}
-The pipeline is then ported to a Stonefish simulation with full vessel hydrodynamics (buoyancy, drag, thruster dynamics): one leader platform and three follower USVs (Fig.~\ref{fig:stonefish}) in a hierarchical architecture (utility LP $\rightarrow$ velocity loop $\rightarrow$ thruster mixer). Online bilinear identification by recursive least squares succeeds in this layered setting, and the formation gate passes with a maximum edge error of 0.233 m over the final 30 s (criterion: 0.3 m), a median error of 0.024 m, and no collisions. Two negative results are preserved for the full paper: the identification-model control arm diverges under realistic dynamics (edge errors of 54--147 m), echoing~\cite{rosenfelder2024data}, and an actuation delay of 0.16 s---measured by input--acceleration cross-correlation---induces a relay-type limit cycle that is removed by delay-compensated state prediction, which proved decisive for passing the gate.
+The pipeline is then ported to a Stonefish simulation with full vessel hydrodynamics (buoyancy, drag, thruster dynamics): one leader platform and three follower USVs (Fig.~\ref{fig:stonefish}) in a hierarchical architecture (utility LP $\rightarrow$ velocity loop $\rightarrow$ thruster mixer). Online bilinear identification by recursive least squares succeeds in this layered setting, and the formation gate passes with a maximum edge error of 0.233 m over the final 30 s (criterion: 0.3 m), a median error of 0.024 m, and no collisions; Fig.~\ref{fig:stonefish} shows a 720 s square-circuit run. Toward fieldable output feedback, the platform LiDAR estimates each follower's relative position and heading from reflector plates---adding the plates reduces the heading-error median from 6.0$^\circ$ to 0.5$^\circ$ (Fig.~\ref{fig:heading})---and estimate-fed formation keeping passes in two consecutive runs with median edge errors of 0.108 and 0.159 m. Two negative results are preserved for the full paper: the identification-model control arm diverges under realistic dynamics (edge errors of 54--147 m), echoing~\cite{rosenfelder2024data}, and an actuation delay of 0.16 s---measured by input--acceleration cross-correlation---induces a relay-type limit cycle that is removed by delay-compensated state prediction, which proved decisive for passing the gate.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.92\columnwidth]{fig/stonefish_formation.png}
-\caption{Stonefish high-fidelity simulation: the leader platform (orange) and three follower USVs (yellow) hold a triangular formation while the leader traverses a commanded square path (inset).}
+\begin{minipage}[b]{0.465\columnwidth}
+\includegraphics[width=\linewidth]{fig/square_traj.png}
+\centerline{\footnotesize (a)}
+\end{minipage}\hfill
+\begin{minipage}[b]{0.515\columnwidth}
+\includegraphics[width=\linewidth]{fig/square_edges.png}
+\centerline{\footnotesize (b)}
+\end{minipage}
+\caption{Square-circuit formation run in the high-fidelity simulation (720 s): (a) trajectories of the leader platform (orange) and the three follower USVs (red/green/blue) against the commanded 8$\times$8 m square (dashed); (b) inter-robot edge lengths against the desired 1.5 m spacing. Median station-keeping error per follower is 0.14--0.16 m.}
 \label{fig:stonefish}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\columnwidth]{fig/heading_cdf.png}
+\caption{LiDAR-based follower heading estimation on the platform: cumulative distribution of the absolute heading error before and after adding reflector plates to the followers (median 6.0$^\circ$ to 0.5$^\circ$, 95th percentile 15.6$^\circ$ to 1.5$^\circ$; onboard IMU shown as control reference).}
+\label{fig:heading}
 \end{figure}
 
 \todo{TABLE I HERE (optional): gate summary --- numerical benchmarks (objective decrease, edge errors, collision-free, N=3/5/7 control time) and Stonefish (max/median edge error) in one table. May be dropped if redundant with the text.}
