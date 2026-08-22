@@ -1,0 +1,163 @@
+<mxfile host="app.diagrams.net" modified="2026-08-22T00:00:00.000Z" agent="claude" version="24.0.0">
+  <diagram name="architecture" id="arch-1">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="720" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ================= PLATFORM 컨테이너 ================= -->
+        <mxCell id="plat" value="Platform (leader vessel)" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=14;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="30" width="1120" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="pl1" value="Ouster OS0&lt;br&gt;LiDAR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="65" y="80" width="130" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="pl2" value="AHRS&lt;br&gt;(platform yaw)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="65" y="170" width="130" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="pl3" value="Reflector-plate / mast&lt;br&gt;cluster detection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="250" y="80" width="170" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="pl4" value="Follower state estimation&lt;br&gt;(relative position + heading,&lt;br&gt;tracking KF)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="475" y="80" width="200" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pl5" value="&lt;b&gt;Koopman utility-LP&lt;br&gt;formation controller&lt;/b&gt;&lt;br&gt;(incl. formation-keeping φ⁷)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#000000;strokeWidth=2;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="730" y="72" width="210" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="pl6" value="Leader pilot (waypoint tracking)&lt;br&gt;→ thruster mixer → thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="730" y="180" width="210" height="54" as="geometry" />
+        </mxCell>
+        <!-- 플랫폼 내부 화살표 -->
+        <mxCell id="pe1" value="point cloud" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=10;" edge="1" parent="1" source="pl1" target="pl3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pe2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="pl3" target="pl4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pe3" value="platform yaw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.8;fontSize=10;" edge="1" parent="1" source="pl2" target="pl4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pe4" value="follower states" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;fontSize=10;" edge="1" parent="1" source="pl4" target="pl5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ================= GTBOT 1 ================= -->
+        <mxCell id="g1" value="gtbot 1 (follower USV)" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=13;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="420" width="350" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="g1m" value="Reflector plates + dual masts&lt;br&gt;(passive LiDAR markers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;dashed=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="455" width="310" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="g1a" value="AHRS&lt;br&gt;(own heading)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="60" y="520" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g1v" value="Velocity loop&lt;br&gt;(station keeping +&lt;br&gt;heading alignment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="210" y="513" width="160" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="g1t" value="Thruster bridge → CAN → thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="90" y="615" width="250" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="g1e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="g1a" target="g1v">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g1e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="g1v" target="g1t">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ================= GTBOT 2 ================= -->
+        <mxCell id="g2" value="gtbot 2 (follower USV)" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=13;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="425" y="420" width="350" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="g2m" value="Reflector plates + dual masts&lt;br&gt;(passive LiDAR markers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;dashed=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="445" y="455" width="310" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="g2a" value="AHRS&lt;br&gt;(own heading)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="445" y="520" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g2v" value="Velocity loop&lt;br&gt;(station keeping +&lt;br&gt;heading alignment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="595" y="513" width="160" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="g2t" value="Thruster bridge → CAN → thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="475" y="615" width="250" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="g2e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="g2a" target="g2v">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g2e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="g2v" target="g2t">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ================= GTBOT 3 ================= -->
+        <mxCell id="g3" value="gtbot 3 (follower USV)" style="rounded=1;fillColor=none;strokeColor=#000000;strokeWidth=1.5;verticalAlign=top;fontSize=13;fontStyle=1;align=left;spacingLeft=10;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="810" y="420" width="350" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="g3m" value="Reflector plates + dual masts&lt;br&gt;(passive LiDAR markers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;dashed=1;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="830" y="455" width="310" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="g3a" value="AHRS&lt;br&gt;(own heading)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="830" y="520" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="g3v" value="Velocity loop&lt;br&gt;(station keeping +&lt;br&gt;heading alignment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="980" y="513" width="160" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="g3t" value="Thruster bridge → CAN → thrusters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="860" y="615" width="250" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="g3e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="g3a" target="g3v">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g3e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="g3v" target="g3t">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ============ 기체 간 화살표 ============ -->
+        <!-- 하행: Koopman -> 각 velocity_loop (실선) -->
+        <mxCell id="dl1" value="velocity cmd + state est" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.25;exitY=1;entryX=0.5;entryY=0;fontSize=10;" edge="1" parent="1" source="pl5" target="g1v">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="330" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dl2" value="velocity cmd + state est" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;fontSize=10;" edge="1" parent="1" source="pl5" target="g2v">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="675" y="330" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dl3" value="velocity cmd + state est" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.75;exitY=1;entryX=0.5;entryY=0;fontSize=10;" edge="1" parent="1" source="pl5" target="g3v">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1060" y="330" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <!-- 상행: 반사판 -> LiDAR 관측 (점선, 통신 아님) -->
+        <mxCell id="ob1" value="LiDAR observation (passive)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.15;exitY=0;entryX=0.3;entryY=1;fontSize=10;dashed=1;" edge="1" parent="1" source="g1m" target="pl1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="105" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ob2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.1;exitY=0;entryX=0.5;entryY=1;fontSize=10;dashed=1;" edge="1" parent="1" source="g2m" target="pl1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="476" y="395" />
+              <mxPoint x="130" y="395" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ob3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.05;exitY=0;entryX=0.7;entryY=1;fontSize=10;dashed=1;" edge="1" parent="1" source="g3m" target="pl1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="845" y="405" />
+              <mxPoint x="155" y="405" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
