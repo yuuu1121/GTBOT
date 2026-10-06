@@ -65,3 +65,10 @@ def test_koopman_mpc_settles_on_nominal_plant():
             u_prev = plan[0]; X = A @ X + B @ u_prev
         err = np.linalg.norm(X[:6].reshape(3, 2) - SC.targets, axis=1).max()
         assert err < 0.1 and np.abs(X[6:]).max() < 0.02, (init, err)
+
+
+def test_coarse_step_plant_is_exact_zoh():
+    """fit_lifted(sub=k)가 쓰는 ab_matrices(N, k·dt)는 입력 ZOH 아래 A^k, Σ_{i<k} A^i B 와 정확히 같다(이중적분기)."""
+    sc = make_scenario(); A, B = ab_matrices(sc.n_robots, sc.dt); Ak, Bk = ab_matrices(sc.n_robots, 3 * sc.dt)
+    assert np.allclose(Ak, np.linalg.matrix_power(A, 3))
+    assert np.allclose(Bk, B + A @ B + A @ A @ B)

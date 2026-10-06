@@ -125,9 +125,11 @@ def identification_data(sc, inits=(0.3,) * 4 + (0.8,) * 6 + (1.0,) * 6, n_ticks=
     return data
 
 
-def fit_lifted(sc, D, data, lam=1e-3, seed=0):
-    """입력-bilinear Θ 배치 정칙화 최소자승. 입력은 ±쌍(U-홀수 블록 분리)."""
-    rng = np.random.default_rng(seed); A, B = ab_matrices(sc.n_robots, sc.dt); nu = 2 * sc.n_robots
+def fit_lifted(sc, D, data, lam=1e-3, seed=0, sub=1):
+    """입력-bilinear Θ 배치 정칙화 최소자승. 입력은 ±쌍(U-홀수 블록 분리).
+    sub: 예측 스텝 하나가 제어 틱 몇 개인가(입력 ZOH). 이중적분기는 ab_matrices(sub·dt) = A^sub, Σ_{i<sub}A^iB 로 정확.
+    sub=3·H=3 이면 지평 0.45 s — 작동기 지연 0.16 s 를 넘겨 관성을 실제로 내다본다(sub=1·H=2 는 0.1 s)."""
+    rng = np.random.default_rng(seed); A, B = ab_matrices(sc.n_robots, sub * sc.dt); nu = 2 * sc.n_robots
     Z, Y = [], []
     for X in data:
         u = rng.uniform(sc.u_min, sc.u_max, nu); z = D.lift(X)
@@ -147,19 +149,19 @@ def in_trust_region(X, sc, pos=TRUST_POS, vel=TRUST_VEL):
     return bool(np.linalg.norm(dp, axis=1).max() <= pos and np.linalg.norm(v, axis=1).max() <= vel)
 
 
-def build_mpc_model(sc, deg=3, phi_deg=2, seed=0, sat=SAT, sat_vel=SAT_VEL, lam=None, cache_dir=os.path.expanduser('~/.cache/gtbot')):
+def build_mpc_model(sc, deg=3, phi_deg=2, seed=0, sat=SAT, sat_vel=SAT_VEL, lam=None, sub=1, cache_dir=os.path.expanduser('~/.cache/gtbot')):
     """노드·도구 공용 진입점: 사전 + 식별 데이터 + 적합(약 10 s). 같은 (시나리오, 사전, 시드)면 Θ를
     cache_dir 에 저장해 두고 다음 기동부터 즉시 읽는다 — 실기 재시작 시 10 s 적합 대기 제거. cache_dir=None 이면 끈다."""
     D = PolyPhiDict(sc, deg, phi_deg, sat, sat_vel)
     key = hashlib.sha1(repr((deg, phi_deg, sat, sat_vel, lam, seed, POS_SCALE, VEL_SCALE, tuple(sc.phi_terms), tuple(np.round(sc.w_robot, 6)),
                              np.round(np.asarray(sc.targets), 6).tolist(), sc.leader_standoff, sc.dt, sc.u_min, sc.u_max,
-                             sc.input_reg, sc.n_robots)).encode()).hexdigest()[:16]
+                             sc.input_reg, sc.n_robots) + ((sub,) if sub != 1 else ())).encode()).hexdigest()[:16]
     path = cache_dir and os.path.join(cache_dir, f'lifted_theta_{key}.npy')
     if path and os.path.exists(path):
         theta = np.load(path)
         if theta.shape == (D.n + 2 * sc.n_robots + D.n * 2 * sc.n_robots, D.n):
             return LiftedModel(D, theta)
-    M = fit_lifted(sc, D, identification_data(sc, seed=seed), seed=seed, **({} if lam is None else dict(lam=lam)))
+    M = fit_lifted(sc, D, identification_data(sc, seed=seed), seed=seed, sub=sub, **({} if lam is None else dict(lam=lam)))
     if path:
         os.makedirs(cache_dir, exist_ok=True); np.save(path, M.theta)
     return M

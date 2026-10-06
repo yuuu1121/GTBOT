@@ -30,6 +30,7 @@ class KoopmanFormation(Node):
                      # 식별 시드, Θ 캐시 폴더(''=캐시 끔). 2026-10-06 Stonefish 4×4 사각 값이 기본.
                      ('mpc_horizon', 2), ('mpc_rho', 3.0), ('mpc_sat', 1.5), ('mpc_fit_seed', 0),
                      ('mpc_lam', 0.0),      # MPC 입력 정칙화 λ; 0 = Scenario.input_reg(1.0) 그대로. 루프 이득 노브
+                     ('mpc_sub', 1),        # 예측 스텝 당 제어 틱 수(입력 ZOH). 3·H=3 이면 지평 0.45 s(sim/lifted.py fit_lifted)
                      ('mpc_cache_dir', os.path.expanduser('~/.cache/gtbot')),
                      ('actuation_delay', 0.16), ('state_source', 'odometry'),
                      # 1.0 = 평활 무효(통과). round 6에서 rel_vel이 platform_perception의
@@ -86,10 +87,10 @@ class KoopmanFormation(Node):
         if self.controller == 'mpc':
             self.H, self.rho = int(p('mpc_horizon')), float(p('mpc_rho'))
             self.lam_mpc = float(p('mpc_lam')) or self.sc.input_reg
-            self.lifted = build_mpc_model(self.sc, seed=int(p('mpc_fit_seed')), sat=float(p('mpc_sat')),
+            self.lifted = build_mpc_model(self.sc, seed=int(p('mpc_fit_seed')), sat=float(p('mpc_sat')), sub=int(p('mpc_sub')),
                                           cache_dir=p('mpc_cache_dir') or None)
             self.plan = np.zeros((self.H, 2 * len(ROBOTS))); self.n_fallback = 0
-            self.get_logger().info(f'mpc 팔: 리프팅 모델 적합 완료 (dim {self.lifted.n}, H={self.H})')
+            self.get_logger().info(f'mpc 팔: 리프팅 모델 적합 완료 (dim {self.lifted.n}, H={self.H}, sub={int(p("mpc_sub"))})')
         # 지연 보상: 실측 작동기 지연 τ(U→실가속 교차상관 0.16 s)만큼 X를 미리 전파해
         # analytic_c에 넘긴다. 보상 없으면 τ=0.15 s에서 릴레이 한계 사이클이 터진다(round4 대조실험).
         self.tau = float(p('actuation_delay'))
