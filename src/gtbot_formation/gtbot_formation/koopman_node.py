@@ -25,7 +25,7 @@ class KoopmanFormation(Node):
         super().__init__('koopman_formation')
         # rate는 make_scenario의 dt와 짝(1/rate == sc.dt) — analytic_c의 A,B가 dt 기반.
         for n, d in [('warmup_steps', 600), ('rate', 20.0), ('results_dir', 'results'),
-                     ('controller', 'analytic'), ('log_csv', ''), ('mpc_horizon', 3),
+                     ('controller', 'mpc'), ('log_csv', ''), ('mpc_horizon', 3),
                      ('actuation_delay', 0.16), ('state_source', 'odometry'),
                      # 1.0 = 평활 무효(통과). round 6에서 rel_vel이 platform_perception의
                      # 트랙 KF 출력으로 바뀌어 여기서 또 EMA를 걸면 지연만 더한다.
@@ -47,7 +47,7 @@ class KoopmanFormation(Node):
                            ',' + ','.join(f'u{i}' for i in range(6)) +
                            ',pub,v0,v1,v2,' + ','.join(f'g{i}' for i in range(12)) + '\n')
         self.warmup_steps, self.results_dir = int(p('warmup_steps')), p('results_dir')
-        self.controller = p('controller')         # 'analytic'(기본, 검증된 팔) | 'model'(원논문 꼴 Θ 1-step) | 'mpc'(불변성 보강 사전 Θ, H스텝)
+        self.controller = p('controller')         # 'mpc'(기본: 불변성 보강 사전 Θ, H스텝) | 'analytic'(참 기울기 기준선) | 'model'(원논문 꼴 Θ 1-step)
         self.sc = make_scenario()
         # 식별용 시나리오 = 제어용에서 φ⁹만 뺀 것. φ⁹ = -nr²는 다른 φ(유계 0~2)와 달리
         # **무계**라 리프팅 z2에 들어가면 1-step 예측 RMSE를 악화시켜 S2(bilinear 리프팅 품질

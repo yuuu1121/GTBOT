@@ -109,7 +109,7 @@ def generate_launch_description():
         # start_leader:=false로 기동해 S2 전환(제어 진입) 확인 후 leader_pilot을 별도 실행한다.
         DeclareLaunchArgument('start_leader', default_value='true'),
         # koopman_formation 제어 팔: 'analytic'(참 그래디언트) | 'model'(bilinear Koopman 모델 Θ)
-        DeclareLaunchArgument('controller', default_value='analytic'),
+        DeclareLaunchArgument('controller', default_value='mpc'),   # 기본 = Koopman MPC(2026-10-06), analytic·model 은 비교군
         DeclareLaunchArgument('lidar_yaw_bias', default_value='0.0'),
         DeclareLaunchArgument('det_dropout', default_value='0.0'),
         DeclareLaunchArgument('dropout_seed', default_value='0'),
