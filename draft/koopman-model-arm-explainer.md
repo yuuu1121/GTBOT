@@ -280,7 +280,44 @@ S6 게이트 기준(중앙 < 0.3, p90 < 0.6, 무충돌)을 넘는다. 영상·CS
 
 ---
 
-## 10. 실행과 파일
+## 10. 왜 다음 단계가 "사전 재설계"인가 — 불변성과 내다보기 실측
+
+리뷰(Shi et al., *Koopman Operators in Robot Learning*, T-RO 2026, §V-C)는 사전의 품질을 1-step 잔차가 아니라 **Koopman 불변성**으로 재라고 한다. 지표는 consistency index
+
+$$
+I_C = \lambda_{\max}\!\left(I - K_F K_B\right),\qquad K_F = \Psi(Y)\Psi(X)^{\dagger},\ K_B = \Psi(X)\Psi(Y)^{\dagger}
+$$
+
+0이면 사전의 모든 함수가 다음 스텝에도 사전 안에서 선형 예측되고, 1이면 어떤 함수는 전혀 예측되지 않는다. 상수·공선 열(φ⁵는 벽 반경 50 m라 상수 0)로 생기는 자명한 1을 피하려고 Ψ(X)의 수치적 열공간으로 내려 계산했다(`tools/koopman_consistency_index.py`).
+
+| 영역 | 흐름 | X만 | 원 사전 [X; φ] | 확장 사전 [X; φ; ψ] |
+|:---|:---|:---|:---|:---|
+| ±0.3 m, ±0.15 m/s | U=0 표류 | 0.000 | 0.004 | 0.004 |
+| | QP 폐루프 | 0.007 | 0.062 | **0.177** |
+| | 고정 u=+0.3 | — | 0.170 | 0.189 |
+| ±0.1 m, ±0.05 m/s | QP 폐루프 | 0.060 | 0.224 | **0.346** |
+
+**확장 사전이 불변성은 더 나쁘다.** ψ는 φ⁴·φ¹ 같은 날카로운 항의 미분이라 φ보다 더 뾰족하고, 그 다음 스텝 값은 선형으로 예측되지 않는다(열별 상대오차 상위: ψ 속도 성분 0.22~0.31, φ⁴ 0.18~0.24). 제어가 읽는 "J의 U-응답" 하나만 정확히 선형이 되었을 뿐이다. §9의 동어반복 비판이 수치로 확인된 셈이다.
+
+이것이 제어에 어떻게 나타나는지는 **다스텝 MPC**로 보인다. Θ로 H스텝 효용을 내다보는 MPC와, 모델 오차 없이 참 효용함수로 내다보는 MPC(상한)를 1-step QP와 비교했다(수치 시뮬, 리더 사각 경로 0.1 m/s·30 s마다 90° 코너, `tools/koopman_mpc_lookahead.py`).
+
+| 제어기 | 코너 station 최대 / 중앙 [m] | 정상 station [m] | 틱당 계산 |
+|:---|:---|:---|:---|
+| 1-step QP (analytic) | 0.138 / 0.109 | 0.095 | ~0 ms |
+| 1-step QP (Koopman Θ) | 0.150 / 0.118 | 0.099 | 2 ms |
+| Koopman MPC H=3 | 0.287 / 0.235 | 0.342 | 240 ms |
+| Koopman MPC H=5 | 0.277 / 0.184 | 0.166 | 560 ms |
+| Koopman MPC H=10 | 발산 | — | — |
+| **참 모델 MPC H=5** | **0.087 / 0.075** | **0.066** | 116 ms |
+| 참 모델 MPC H=10 (+리더 preview) | 0.084 / 0.069 | 0.066 | 507 ms |
+
+두 가지가 동시에 보인다. **내다보기 자체는 이득이 있다** — 코너 과도응답 −37 %, 정상 −30 %, H=5에서 포화, 리더 경로 preview는 더 보태지 않는다(이득은 자기 관성을 미리 계산해 일찍 감속하는 데서 온다). 그러나 **지금 Θ로는 그 이득을 못 얻는다** — H≥3이면 1-step보다 나빠지고 H=10은 발산한다. Θ로 z⁽²⁾를 재귀 예측하면 $I_C$만큼 오차가 매 스텝 쌓이기 때문이다.
+
+참 모델 MPC는 비선형 최적화라 틱당 116 ms로 20 Hz에 못 들어간다. 모델이 bilinear면 같은 문제가 QP가 되어 실시간이 된다 — **Koopman이 analytic을 이길 수 있는 자리가 여기다.** 그 자리를 채우려면 재귀 예측이 서는 사전, 즉 $I_C \ll 0.1$인 사전이 필요하고, 그 전제는 효용함수가 매끄러워지는 것이다(φ⁴ 폭 0.05 m 스파이크, φ¹의 코사인·게이트, φ⁸의 exp(−20d) 장벽이 원인). 순서는 효용함수 평활화 → 불변성 좋은 사전(범용 기저, consistency 최소화) → 충분한 데이터로 Θ → H=5 Koopman MPC다.
+
+---
+
+## 11. 실행과 파일
 
 ```
 ros2 launch gtbot_description gtbot_world.launch.py
@@ -299,3 +336,5 @@ ros2 run gtbot_formation leader_pilot --ros-args -p "waypoints:=[4.0, 0.0, 4.0, 
 | `src/gtbot_formation/launch/formation.launch.py` | `controller` 런치 인자 |
 | `src/gtbot_formation/test/test_koopman_pipeline.py` | model 팔 회귀 테스트 |
 | `results/2026-10-06/` | 영상 2편, 런 CSV 4개, README |
+| `tools/koopman_consistency_index.py` | §10 consistency index 계산 |
+| `tools/koopman_mpc_lookahead.py` | §10 MPC 비교 |
