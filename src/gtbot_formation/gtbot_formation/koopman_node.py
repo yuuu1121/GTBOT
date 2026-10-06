@@ -13,6 +13,7 @@ ensure()
 from sim.dynamics import ab_matrices
 from sim.experiment import (make_rls, _zeta, operating_point, frozen_1step_eval, analytic_c,
                             nominal_theta, model_scenario, MODEL_ARM_FIT)
+from sim.lifted import build_mpc_model, in_trust_region, MPC_RHO
 from sim.scenario import table1_input
 from sim.control import input_objective, solve_input
 from sim.utility import z2_vector
@@ -24,7 +25,7 @@ class KoopmanFormation(Node):
         super().__init__('koopman_formation')
         # rate는 make_scenario의 dt와 짝(1/rate == sc.dt) — analytic_c의 A,B가 dt 기반.
         for n, d in [('warmup_steps', 600), ('rate', 20.0), ('results_dir', 'results'),
-                     ('controller', 'analytic'), ('log_csv', ''),
+                     ('controller', 'analytic'), ('log_csv', ''), ('mpc_horizon', 3),
                      ('actuation_delay', 0.16), ('state_source', 'odometry'),
                      # 1.0 = 평활 무효(통과). round 6에서 rel_vel이 platform_perception의
                      # 트랙 KF 출력으로 바뀌어 여기서 또 EMA를 걸면 지연만 더한다.
@@ -46,7 +47,7 @@ class KoopmanFormation(Node):
                            ',' + ','.join(f'u{i}' for i in range(6)) +
                            ',pub,v0,v1,v2,' + ','.join(f'g{i}' for i in range(12)) + '\n')
         self.warmup_steps, self.results_dir = int(p('warmup_steps')), p('results_dir')
-        self.controller = p('controller')         # 'analytic'(기본, 검증된 팔) | 'model'(식별 Θ 실험용)
+        self.controller = p('controller')         # 'analytic'(기본, 검증된 팔) | 'model'(원논문 꼴 Θ 1-step) | 'mpc'(불변성 보강 사전 Θ, H스텝)
         self.sc = make_scenario()
         # 식별용 시나리오 = 제어용에서 φ⁹만 뺀 것. φ⁹ = -nr²는 다른 φ(유계 0~2)와 달리
         # **무계**라 리프팅 z2에 들어가면 1-step 예측 RMSE를 악화시켜 S2(bilinear 리프팅 품질
@@ -71,6 +72,14 @@ class KoopmanFormation(Node):
             self.theta_c = nominal_theta(self.sc_c, **MODEL_ARM_FIT)
             self.z10c, self.z20c = operating_point(self.sc_c)
             self.get_logger().info(f'model 팔: 공칭 bilinear Θ 적합 완료 (dim {self.theta_c.shape[0]})')
+        # mpc 팔: 사전 [1; poly3; φ; φ⊗poly2](sim/lifted 주석)로 다스텝 예측이 서는 Θ를 공칭 플랜트에서
+        # 적합하고(약 10 s), H스텝 효용을 수반 역전파 MPC로 최대화한다. 수치 시뮬에서 코너 과도응답
+        # −15~18 %(analytic 0.138 → 0.11~0.12 m), 정상은 동급. 틱당 12~20 ms(20 Hz 예산 50 ms).
+        if self.controller == 'mpc':
+            self.H = int(p('mpc_horizon'))
+            self.lifted = build_mpc_model(self.sc)
+            self.plan = np.zeros((self.H, 2 * len(ROBOTS)))
+            self.get_logger().info(f'mpc 팔: 리프팅 모델 적합 완료 (dim {self.lifted.n}, H={self.H})')
         # 지연 보상: 실측 작동기 지연 τ(U→실가속 교차상관 0.16 s)만큼 X를 미리 전파해
         # analytic_c에 넘긴다. 보상 없으면 τ=0.15 s에서 릴레이 한계 사이클이 터진다(round4 대조실험).
         self.tau = float(p('actuation_delay'))
@@ -78,6 +87,7 @@ class KoopmanFormation(Node):
         self.u_prev = np.zeros(2 * len(ROBOTS))   # 지연 구간에 이미 발행돼 반영 중인 입력
         self.k = 0
         self.phase = 'warmup'
+        self.arm_prev = self.controller
         # plate 부트스트랩 상태기계(2026-08-09, 사용자 승인 3안): lidar 모드에서 전 로봇의
         # est가 **연속 3 s 유효**할 때까지 koopman은 완전 침묵한다. 간헐 깜빡임이 워밍업
         # 가진을 버스트로 깨워 로봇을 흔들고, 그 흔들림이 다시 검출을 깨는 3-체제 스위칭
@@ -151,6 +161,36 @@ class KoopmanFormation(Node):
         else:
             gt = np.zeros(12)                  # 실기(require_odom=False): GT 진단열 없음
         self.log.write(','.join(f'{x:.4f}' for x in [t, *X, *U, pub, *v, *gt]) + '\n')
+
+    def control(self, X):
+        """제어 단계의 U. 세 팔 공통으로 지연 보상 상태 Xd 를 쓴다."""
+        Xd = self.Ad @ X + self.Bd @ self.u_prev
+        arm = self.controller
+        if arm == 'mpc' and not in_trust_region(Xd, self.sc):
+            # 식별 영역(±0.45 m, 0.3 m/s) 밖에서는 리프팅 모델을 믿지 않고 analytic 으로 내려간다 —
+            # 1차 런(mpc_sq4)은 워밍업 끝 오차 0.8 m 에서 3차 사전이 외삽을 틀려 10 s 만에 포화 발산했다.
+            arm = 'analytic'
+        if arm != self.arm_prev:
+            self.get_logger().info(f'제어 팔 {self.arm_prev} -> {arm} @k={self.k}')
+            self.arm_prev = arm
+        if arm == 'analytic':
+            # 참 그래디언트 해석적 팔(식별 Θ 불요) — E1~E4 시뮬레이션 캠페인에서 검증된 경로.
+            # Θ0=0 + 워밍업 표본의 model 팔은 외삽으로 발산했다(S3 model 기록) — 현 model 팔은 공칭 Θ0.
+            c = analytic_c(Xd, self.sc, self.sc.w_full)
+        elif arm == 'mpc':  # 리프팅 모델로 H스텝 효용 최대화, 첫 입력만 발행(워밍스타트 = 이전 계획 한 칸 밀기)
+            self.plan = self.lifted.mpc(self.lifted.D.lift(Xd), self.H, np.vstack([self.plan[1:], self.plan[-1:]]),
+                                        self.sc.input_reg, self.sc.u_min, self.sc.u_max, rho=MPC_RHO, u_prev=self.u_prev)
+            U = self.plan[0]
+            if not np.isfinite(U).all():
+                U = np.zeros_like(U); self.plan[:] = 0.0; self.get_logger().warn(f'MPC nan_guard @k={self.k}')
+            return U
+        else:  # 'model' — bilinear Koopman 모델 Θ가 c를 낸다
+            c, _ = input_objective(self.theta_c, Xd - self.z10c,
+                                   z2_vector(Xd, self.sc_c) - self.z20c, self.sc_c.w_full, 6)
+        U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.sc.input_reg)
+        if status != 'ok':
+            self.get_logger().warn(f'LP {status} @k={self.k}')
+        return U
 
     def tick(self):
         # 두절/무효 시 발행을 생략한다(zeros 발행 금지) — zeros 발행은 velocity_loop에서
@@ -243,20 +283,8 @@ class KoopmanFormation(Node):
             self.U_log.append(U)
             if self.k >= self.warmup_steps:
                 self.finish_warmup()
-        elif self.controller == 'analytic':
-            # 참 그래디언트 해석적 팔(식별 Θ 불요) — E1~E4 시뮬레이션 캠페인에서 검증된 경로.
-            # Θ0=0 + 워밍업 표본의 model 팔은 외삽으로 발산했다(S3 model 기록) — 현 model 팔은 공칭 Θ0.
-            c = analytic_c(self.Ad @ X + self.Bd @ self.u_prev, self.sc, self.sc.w_full)
-            U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.sc.input_reg)
-            if status != 'ok':
-                self.get_logger().warn(f'LP {status} @k={self.k}')
-        else:  # 'model' — bilinear Koopman 모델 Θ가 c를 낸다 (지연 보상은 analytic 팔과 동일)
-            Xd = self.Ad @ X + self.Bd @ self.u_prev
-            c, _ = input_objective(self.theta_c, Xd - self.z10c,
-                                   z2_vector(Xd, self.sc_c) - self.z20c, self.sc_c.w_full, 6)
-            U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.sc.input_reg)
-            if status != 'ok':
-                self.get_logger().warn(f'LP {status} @k={self.k}')
+        else:
+            U = self.control(X)
         # I-2: 오염 전이는 다음 틱에도 재주입되지 않도록 여기서도 막는다. 161행의 prev=None은
         # 그 틱의 갱신만 막았고, 이 줄이 오염된 X로 prev를 다시 채워 다음 틱에 흘려보냈다.
         self.prev = (X, z2, U) if all(mask) else None
