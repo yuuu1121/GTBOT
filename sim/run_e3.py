@@ -7,7 +7,7 @@ from .experiment import run_phase2
 from .koopman import zeta_dim
 from .run_e2 import formation_error
 
-RESULTS = pathlib.Path(__file__).resolve().parent.parent / "results"
+RESULTS = pathlib.Path(__file__).resolve().parent.parent / "results" / "2026-08-05_numeric_e1-e3"
 NOTE = ("identification arm rejected (see ledger) — zeta_dim/P_bytes reported as analysis of "
         "the rejected arm's scaling; control measurements are for the analytic arm")
 

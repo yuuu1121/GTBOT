@@ -37,3 +37,6 @@ src/ouster-ros/
 # 시뮬 녹화 영상(2026-08-13): 재생성 가능한 예시 산출물이라 추적하지 않는다.
 # 재생성 경로는 tools/ 스크립트와 research/sim-results.md에 기록돼 있다.
 results/video/
+
+# 결과 폴더의 영상은 비추적(용량) — results/video/ 와 날짜 폴더 공통
+results/**/*.mp4

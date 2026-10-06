@@ -123,7 +123,7 @@
 | 5 | 2941 | 69195848 | ~1.40ms | 약 35~36배 | 56.583592135001226 | 0.0007969542113370594 | true | true |
 | 7 | 5727 | 262388232 | ~2.72ms | 약 18배 | 71.06040792565068 | 0.0039198924923083585 | true | true |
 
-타이밍은 재실행마다 ±수% 변동 — 정본은 `results/e3_gate4.json`의 `per_step_control_s`. 결정론 필드(`zeta_dim`, `P_bytes`, `formation_J0`/`formation_J_final`, `gate4_pass`)는 위 표 값이 정본과 일치.
+타이밍은 재실행마다 ±수% 변동 — 정본은 `results/2026-08-05_numeric_e1-e3/e3_gate4.json`의 `per_step_control_s`. 결정론 필드(`zeta_dim`, `P_bytes`, `formation_J0`/`formation_J_final`, `gate4_pass`)는 위 표 값이 정본과 일치.
 
 레저 요약(t_ctrl): ~0.80/1.40/2.72ms (비결정 — 정본 JSON 참조) — 3케이스 전부 50ms 대비 18배 이상 여유. `note`(JSON 원문): 식별 팔은 기각되었으므로 `zeta_dim`은 기각 팔의 스케일링 분석용, 제어 측정치는 해석적 팔 기준.
 

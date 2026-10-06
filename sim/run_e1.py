@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from .scenario import e1_scenario, TABLE2_CASES
 from .experiment import run_phase1, run_phase2, open_loop_eval, frozen_1step_eval, operating_point
 
-RESULTS = pathlib.Path(__file__).resolve().parent.parent / "results"
+RESULTS = pathlib.Path(__file__).resolve().parent.parent / "results" / "2026-08-05_numeric_e1-e3"
 
 def gate1():
     sc = e1_scenario()
