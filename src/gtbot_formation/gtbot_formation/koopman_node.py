@@ -28,7 +28,8 @@ class KoopmanFormation(Node):
                      ('controller', 'mpc'), ('log_csv', ''),
                      # mpc 팔 노브(sim/lifted 주석): 지평 H, 입력 변화 패널티 ρ(포화율↔코너 이득), 사전 포화 좌표 s,
                      # 식별 시드, Θ 캐시 폴더(''=캐시 끔). 2026-10-06 Stonefish 4×4 사각 값이 기본.
-                     ('mpc_horizon', 3), ('mpc_rho', 3.0), ('mpc_sat', 1.5), ('mpc_fit_seed', 0),
+                     ('mpc_horizon', 2), ('mpc_rho', 3.0), ('mpc_sat', 1.5), ('mpc_fit_seed', 0),
+                     ('mpc_lam', 0.0),      # MPC 입력 정칙화 λ; 0 = Scenario.input_reg(1.0) 그대로. 루프 이득 노브
                      ('mpc_cache_dir', os.path.expanduser('~/.cache/gtbot')),
                      ('actuation_delay', 0.16), ('state_source', 'odometry'),
                      # 1.0 = 평활 무효(통과). round 6에서 rel_vel이 platform_perception의
@@ -78,9 +79,13 @@ class KoopmanFormation(Node):
             self.get_logger().info(f'model 팔: 공칭 bilinear Θ 적합 완료 (dim {self.theta_c.shape[0]})')
         # mpc 팔: 사전 [1; poly3(포화 좌표); φ; φ⊗poly2](sim/lifted 주석)로 다스텝 예측이 서는 Θ를 공칭
         # 플랜트에서 적합하고(약 10 s), H스텝 효용을 수반 역전파 MPC(입력 변화 패널티 ρ)로 최대화한다.
-        # Stonefish 4×4 사각: edge 중앙 0.151 vs analytic 0.168 m. 틱당 12~27 ms(20 Hz 예산 50 ms).
+        # H=2(2026-10-06 튜닝): H=3·λ=1 은 analytic 보다 이득이 3배 높아 Stonefish 의 추정·작동 지연과 맞물려
+        # 0.3 Hz 한계 사이클(대역 std 0.055)이 생겼다. λ를 올리면 진동은 없어지나 오차가 analytic 수준으로
+        # 돌아가고, H=2·λ=1 이 입력은 analytic 만큼 쓰면서 중앙 −9 %·p90 −24 %, 진동 0.021 로 절충이 가장 좋다.
+        # 틱당 10~20 ms(20 Hz 예산 50 ms).
         if self.controller == 'mpc':
             self.H, self.rho = int(p('mpc_horizon')), float(p('mpc_rho'))
+            self.lam_mpc = float(p('mpc_lam')) or self.sc.input_reg
             self.lifted = build_mpc_model(self.sc, seed=int(p('mpc_fit_seed')), sat=float(p('mpc_sat')),
                                           cache_dir=p('mpc_cache_dir') or None)
             self.plan = np.zeros((self.H, 2 * len(ROBOTS))); self.n_fallback = 0
@@ -182,7 +187,7 @@ class KoopmanFormation(Node):
             c = analytic_c(Xd, self.sc, self.sc.w_full)
         elif arm == 'mpc':  # 리프팅 모델로 H스텝 효용 최대화, 첫 입력만 발행(워밍스타트 = 이전 계획 한 칸 밀기)
             self.plan = self.lifted.mpc(self.lifted.D.lift(Xd), self.H, np.vstack([self.plan[1:], self.plan[-1:]]),
-                                        self.sc.input_reg, self.sc.u_min, self.sc.u_max, rho=self.rho, u_prev=self.u_prev)
+                                        self.lam_mpc, self.sc.u_min, self.sc.u_max, rho=self.rho, u_prev=self.u_prev)
             U = self.plan[0]
             if not np.isfinite(U).all():
                 U = np.zeros_like(U); self.plan[:] = 0.0; self.get_logger().warn(f'MPC nan_guard @k={self.k}')

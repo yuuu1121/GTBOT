@@ -113,7 +113,8 @@ def generate_launch_description():
         # 'model'(원논문 꼴 bilinear Θ 1-step). mpc 노브는 koopman_node 파라미터 기본값 참조.
         DeclareLaunchArgument('controller', default_value='mpc'),
         DeclareLaunchArgument('mpc_rho', default_value='3.0'), DeclareLaunchArgument('mpc_sat', default_value='1.5'),
-        DeclareLaunchArgument('mpc_horizon', default_value='3'), DeclareLaunchArgument('mpc_fit_seed', default_value='0'),
+        DeclareLaunchArgument('mpc_horizon', default_value='2'), DeclareLaunchArgument('mpc_fit_seed', default_value='0'),
+        DeclareLaunchArgument('mpc_lam', default_value='0.0'),
         DeclareLaunchArgument('lidar_yaw_bias', default_value='0.0'),
         DeclareLaunchArgument('det_dropout', default_value='0.0'),
         DeclareLaunchArgument('dropout_seed', default_value='0'),
@@ -148,5 +149,6 @@ def generate_launch_description():
                           'mpc_sat': ParameterValue(LaunchConfiguration('mpc_sat'), value_type=float),
                           'mpc_horizon': ParameterValue(LaunchConfiguration('mpc_horizon'), value_type=int),
                           'mpc_fit_seed': ParameterValue(LaunchConfiguration('mpc_fit_seed'), value_type=int),
+                          'mpc_lam': ParameterValue(LaunchConfiguration('mpc_lam'), value_type=float),
                           'log_csv': f'{LOG_DIR}/koopman.csv'}]),
     ] + bridges + rpm_sims + drift_shims)
