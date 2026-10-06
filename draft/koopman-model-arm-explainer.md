@@ -416,7 +416,7 @@ $$
 
 ![그림 10. Stonefish 4×4 m 사각 런 4팔 — 최대 변 오차 시계열(1 s 이동평균)과 정착 후 분포. MPC는 중앙·사분위가 가장 낮지만 3~4 s 주기의 작은 진동이 있다.](fig/fig10_stonefish_four_arms.png)
 
-노드: `controller:=mpc` (`mpc_horizon` 3 · `mpc_rho` 3 · `mpc_sat` 1.5 · `mpc_fit_seed` 0 · Θ 캐시 `~/.cache/gtbot`; 식별 영역 밖 analytic 폴백). **Stonefish 4×4 m 사각 런**(377 s, edge 중앙 / p90 / 최대, 최종 설정): Koopman MPC 적합 시드 0 **0.146 / 0.224 / 0.423**, 시드 1 0.160 / 0.224 / 0.366 vs analytic 0.168 / 0.286 / 0.416 vs 논문 형태 1-step 0.190 / 0.367 / 0.569 — 중앙 −5~−13 %, **p90 −22 %**, 최대 동급. 입력은 더 쓰고(포화 9~19 % vs 4 %) 부호 반전은 적다(11~13 % vs 18 %). 폴백 발동 0.8 %, 틱 간격 최대 0.09 s로 20 Hz를 지켰다. 폴백 없는 4차 런(0.137 / 0.224 / 0.371)이 수치는 가장 좋았으나 시드 1에서 발산해 채택하지 않았다. 리더 정지·ρ=1.5 런과 4팔 비교 영상 `koopman_arms_compare_sq4.mp4`은 `results/2026-10-06/README.md`.
+노드: `controller:=mpc` (`mpc_horizon` 3 · `mpc_rho` 3 · `mpc_sat` 1.5 · `mpc_fit_seed` 0 · Θ 캐시 `~/.cache/gtbot`; 식별 영역 밖 analytic 폴백). **Stonefish 4×4 m 사각 공정 비교**(세 런 연속·CPU 유휴, 리더 주행거리 동일, 377 s, edge 중앙 / p90 / 최대): Koopman MPC **0.149 / 0.243 / 0.393** m, analytic 0.162 / 0.272 / 0.367, 논문 형태 1-step 0.190 / 0.360 / 0.512 — analytic 대비 중앙 −8 %·p90 −11 %, 원논문 꼴 대비 중앙 −22 %·p90 −33 %. 입력은 더 쓴다(포화 22 % vs 5 %). 주의: Stonefish는 CPU 부하로 실시간 비율이 흔들려 리더 속도가 런마다 달라진다(이전 런은 같은 200 s에 12.0~16.9 m) — 비교 런은 연속·유휴 CPU로 돌려야 한다. 적합 시드 1·리더 정지·ρ=1.5 런과 3팔 비교 영상 `koopman_arms_compare_sq4.mp4`은 `results/2026-10-06/README.md`.
 
 ---
 

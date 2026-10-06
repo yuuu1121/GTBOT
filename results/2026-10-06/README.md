@@ -7,6 +7,19 @@ LiDAR 추정 기반, `formation.launch.py start_leader:=false` → S2 → `settl
 편대 오차는 `koopman_*.csv`의 GT 열(g0..g11, odometry 기준 상대상태)로 계산 — 이 환경에서 ros2 CLI가
 SHM 프로파일 없이 토픽을 못 봐 정식 gate_s6는 돌리지 못했다.
 
+**공정 비교(2026-10-06 15:30~15:52, CPU 유휴, 세 런 연속 — 리더 주행거리 200 s 에 12.1 / 12.0 / 12.0 m 로 동일).** 앞선 런들은 CPU 부하에 따라
+Stonefish 실시간 비율이 달라져 리더 속도가 런마다 달랐다(같은 200 s 에 12.0~16.9 m). 아래 세 줄이 표의 기준이다.
+
+| 파일 | 조건 | edge 오차 중앙 / p90 / 최대 [m] |
+|:---|:---|:---|
+| `koopman_mpc_sq4_fair.csv` + 영상 2편 | **Koopman MPC 팔**(기본 설정), 리더 4×4 m 사각 376 s | **0.149 / 0.243 / 0.393**, 포화 22 %, 반전 10 %, 로봇간 최소 1.40 m |
+| `koopman_analytic_sq4_fair.csv` + 영상 2편 | analytic 1-step | 0.162 / 0.272 / 0.367, 포화 5 %, 반전 20 % |
+| `koopman_model_paper_sq4_fair.csv` + 영상 2편 | Koopman 1-step(원논문 꼴) | 0.190 / 0.360 / 0.512, 포화 0 % |
+
+MPC 는 analytic 대비 중앙 −8 %, p90 −11 %, 최대 +7 %; 원논문 꼴 대비 중앙 −22 %, p90 −33 %. 입력은 더 쓴다(|U| 중앙 0.14 vs 0.035).
+
+**이전 런(리더 속도 런마다 다름 — 참고용).**
+
 | 파일 | 조건 | edge 오차 중앙 / p90 / 최대 [m] |
 |:---|:---|:---|
 | `koopman_mpc_sq4.csv` + 영상 2편 | **Koopman MPC 팔 최종 설정**(사전 dim 508·포화 좌표·넓은 식별 데이터, H=3, ρ=3, 식별 영역 밖 analytic 폴백, 적합 시드 0; 설명 노트 §12), 같은 4×4 경로(377 s) | **0.146 / 0.224 / 0.423**, 로봇간 최소 1.38 m, 포화 19 %, 부호 반전 13 %, 틱 최대 0.09 s |
@@ -29,7 +42,7 @@ Koopman MPC 팔(최종 설정, 적합 시드 0·1)은 analytic 대비 edge 중�
 
 논문 형태 팔은 analytic보다 edge 중앙 +0.02 m, p90 +0.08 m 나쁘다 — 수치 시뮬의 격차(정상 0.12~0.14 vs 0.08 m)와 같은 방향이고, 1차식 모델의 표현력 한계다(설명 노트 §5·§11). ψ 확장 사전은 analytic과 같지만 J의 미분을 사전에 넣은 동어반복이라 노드에서 뺐다.
 
-`koopman_arms_compare_sq4.mp4`: **4팔 비교 영상**(Stonefish 4×4 사각 런 4편을 같은 시각 축으로 재생, 10배속, `tools/render_arm_compare.py`) — Koopman MPC | analytic | Koopman 1-step(논문 꼴) | ψ 확장 사전. 세 줄: 윗줄 월드 좌표 탑뷰(각 런의 `*_topview.mp4` 프레임, 사각 경로를 실제로 도는지), 가운데 리더 고정 상대좌표(편대 변 오차), 아랫줄 최대 변 오차 시계열. 리더는 추력으로 움직여 런마다 진행 속도가 조금 달라 윗줄 위치는 서로 어긋난다.
+`koopman_arms_compare_sq4.mp4`: **3팔 비교 영상**(공정 비교 런 3편을 같은 시각 축으로 재생, 10배속, `tools/render_arm_compare.py`) — Koopman MPC | analytic | Koopman 1-step(논문 꼴). ψ 확장 사전 변종은 노드에서 뺀 상태라 재런하지 못해 영상에서 제외(이전 런 CSV 는 남아 있다). 세 줄: 윗줄 월드 좌표 탑뷰(각 런의 `*_topview.mp4` 프레임, 사각 경로를 실제로 도는지), 가운데 리더 고정 상대좌표(편대 변 오차), 아랫줄 최대 변 오차 시계열.
 
 `koopman_mpc_compare_numeric.mp4`: **수치 시뮬**(Stonefish 아님) 3분할 — 1-step QP(analytic) | Koopman Θ MPC H=5 | 참 모델 MPC H=5. 리더 사각 경로 0.1 m/s, 30 s마다 코너, 10배속. 코너 후 자리 오차 최대 0.138 / 0.277 / 0.087 m. 설명 노트 §10, `tools/koopman_mpc_lookahead.py`.
 

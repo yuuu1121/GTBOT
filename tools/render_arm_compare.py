@@ -88,7 +88,7 @@ def main():
         axe.set_ylabel('변 오차 최대 [m]', fontsize=8.5); axe.set_xlabel('제어 진입 후 시간 [s]', fontsize=8.5); axe.tick_params(labelsize=7.5)
         axe.legend(fontsize=8, ncol=n, loc='upper right', framealpha=0.9)
         fig.suptitle(f'Stonefish 리더 4×4 m 사각(1.7바퀴), {speed:.0f}배속, t = {tq:5.1f} s (제어 진입 기준)\n'
-                     + ('윗줄 월드 탑뷰: 회색 사각 = 지령 경로, 주황 = 리더 자취(리더 속도는 런마다 조금 달라 위치가 어긋난다)   ' if has_top else '')
+                     + ('윗줄 월드 탑뷰: 회색 사각 = 지령 경로, 주황 = 리더 자취   ' if has_top else '')
                      + '상대좌표: 주황 ■ 리더, × 목표 자리, 선 = 편대 변(붉을수록 오차 큼)', fontsize=9.5)
 
     a = anim.FuncAnimation(fig, draw, frames=frames, interval=1000 / fps)
