@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import numpy as np
 from .dynamics import ab_matrices
 from .koopman import build_zeta, build_zeta_linear, zeta_dim
@@ -98,7 +98,22 @@ def analytic_c(X, sc, w_full, h=1e-4):
         c[l] = (w_full @ z2_vector(base_X + B[:, l] * h, sc) - base) / h
     return c
 
-def nominal_theta(sc, n=6000, sp=0.3, sv=0.15, lam=0.1, refits=1, seed=0):
+def drop_phi(sc, term):
+    """효용에서 φ^term 을 뺀 시나리오(phi_terms·w_robot 동기)."""
+    keep = [i for i, t in enumerate(sc.phi_terms) if t != term]
+    return replace(sc, phi_terms=tuple(sc.phi_terms[i] for i in keep), w_robot=sc.w_robot[keep])
+
+# model 팔(원논문 형태: φ 사전만, 전체 bilinear ζ, 데이터 적합 Θ, 1-step QP)의 적합 설정.
+# φ⁴(목표점 위치·속도 폭 0.05 m 스파이크, 가중 2)는 뺀다 — 해석적 팔 성능은 그대로(정상 0.079 m)이고
+# 사전 불변성 I_C 0.136→0.029(tools/koopman_consistency_index.py). 궤적 위 재적합 3회 누적:
+# 적합 시드 3개 × 사각 리더 시드 2개에서 정상 0.118~0.136 m(해석적 0.079), 단일 재적합은
+# 0.14~0.23 m로 흔들렸다(2026-10-06 스윕). 적합에 약 40 s.
+MODEL_ARM_FIT = dict(n=3000, refits=3, episodes=60)
+
+def model_scenario(sc):
+    return drop_phi(sc, 4)
+
+def nominal_theta(sc, n=6000, sp=0.3, sv=0.15, lam=0.1, refits=1, seed=0, episodes=30):
     """공칭 bilinear Θ: 동작점 둘레 표본에 대한 배치 정칙화 최소자승(원논문 식 3.36의 비반복형).
 
     원논문 RLS는 Θ(k0)=Θ0를 '선택된 초기 추정'으로 둔다(식 3.37 아래). Θ0=0 + 워밍업 수백 표본은
@@ -107,6 +122,8 @@ def nominal_theta(sc, n=6000, sp=0.3, sv=0.15, lam=0.1, refits=1, seed=0):
     - U는 ±쌍으로 넣는다: U-홀수 성분(= 제어가 읽는 결합 블록)이 상태 전용 잔차와 직교 분리된다.
     - refits: Θ 제어 + 디더로 공칭 폐루프를 굴려 방문 상태에서 재적합(가우시안 표본은 장벽 안쪽
       처럼 폐루프가 가지 않는 곳에 질량을 써서 평형 편향이 컸다: 정착 오차 0.40 -> 0.17 m).
+      원논문의 '궤적 위 식별'에 해당. 방문 표본은 라운드마다 누적하고(episodes×200틱/라운드),
+      광역 표본 n/4를 닻으로 섞는다 — 누적 전에는 적합 시드마다 0.14~0.23 m로 흔들렸다.
     - lam: 1e-6(종전 p0=100 상당)이면 미가진 방향이 풀려 평형 위치가 시드마다 크게 흔들린다.
     원 사전(sc.grad_lift=False)의 한계(실측, 잡음 0.02·지연 0.15 s, 적합 시드 4개): 발산은 없으나
     edge 오차 중앙 0.23~0.32 m·최대 0.24~0.39 m로 0.3 m 게이트를 넘고 시드에 민감하다(해석적
@@ -133,9 +150,9 @@ def nominal_theta(sc, n=6000, sp=0.3, sv=0.15, lam=0.1, refits=1, seed=0):
         return np.linalg.solve(Z.T @ Z + lam * np.eye(Z.shape[1]), Z.T @ Y)
 
     theta = fit(sample(n, sp, sv))
+    visited = []                                    # 재적합 궤적 표본은 라운드마다 누적한다(시드 분산 완화)
     for _ in range(refits):
-        visited = []
-        for X in sample(30, 0.5, 0.05):
+        for X in sample(episodes, 0.5, 0.05):
             for _ in range(200):
                 c, _ = input_objective(theta, X - z10, z2_vector(X, sc) - z20, sc.w_full, n_in,
                                        reduced=sc.reduced_lifting)

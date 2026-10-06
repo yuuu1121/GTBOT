@@ -245,3 +245,22 @@ def test_model_arm_holds_formation_on_nominal_plant():
         X = A @ X + B @ U
     err = np.linalg.norm(X[:6].reshape(3, 2) - sc.targets, axis=1).max()
     assert err < 0.15 and np.abs(X[6:]).max() < 0.02      # 해석적 팔 정착점 0.08 m 근방, 정지 수렴
+
+
+def test_paper_form_model_arm_settles_on_nominal_plant():
+    """노드의 model 팔 설정 그대로(원논문 형태: φ 사전·φ⁴ 제거·궤적 위 재적합 Θ·1-step QP)가
+    이상적 이중적분기에서 편대를 붙들고 정지한다. 적합 ~40 s. 실측 err 0.113~0.132(적합 시드 0~2)."""
+    from sim.control import input_objective, solve_input
+    from sim.experiment import nominal_theta, model_scenario, MODEL_ARM_FIT
+    sc = model_scenario(make_scenario())
+    assert 4 not in sc.phi_terms and 9 in sc.phi_terms and not sc.grad_lift
+    A, B = ab_matrices(sc.n_robots, sc.dt)
+    z10, z20 = operating_point(sc)
+    theta = nominal_theta(sc, **MODEL_ARM_FIT)
+    X = z10 + np.concatenate([np.random.default_rng(0).normal(0, 0.3, 6), np.zeros(6)])
+    for _ in range(800):
+        c, _ = input_objective(theta, X - z10, z2_vector(X, sc) - z20, sc.w_full, 6)
+        U, _ = solve_input(c, sc.u_min, sc.u_max, reg=sc.input_reg)
+        X = A @ X + B @ U
+    err = np.linalg.norm(X[:6].reshape(3, 2) - sc.targets, axis=1).max()
+    assert err < 0.15 and np.abs(X[6:]).max() < 0.02

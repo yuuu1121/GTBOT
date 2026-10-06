@@ -12,13 +12,12 @@ from .simpath import ensure
 ensure()
 from sim.dynamics import ab_matrices
 from sim.experiment import (make_rls, _zeta, operating_point, frozen_1step_eval, analytic_c,
-                            nominal_theta)
+                            nominal_theta, model_scenario, MODEL_ARM_FIT)
 from sim.scenario import table1_input
 from sim.control import input_objective, solve_input
 from sim.utility import z2_vector
 
 ROBOTS = ['gtbot', 'gtbot2', 'gtbot3']
-MODEL_FIT_N = 1500    # model 팔 Θ0 적합 표본 수(±쌍이라 회귀 행은 2배)
 
 class KoopmanFormation(Node):
     def __init__(self):
@@ -60,13 +59,16 @@ class KoopmanFormation(Node):
         self.z10, self.z20 = operating_point(self.sc_id)
         self.rls = {m: make_rls(self.sc_id, m) for m in ('linear', 'bilinear')}
         # model 팔의 제어용 bilinear 모델 — S2용 self.rls(Θ0=0, φ⁹ 제외)와 별개다.
-        # 제어 목적함수는 φ⁹(복원력)가 필요하므로 φ 전체를 쓰고, 사전에 효용 그래디언트를
-        # 덧붙인다(Scenario.grad_lift 주석). Θ0는 공칭 모델의 배치 적합이다(nominal_theta 주석).
+        # 원논문 형태(Zhao & Tao): 사전은 효용항 φ만(그래디언트 ψ 없음), ζ는 전체 bilinear,
+        # Θ는 공칭 플랜트 데이터의 배치 적합 + 궤적 위 재적합(nominal_theta·MODEL_ARM_FIT 주석),
+        # 제어는 1-step QP. 제어 목적함수는 φ⁹(복원력)가 필요하므로 φ⁹는 두고 φ⁴만 뺀다
+        # (model_scenario). 그래디언트를 사전에 덧붙인 변종(Scenario.grad_lift)은 c가 정확하나
+        # 사전이 J의 미분을 이미 담아 동어반복이라 노드에서는 쓰지 않는다(draft 설명 노트 §10).
         # Θ0=0 + 워밍업 표본으로는 발산했다(S3 기록). Θ는 제어 중 **동결**이다 — 제어 중 RLS
         # 갱신은 공칭 플랜트에서도 발산했다(지연 정렬·배치 사전분포를 줘도 6/6).
         if self.controller == 'model':
-            self.sc_c = replace(self.sc, grad_lift=True)
-            self.theta_c = nominal_theta(self.sc_c, n=MODEL_FIT_N, refits=0)
+            self.sc_c = model_scenario(self.sc)
+            self.theta_c = nominal_theta(self.sc_c, **MODEL_ARM_FIT)
             self.z10c, self.z20c = operating_point(self.sc_c)
             self.get_logger().info(f'model 팔: 공칭 bilinear Θ 적합 완료 (dim {self.theta_c.shape[0]})')
         # 지연 보상: 실측 작동기 지연 τ(U→실가속 교차상관 0.16 s)만큼 X를 미리 전파해
