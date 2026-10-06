@@ -5,7 +5,12 @@ koopman.csv 의 GT 열 g0..g11(odometry 기준 리더 상대 상태)만 쓴다 �
 t=0 은 제어 진입(첫 발행 + 워밍업 200틱). 각 런의 리더 출발은 정착 후 10 s 라 ±2 s 안에서 맞는다.
 
     python3 tools/render_arm_compare.py out.mp4 라벨1=a.csv 라벨2=b.csv ... [--speed 10] [--dur 377]
+        [--top 라벨1=a_topview.mp4 ...] [--top-offset 7]
+--top: 같은 런의 월드 좌표 탑뷰 녹화(record_square_run / rec_top4, 10배속 30 fps)를 윗줄에 같이 돌린다 —
+사각 경로를 실제로 도는지 보이게. 탑뷰 녹화는 정착 직후 시작하고 제어 진입은 그보다 --top-offset 초(정착 ~7 s)
+앞이라 그만큼 당겨 맞춘다(±1 s).
 """
+import cv2
 import sys, os
 import numpy as np, matplotlib
 matplotlib.use('Agg')
@@ -33,15 +38,33 @@ def main():
     args = sys.argv[1:]; out = args[0]
     speed = float(args[args.index('--speed') + 1]) if '--speed' in args else 10.0
     dur = float(args[args.index('--dur') + 1]) if '--dur' in args else None
-    runs = [(a.split('=', 1)[0], load(a.split('=', 1)[1])) for a in args[1:] if '=' in a]
+    runs = [(a.split('=', 1)[0], load(a.split('=', 1)[1])) for a in args[1:] if '=' in a and not a.startswith('--') and not (args.index(a) > 0 and args[args.index(a) - 1] == '--top')]
+    tops = {a.split('=', 1)[0]: a.split('=', 1)[1] for i, a in enumerate(args) if i > 0 and args[i - 1] == '--top'}
+    top_off = float(args[args.index('--top-offset') + 1]) if '--top-offset' in args else 7.0
+    caps = {k: [cv2.VideoCapture(v), -1, None] for k, v in tops.items()}          # [reader, 마지막 프레임 번호, 프레임]
+    def top_frame(k, tq):
+        cap, idx, fr = caps[k]; want = max(0, int(round((tq - top_off) / 10.0 * cap.get(cv2.CAP_PROP_FPS))))
+        while idx < want:
+            ok, f = cap.read()
+            if not ok: break
+            idx += 1; fr = f
+        caps[k][1], caps[k][2] = idx, fr
+        return None if fr is None else cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)[200:620, 250:690]      # 사각 경로 둘레 crop
     T = dur or min(r['t'][-1] for _, r in runs); fps = 20; frames = int(T / speed * fps)
-    n = len(runs); fig = plt.figure(figsize=(4.0 * n, 7.0))
-    gs = fig.add_gridspec(2, n, height_ratios=[3.0, 1.5], hspace=0.08, wspace=0.22, top=0.88, bottom=0.08, left=0.05, right=0.98)
-    axs = [fig.add_subplot(gs[0, i]) for i in range(n)]; axe = fig.add_subplot(gs[1, :])
+    n = len(runs); has_top = bool(tops)
+    fig = plt.figure(figsize=(4.0 * n, 10.4 if has_top else 7.0))
+    gs = fig.add_gridspec(3 if has_top else 2, n, height_ratios=([3.0, 3.0, 1.5] if has_top else [3.0, 1.5]), hspace=0.28, wspace=0.22,
+                          top=0.92 if has_top else 0.88, bottom=0.06, left=0.05, right=0.98)
+    axt = [fig.add_subplot(gs[0, i]) for i in range(n)] if has_top else []
+    axs = [fig.add_subplot(gs[1 if has_top else 0, i]) for i in range(n)]; axe = fig.add_subplot(gs[-1, :])
     tg = np.asarray(OFFSETS)
 
     def draw(f):
         tq = f / fps * speed
+        for ax, (name, r) in zip(axt, runs):
+            ax.cla(); ax.set_xticks([]); ax.set_yticks([]); fr = top_frame(name, tq) if name in tops else None
+            if fr is not None: ax.imshow(fr)
+            ax.set_title(f'{name} — 월드 탑뷰', fontsize=8.5)
         for ax, (name, r), c in zip(axs, runs, COLS):
             k = at(r, tq); ax.cla(); ax.set_aspect('equal'); ax.set_xlim(-1.4, 1.6); ax.set_ylim(-1.5, 1.5)
             ax.grid(color='#EEEEEE', lw=0.6); ax.tick_params(labelsize=7)
@@ -64,8 +87,9 @@ def main():
         axe.axvline(tq, color='#444444', lw=0.8); axe.set_xlim(0, T); axe.set_ylim(0, 0.8); axe.grid(color='#EEEEEE', lw=0.6)
         axe.set_ylabel('변 오차 최대 [m]', fontsize=8.5); axe.set_xlabel('제어 진입 후 시간 [s]', fontsize=8.5); axe.tick_params(labelsize=7.5)
         axe.legend(fontsize=8, ncol=n, loc='upper right', framealpha=0.9)
-        fig.suptitle(f'Stonefish 리더 4×4 m 사각(1.7바퀴) — 리더 고정 상대좌표, {speed:.0f}배속, t = {tq:5.1f} s   '
-                     f'(주황 ■ 리더, × 목표 자리, 선 = 편대 변·붉을수록 오차 큼)', fontsize=10)
+        fig.suptitle(f'Stonefish 리더 4×4 m 사각(1.7바퀴), {speed:.0f}배속, t = {tq:5.1f} s (제어 진입 기준)\n'
+                     + ('윗줄 월드 탑뷰: 회색 사각 = 지령 경로, 주황 = 리더 자취(리더 속도는 런마다 조금 달라 위치가 어긋난다)   ' if has_top else '')
+                     + '상대좌표: 주황 ■ 리더, × 목표 자리, 선 = 편대 변(붉을수록 오차 큼)', fontsize=9.5)
 
     a = anim.FuncAnimation(fig, draw, frames=frames, interval=1000 / fps)
     a.save(out, writer=anim.FFMpegWriter(fps=fps, bitrate=3000, extra_args=['-pix_fmt', 'yuv420p']))
