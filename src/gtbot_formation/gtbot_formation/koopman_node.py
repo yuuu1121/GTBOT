@@ -30,7 +30,9 @@ class KoopmanFormation(Node):
                      # 식별 시드, Θ 캐시 폴더(''=캐시 끔). 2026-10-06 Stonefish 4×4 사각 값이 기본.
                      ('mpc_horizon', 2), ('mpc_rho', 3.0), ('mpc_sat', 1.5), ('mpc_fit_seed', 0),
                      ('mpc_lam', 0.0),      # MPC 입력 정칙화 λ; 0 = Scenario.input_reg(1.0) 그대로. 루프 이득 노브
-                     ('mpc_sub', 1),        # 예측 스텝 당 제어 틱 수(입력 ZOH). 3·H=3 이면 지평 0.45 s(sim/lifted.py fit_lifted)
+                     ('mpc_sub', 1),
+                     ('qp_lam', 0.0),       # analytic·model 1-step QP 의 λ; 0 = input_reg(1.0). MPC 와 이득을 맞춘 공정 비교용(λ=0.5 ≈ MPC H=2 이득)
+                     ('qp_rho', 0.0),       # 1-step QP 에 MPC 와 같은 ΔU penalty: U = clip((c+ρU_prev)/(λ+ρ)). 매끈함을 맞춘 공정 비교용        # 예측 스텝 당 제어 틱 수(입력 ZOH). 3·H=3 이면 지평 0.45 s(sim/lifted.py fit_lifted)
                      ('mpc_cache_dir', os.path.expanduser('~/.cache/gtbot')),
                      ('actuation_delay', 0.16), ('state_source', 'odometry'),
                      # 1.0 = 평활 무효(통과). round 6에서 rel_vel이 platform_perception의
@@ -55,6 +57,7 @@ class KoopmanFormation(Node):
         self.warmup_steps, self.results_dir = int(p('warmup_steps')), p('results_dir')
         self.controller = p('controller')         # 'mpc'(기본: 불변성 보강 사전 Θ, H스텝) | 'analytic'(참 기울기 기준선) | 'model'(원논문 꼴 Θ 1-step)
         self.sc = make_scenario()
+        self.lam_qp = float(p('qp_lam')) or self.sc.input_reg; self.rho_qp = float(p('qp_rho'))
         # 식별용 시나리오 = 제어용에서 φ⁹만 뺀 것. φ⁹ = -nr²는 다른 φ(유계 0~2)와 달리
         # **무계**라 리프팅 z2에 들어가면 1-step 예측 RMSE를 악화시켜 S2(bilinear 리프팅 품질
         # 지표)를 직접 때린다(round 10 실측: φ⁹ 활성 후 실패율 30% -> 5회 중 3회). φ⁹은
@@ -196,7 +199,10 @@ class KoopmanFormation(Node):
         else:  # 'model' — bilinear Koopman 모델 Θ가 c를 낸다
             c, _ = input_objective(self.theta_c, Xd - self.z10c,
                                    z2_vector(Xd, self.sc_c) - self.z20c, self.sc_c.w_full, 6)
-        U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.sc.input_reg)
+        if self.rho_qp > 0 and np.isfinite(c).all():      # ΔU penalty 1-step: 1차 저역통과와 같다(수치: 코너 +8~15 % 느려짐, MPC 는 안 느려짐)
+            U, status = np.clip((c + self.rho_qp * self.u_prev) / (self.lam_qp + self.rho_qp), self.sc.u_min, self.sc.u_max), 'ok'
+        else:
+            U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.lam_qp)
         if status != 'ok':
             self.get_logger().warn(f'LP {status} @k={self.k}')
         return U

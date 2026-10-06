@@ -114,7 +114,7 @@ def generate_launch_description():
         DeclareLaunchArgument('controller', default_value='mpc'),
         DeclareLaunchArgument('mpc_rho', default_value='3.0'), DeclareLaunchArgument('mpc_sat', default_value='1.5'),
         DeclareLaunchArgument('mpc_horizon', default_value='2'), DeclareLaunchArgument('mpc_fit_seed', default_value='0'),
-        DeclareLaunchArgument('mpc_lam', default_value='0.0'), DeclareLaunchArgument('mpc_sub', default_value='1'),
+        DeclareLaunchArgument('mpc_lam', default_value='0.0'), DeclareLaunchArgument('mpc_sub', default_value='1'), DeclareLaunchArgument('qp_lam', default_value='0.0'), DeclareLaunchArgument('qp_rho', default_value='0.0'),
         DeclareLaunchArgument('lidar_yaw_bias', default_value='0.0'),
         DeclareLaunchArgument('det_dropout', default_value='0.0'),
         DeclareLaunchArgument('dropout_seed', default_value='0'),
@@ -151,5 +151,7 @@ def generate_launch_description():
                           'mpc_fit_seed': ParameterValue(LaunchConfiguration('mpc_fit_seed'), value_type=int),
                           'mpc_lam': ParameterValue(LaunchConfiguration('mpc_lam'), value_type=float),
                           'mpc_sub': ParameterValue(LaunchConfiguration('mpc_sub'), value_type=int),
+                          'qp_lam': ParameterValue(LaunchConfiguration('qp_lam'), value_type=float),
+                          'qp_rho': ParameterValue(LaunchConfiguration('qp_rho'), value_type=float),
                           'log_csv': f'{LOG_DIR}/koopman.csv'}]),
     ] + bridges + rpm_sims + drift_shims)
