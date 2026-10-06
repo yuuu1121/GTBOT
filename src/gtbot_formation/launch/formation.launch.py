@@ -108,6 +108,8 @@ def generate_launch_description():
         # 밀려나 state_est가 영구 invalid → k가 안 늘어 S2 전환이 오지 않는다(S6 실측 확인).
         # start_leader:=false로 기동해 S2 전환(제어 진입) 확인 후 leader_pilot을 별도 실행한다.
         DeclareLaunchArgument('start_leader', default_value='true'),
+        # koopman_formation 제어 팔: 'analytic'(참 그래디언트) | 'model'(bilinear Koopman 모델 Θ)
+        DeclareLaunchArgument('controller', default_value='analytic'),
         DeclareLaunchArgument('lidar_yaw_bias', default_value='0.0'),
         DeclareLaunchArgument('det_dropout', default_value='0.0'),
         DeclareLaunchArgument('dropout_seed', default_value='0'),
@@ -137,5 +139,6 @@ def generate_launch_description():
              # ~506에서 실속(실측, 12분 관찰). S2는 bilinear<linear 상대비교라 표본 수에
              # 강건 기대 — 결과(S2 판정)로 검증한다.
              parameters=[{'state_source': 'lidar', 'excite_div': 16.0, 'warmup_steps': 200,
+                          'controller': LaunchConfiguration('controller'),
                           'log_csv': f'{LOG_DIR}/koopman.csv'}]),
     ] + bridges + rpm_sims + drift_shims)

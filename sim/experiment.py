@@ -98,6 +98,55 @@ def analytic_c(X, sc, w_full, h=1e-4):
         c[l] = (w_full @ z2_vector(base_X + B[:, l] * h, sc) - base) / h
     return c
 
+def nominal_theta(sc, n=6000, sp=0.3, sv=0.15, lam=0.1, refits=1, seed=0):
+    """공칭 bilinear Θ: 동작점 둘레 표본에 대한 배치 정칙화 최소자승(원논문 식 3.36의 비반복형).
+
+    원논문 RLS는 Θ(k0)=Θ0를 '선택된 초기 추정'으로 둔다(식 3.37 아래). Θ0=0 + 워밍업 수백 표본은
+    미결정계라 제어 불가였다(sim-results '개선 식별 5라운드'). 여기서는 공칭 모델(효용함수 +
+    이중적분기)로 동작 영역을 직접 표본화해 Θ를 정한다.
+    - U는 ±쌍으로 넣는다: U-홀수 성분(= 제어가 읽는 결합 블록)이 상태 전용 잔차와 직교 분리된다.
+    - refits: Θ 제어 + 디더로 공칭 폐루프를 굴려 방문 상태에서 재적합(가우시안 표본은 장벽 안쪽
+      처럼 폐루프가 가지 않는 곳에 질량을 써서 평형 편향이 컸다: 정착 오차 0.40 -> 0.17 m).
+    - lam: 1e-6(종전 p0=100 상당)이면 미가진 방향이 풀려 평형 위치가 시드마다 크게 흔들린다.
+    원 사전(sc.grad_lift=False)의 한계(실측, 잡음 0.02·지연 0.15 s, 적합 시드 4개): 발산은 없으나
+    edge 오차 중앙 0.23~0.32 m·최대 0.24~0.39 m로 0.3 m 게이트를 넘고 시드에 민감하다(해석적
+    팔 0.155/0.176). sc.grad_lift=True면 0.149/0.192로 해석적 팔과 같아진다 — 이때는 refits=0.
+    """
+    from .control import input_objective, solve_input
+    rng = np.random.default_rng(seed)
+    A, B = ab_matrices(sc.n_robots, sc.dt)
+    z10, z20 = operating_point(sc)
+    n_in, n_pos = 2 * sc.n_robots, 2 * sc.n_robots
+
+    def sample(k, sp_, sv_):
+        return [z10 + np.concatenate([rng.normal(0, sp_, n_pos), rng.normal(0, sv_, n_pos)])
+                for _ in range(k)]
+
+    def fit(Xs):
+        Z, Y = [], []
+        for X in Xs:
+            U, z2 = rng.uniform(sc.u_min, sc.u_max, n_in), z2_vector(X, sc)
+            for s in (1.0, -1.0):
+                Z.append(_zeta(sc, "bilinear", X, z2, s * U, z10, z20))
+                Y.append(z2_vector(A @ X + B @ (s * U), sc))
+        Z, Y = np.array(Z), np.array(Y)
+        return np.linalg.solve(Z.T @ Z + lam * np.eye(Z.shape[1]), Z.T @ Y)
+
+    theta = fit(sample(n, sp, sv))
+    for _ in range(refits):
+        visited = []
+        for X in sample(30, 0.5, 0.05):
+            for _ in range(200):
+                c, _ = input_objective(theta, X - z10, z2_vector(X, sc) - z20, sc.w_full, n_in,
+                                       reduced=sc.reduced_lifting)
+                U, _ = solve_input(c, sc.u_min, sc.u_max, reg=sc.input_reg)
+                X = A @ X + B @ np.clip(U + rng.uniform(-0.1, 0.1, n_in), sc.u_min, sc.u_max)
+                if np.abs(X[:n_pos] - z10[:n_pos]).max() > 5.0:
+                    break
+                visited.append(X)
+        theta = fit(sample(n // 4, sp, sv) + visited)   # 광역 표본은 안정성 닻으로 유지
+    return theta
+
 @dataclass
 class Phase2Result:
     X_log: np.ndarray; U_log: np.ndarray

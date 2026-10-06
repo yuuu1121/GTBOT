@@ -11,12 +11,14 @@ from .relative_state import assemble, make_scenario
 from .simpath import ensure
 ensure()
 from sim.dynamics import ab_matrices
-from sim.experiment import make_rls, _zeta, operating_point, frozen_1step_eval, analytic_c
+from sim.experiment import (make_rls, _zeta, operating_point, frozen_1step_eval, analytic_c,
+                            nominal_theta)
 from sim.scenario import table1_input
 from sim.control import input_objective, solve_input
 from sim.utility import z2_vector
 
 ROBOTS = ['gtbot', 'gtbot2', 'gtbot3']
+MODEL_FIT_N = 1500    # model 팔 Θ0 적합 표본 수(±쌍이라 회귀 행은 2배)
 
 class KoopmanFormation(Node):
     def __init__(self):
@@ -57,6 +59,16 @@ class KoopmanFormation(Node):
         assert abs(1.0 / p('rate') - self.sc.dt) < 1e-9, 'rate와 Scenario.dt 불일치'  # analytic_c·지연 보상 dt 정합 봉인
         self.z10, self.z20 = operating_point(self.sc_id)
         self.rls = {m: make_rls(self.sc_id, m) for m in ('linear', 'bilinear')}
+        # model 팔의 제어용 bilinear 모델 — S2용 self.rls(Θ0=0, φ⁹ 제외)와 별개다.
+        # 제어 목적함수는 φ⁹(복원력)가 필요하므로 φ 전체를 쓰고, 사전에 효용 그래디언트를
+        # 덧붙인다(Scenario.grad_lift 주석). Θ0는 공칭 모델의 배치 적합이다(nominal_theta 주석).
+        # Θ0=0 + 워밍업 표본으로는 발산했다(S3 기록). Θ는 제어 중 **동결**이다 — 제어 중 RLS
+        # 갱신은 공칭 플랜트에서도 발산했다(지연 정렬·배치 사전분포를 줘도 6/6).
+        if self.controller == 'model':
+            self.sc_c = replace(self.sc, grad_lift=True)
+            self.theta_c = nominal_theta(self.sc_c, n=MODEL_FIT_N, refits=0)
+            self.z10c, self.z20c = operating_point(self.sc_c)
+            self.get_logger().info(f'model 팔: 공칭 bilinear Θ 적합 완료 (dim {self.theta_c.shape[0]})')
         # 지연 보상: 실측 작동기 지연 τ(U→실가속 교차상관 0.16 s)만큼 X를 미리 전파해
         # analytic_c에 넘긴다. 보상 없으면 τ=0.15 s에서 릴레이 한계 사이클이 터진다(round4 대조실험).
         self.tau = float(p('actuation_delay'))
@@ -217,7 +229,7 @@ class KoopmanFormation(Node):
         # 660 s 임무면 13,200틱이 통째로 죽은 계산이었고, 그 부하가 렌더 경로를 굶겨
         # LiDAR 발행률을 5 Hz -> 1 Hz로 끌어내렸다(A1/A2 대조). S2는 워밍업 산출물이라
         # 영향받지 않는다.
-        needs_theta = self.phase == 'warmup' or self.controller == 'model'
+        needs_theta = self.phase == 'warmup'      # model 팔은 self.rls가 아니라 self.theta_c를 읽는다
         if self.prev is not None and needs_theta:   # 전이 (ζ(k-1) → z2(k))로 RLS 갱신
             Xp, z2p, Up = self.prev
             for m in ('linear', 'bilinear'):
@@ -231,14 +243,15 @@ class KoopmanFormation(Node):
                 self.finish_warmup()
         elif self.controller == 'analytic':
             # 참 그래디언트 해석적 팔(식별 Θ 불요) — E1~E4 시뮬레이션 캠페인에서 검증된 경로.
-            # 식별 Θ 기반(model) LP는 워밍업-목표 간 외삽으로 발산(S3 model 기록 참조), 기각.
+            # Θ0=0 + 워밍업 표본의 model 팔은 외삽으로 발산했다(S3 model 기록) — 현 model 팔은 공칭 Θ0.
             c = analytic_c(self.Ad @ X + self.Bd @ self.u_prev, self.sc, self.sc.w_full)
             U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.sc.input_reg)
             if status != 'ok':
                 self.get_logger().warn(f'LP {status} @k={self.k}')
-        else:  # 'model' — 식별 Θ 기반 LP (실험/비교용, S3 기각 경로)
-            c, _ = input_objective(self.rls['bilinear'].theta, X - self.z10, z2 - self.z20,
-                                   self.sc_id.w_full, 6, reduced=self.sc_id.reduced_lifting)
+        else:  # 'model' — bilinear Koopman 모델 Θ가 c를 낸다 (지연 보상은 analytic 팔과 동일)
+            Xd = self.Ad @ X + self.Bd @ self.u_prev
+            c, _ = input_objective(self.theta_c, Xd - self.z10c,
+                                   z2_vector(Xd, self.sc_c) - self.z20c, self.sc_c.w_full, 6)
             U, status = solve_input(c, self.sc.u_min, self.sc.u_max, reg=self.sc.input_reg)
             if status != 'ok':
                 self.get_logger().warn(f'LP {status} @k={self.k}')

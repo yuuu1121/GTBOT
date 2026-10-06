@@ -71,13 +71,21 @@ class Scenario:
     # φ¹·φ²는 둘 다 '이동 중'을 위한 항이므로 v_des와 **같은 시그모이드**(중심 v_des_r0)로
     # 함께 꺼서, 스테이션 근방을 φ⁹(위치 복원)+φ²(속도 감쇠)의 PD 영역으로 넘긴다.
     phi1_transit_gate: bool = False
+    # 리프팅 사전에 효용 그래디언트 ψ=∇_X(w·φ) (4N개, 가중 0)를 덧붙인다 — False = 기존과 비트 동일.
+    # 원 사전(z2=φ)의 bilinear 모델은 입력 계수 c가 (z1d, z2d)에 아핀이라, 게이트·장벽으로
+    # 상태에 따라 바뀌는 그래디언트를 담지 못한다(실측: 감쇠 dc/dv 고유값 -0.2~-0.7, 참값
+    # -2.4~-6.0; 위치 강성에 불안정 고유값 +3.4 -> 정지하지 못하고 떠돈다). ψ가 사전에 있으면
+    # 다음 스텝 효용의 U-응답이 ψ⊗U에 선형이 되어 Θ가 배울 것은 입력 이득뿐이다.
+    grad_lift: bool = False
 
     @property
     def n_phi(self): return len(self.phi_terms)
     @property
-    def m(self): return self.n_phi * self.n_robots
+    def m(self): return (self.n_phi + (4 if self.grad_lift else 0)) * self.n_robots
     @property
-    def w_full(self): return np.tile(self.w_robot, self.n_robots)
+    def w_full(self):
+        w = np.tile(self.w_robot, self.n_robots)
+        return np.concatenate([w, np.zeros(4 * self.n_robots)]) if self.grad_lift else w
     def phase1_init_state(self):
         X = np.zeros(4 * self.n_robots)
         X[:2 * self.n_robots] = np.array(PHASE1_INIT_POS).ravel()

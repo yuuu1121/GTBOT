@@ -224,3 +224,24 @@ def test_bootstrap_silences_until_sustained_validity():
     KoopmanFormation.tick(s)
     assert all(pb.sent == [] for pb in s.pubs)
     assert s.prev is None and s.boot_done is False
+
+
+def test_model_arm_holds_formation_on_nominal_plant():
+    """model 팔(bilinear Koopman 모델 Θ가 c를 낸다)이 이상적 이중적분기에서 편대를 붙들고 정지한다.
+
+    Θ0=0 + 워밍업 표본의 구 model 팔은 같은 조건에서 발산했고, 그래디언트 없는 원 사전은
+    발산은 않되 정지하지 못했다(|v| 0.03~0.07 m/s로 배회) — 둘 다의 회귀 가드."""
+    from dataclasses import replace
+    from sim.control import input_objective, solve_input
+    from sim.experiment import nominal_theta
+    sc = replace(make_scenario(), grad_lift=True)
+    A, B = ab_matrices(sc.n_robots, sc.dt)
+    z10, z20 = operating_point(sc)
+    theta = nominal_theta(sc, n=1500, refits=0)
+    X = z10 + np.concatenate([np.random.default_rng(0).normal(0, 0.3, 6), np.zeros(6)])
+    for _ in range(800):
+        c, _ = input_objective(theta, X - z10, z2_vector(X, sc) - z20, sc.w_full, 6)
+        U, _ = solve_input(c, sc.u_min, sc.u_max, reg=sc.input_reg)
+        X = A @ X + B @ U
+    err = np.linalg.norm(X[:6].reshape(3, 2) - sc.targets, axis=1).max()
+    assert err < 0.15 and np.abs(X[6:]).max() < 0.02      # 해석적 팔 정착점 0.08 m 근방, 정지 수렴

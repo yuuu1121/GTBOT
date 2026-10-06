@@ -49,8 +49,14 @@ def phi_robot(X, i, sc):
                       for (a, b), d in sc.formation.items() if i in (a, b))
     return np.array([vals[j] for j in sc.phi_terms])
 
-def z2_vector(X, sc):
-    return np.concatenate([phi_robot(X, i, sc) for i in range(sc.n_robots)])
+def z2_vector(X, sc, h=1e-5):
+    z2 = np.concatenate([phi_robot(X, i, sc) for i in range(sc.n_robots)])
+    if not sc.grad_lift:
+        return z2
+    w = np.tile(sc.w_robot, sc.n_robots)
+    J = lambda Y: w @ np.concatenate([phi_robot(Y, i, sc) for i in range(sc.n_robots)])
+    E = h * np.eye(len(X))
+    return np.concatenate([z2, [(J(X + e) - J(X - e)) / (2 * h) for e in E]])
 
 def surface_distances(X, sc):
     pos, _ = _pos_vel(X, sc.n_robots)
