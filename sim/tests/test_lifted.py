@@ -50,11 +50,13 @@ def test_mpc_gradient_matches_finite_difference():
 
 
 def test_koopman_mpc_settles_on_nominal_plant():
-    """사전·식별·MPC 전체: 이상 이중적분기에서 H=3 MPC 가 편대를 붙들고 정지한다(적합 ~10 s)."""
+    """사전·식별·MPC 전체: 이상 이중적분기에서 H=3 MPC 가 초기 오차 0.3 m 와 1.0 m(식별 영역 밖, 포화 좌표가
+    받는다) 둘 다에서 편대를 붙들고 정지한다(적합 ~10 s)."""
     M = build_mpc_model(SC); A, B = ab_matrices(3, SC.dt); z10, _ = operating_point(SC)
-    X = z10 + np.concatenate([np.random.default_rng(0).normal(0, 0.3, 6), np.zeros(6)]); plan = np.zeros((3, 6))
-    for _ in range(600):
-        plan = M.mpc(M.D.lift(X), 3, np.vstack([plan[1:], plan[-1:]]), SC.input_reg, SC.u_min, SC.u_max)
-        X = A @ X + B @ plan[0]
-    err = np.linalg.norm(X[:6].reshape(3, 2) - SC.targets, axis=1).max()
-    assert err < 0.1 and np.abs(X[6:]).max() < 0.02
+    for init in (0.3, 1.0):
+        X = z10 + np.concatenate([np.random.default_rng(0).normal(0, init, 6), np.zeros(6)]); plan = np.zeros((3, 6)); u_prev = np.zeros(6)
+        for _ in range(800):
+            plan = M.mpc(M.D.lift(X), 3, np.vstack([plan[1:], plan[-1:]]), SC.input_reg, SC.u_min, SC.u_max, rho=3.0, u_prev=u_prev)
+            u_prev = plan[0]; X = A @ X + B @ u_prev
+        err = np.linalg.norm(X[:6].reshape(3, 2) - SC.targets, axis=1).max()
+        assert err < 0.1 and np.abs(X[6:]).max() < 0.02, (init, err)

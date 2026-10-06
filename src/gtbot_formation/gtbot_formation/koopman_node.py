@@ -13,7 +13,7 @@ ensure()
 from sim.dynamics import ab_matrices
 from sim.experiment import (make_rls, _zeta, operating_point, frozen_1step_eval, analytic_c,
                             nominal_theta, model_scenario, MODEL_ARM_FIT)
-from sim.lifted import build_mpc_model, in_trust_region, MPC_RHO
+from sim.lifted import build_mpc_model, MPC_RHO
 from sim.scenario import table1_input
 from sim.control import input_objective, solve_input
 from sim.utility import z2_vector
@@ -72,9 +72,9 @@ class KoopmanFormation(Node):
             self.theta_c = nominal_theta(self.sc_c, **MODEL_ARM_FIT)
             self.z10c, self.z20c = operating_point(self.sc_c)
             self.get_logger().info(f'model 팔: 공칭 bilinear Θ 적합 완료 (dim {self.theta_c.shape[0]})')
-        # mpc 팔: 사전 [1; poly3; φ; φ⊗poly2](sim/lifted 주석)로 다스텝 예측이 서는 Θ를 공칭 플랜트에서
-        # 적합하고(약 10 s), H스텝 효용을 수반 역전파 MPC로 최대화한다. 수치 시뮬에서 코너 과도응답
-        # −15~18 %(analytic 0.138 → 0.11~0.12 m), 정상은 동급. 틱당 12~20 ms(20 Hz 예산 50 ms).
+        # mpc 팔: 사전 [1; poly3(포화 좌표); φ; φ⊗poly2](sim/lifted 주석)로 다스텝 예측이 서는 Θ를 공칭
+        # 플랜트에서 적합하고(약 10 s), H스텝 효용을 수반 역전파 MPC(입력 변화 패널티 ρ)로 최대화한다.
+        # Stonefish 4×4 사각: edge 중앙 0.151 vs analytic 0.168 m. 틱당 12~27 ms(20 Hz 예산 50 ms).
         if self.controller == 'mpc':
             self.H = int(p('mpc_horizon'))
             self.lifted = build_mpc_model(self.sc)
@@ -87,7 +87,6 @@ class KoopmanFormation(Node):
         self.u_prev = np.zeros(2 * len(ROBOTS))   # 지연 구간에 이미 발행돼 반영 중인 입력
         self.k = 0
         self.phase = 'warmup'
-        self.arm_prev = self.controller
         # plate 부트스트랩 상태기계(2026-08-09, 사용자 승인 3안): lidar 모드에서 전 로봇의
         # est가 **연속 3 s 유효**할 때까지 koopman은 완전 침묵한다. 간헐 깜빡임이 워밍업
         # 가진을 버스트로 깨워 로봇을 흔들고, 그 흔들림이 다시 검출을 깨는 3-체제 스위칭
@@ -166,13 +165,6 @@ class KoopmanFormation(Node):
         """제어 단계의 U. 세 팔 공통으로 지연 보상 상태 Xd 를 쓴다."""
         Xd = self.Ad @ X + self.Bd @ self.u_prev
         arm = self.controller
-        if arm == 'mpc' and not in_trust_region(Xd, self.sc):
-            # 식별 영역(±0.45 m, 0.3 m/s) 밖에서는 리프팅 모델을 믿지 않고 analytic 으로 내려간다 —
-            # 1차 런(mpc_sq4)은 워밍업 끝 오차 0.8 m 에서 3차 사전이 외삽을 틀려 10 s 만에 포화 발산했다.
-            arm = 'analytic'
-        if arm != self.arm_prev:
-            self.get_logger().info(f'제어 팔 {self.arm_prev} -> {arm} @k={self.k}')
-            self.arm_prev = arm
         if arm == 'analytic':
             # 참 그래디언트 해석적 팔(식별 Θ 불요) — E1~E4 시뮬레이션 캠페인에서 검증된 경로.
             # Θ0=0 + 워밍업 표본의 model 팔은 외삽으로 발산했다(S3 model 기록) — 현 model 팔은 공칭 Θ0.

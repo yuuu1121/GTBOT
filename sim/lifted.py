@@ -20,6 +20,10 @@ from .experiment import analytic_c, operating_point
 from .control import solve_input
 
 POS_SCALE, VEL_SCALE = 0.3, 0.15      # 단항식 입력 정규화(동작 영역 폭) — 고차항 조건수 보호
+SAT = 1.5                              # 단항식 좌표 포화 x̃ = SAT·tanh(x/SAT): 자리 오차 ~0.45 m·속도 ~0.22 m/s 밖에서 특징이
+                                       # 유계가 돼 3차 사전의 외삽 폭주를 막는다. 안쪽(|x|<1)은 x̃≈x. 이걸로 초기 오차 1.0 m 에서도
+                                       # 수렴(0.086 m, analytic 0.096)해 신뢰 영역 폴백을 없앴다. 위치 RBF 5×5 사전(dim 856)은 예측은
+                                       # 더 좋았으나(h=5 RMS 0.40 vs 0.68) 틱당 116 ms 라 20 Hz 에 못 들어가 쓰지 않았다.
 
 
 class PolyPhiDict:
@@ -34,7 +38,7 @@ class PolyPhiDict:
 
     def lift(self, X):
         N = self.sc.n_robots; pos, vel = X[:2 * N].reshape(N, 2), X[2 * N:].reshape(N, 2)
-        xs = [np.concatenate([(pos[r] - self.sc.targets[r]) / POS_SCALE, vel[r] / VEL_SCALE]) for r in range(N)]
+        xs = [SAT * np.tanh(np.concatenate([(pos[r] - self.sc.targets[r]) / POS_SCALE, vel[r] / VEL_SCALE]) / SAT) for r in range(N)]
         f = [np.ones(1)] + [np.prod(x[None, :] ** self.E, axis=1) for x in xs]
         phi = z2_vector(X, self.sc); f.append(phi)
         for r in range(N):
@@ -93,18 +97,17 @@ class LiftedModel:
 MPC_RHO = 3.0                          # 입력 변화 패널티(위 mpc 주석)
 
 
-def identification_data(sc, n_traj=4, n_ticks=500, noise=0.05, init=0.3, n_gauss=1500, sp=0.15, sv=0.08,
+def identification_data(sc, inits=(0.3,) * 4 + (0.8,) * 6, n_ticks=500, noise=0.05, n_gauss=1500, sp=0.15, sv=0.08,
                         delay=0.16, seed=0):
     """식별용 상태 표본: 공칭 플랜트에서 analytic 제어 폐루프(잡음 0.05로 흔듦, 리더 정지)를 n_traj번 굴린
     방문 상태 + 동작점 둘레 좁은 가우시안. 가우시안만 쓰면 장벽 안쪽 등 폐루프가 가지 않는 곳에 질량을 써서
-    적합이 망가진다(nominal_theta 주석과 같은 교훈). 영역은 자리 둘레 ±0.3 m 로 좁다 — 3차 사전은 데이터 밖에서
-    외삽이 틀려 초기 오차 1.0 m 에서 발산했고(init 0.8 궤적을 섞어도 0.7 m 에서 발산), Stonefish 는 워밍업 가진
-    끝에 오차가 0.6~0.8 m 라 첫 10 s 에 포화 발산했다(2026-10-06 mpc_sq4 1차 런). 그래서 제어기는 영역 밖에서
-    analytic 으로 내려간다(in_trust_region)."""
+    적합이 망가진다(nominal_theta 주석과 같은 교훈). inits: 궤적 초기 흩뿌림 — 0.3 m 4개 + 0.8 m 6개. 0.8 m 궤적은
+    Stonefish 워밍업 끝 오차(0.6~0.8 m)를 덮기 위해서다; 포화 좌표(SAT) 없이 넓은 데이터만 넣으면 오히려 0.7 m 에서
+    발산했고, 포화 좌표와 함께 넣어야 0.3/0.7/1.0 m 모두 수렴한다."""
     rng = np.random.default_rng(seed); N = sc.n_robots
     A, B = ab_matrices(N, sc.dt); AD, BD = ab_matrices(N, delay); z10, _ = operating_point(sc)
     data = []
-    for _ in range(n_traj):
+    for init in inits:
         X = z10 + np.concatenate([rng.normal(0, init, 2 * N), np.zeros(2 * N)])
         q = [np.zeros(2 * N)] * 3; u_prev = np.zeros(2 * N)
         for _ in range(n_ticks):
@@ -126,15 +129,6 @@ def fit_lifted(sc, D, data, lam=1e-3, seed=0):
     Z, Y = np.array(Z), np.array(Y)
     theta = np.linalg.solve(Z.T @ Z + lam * np.eye(Z.shape[1]), Z.T @ Y)
     return LiftedModel(D, theta)
-
-
-TRUST_POS, TRUST_VEL = 0.45, 0.30     # 식별 데이터가 덮는 영역(자리 오차·속도) — 밖이면 리프팅 모델을 믿지 않는다
-
-
-def in_trust_region(X, sc):
-    """ponytail: 영역 밖은 analytic 1-step 으로 폴백(두 제어기 전환). 전 영역을 한 모델로 덮으려면 RBF 등 국소 기저가 필요."""
-    N = sc.n_robots; dp = X[:2 * N].reshape(N, 2) - np.asarray(sc.targets); v = X[2 * N:].reshape(N, 2)
-    return bool(np.linalg.norm(dp, axis=1).max() <= TRUST_POS and np.linalg.norm(v, axis=1).max() <= TRUST_VEL)
 
 
 def build_mpc_model(sc, deg=3, phi_deg=2, seed=0):

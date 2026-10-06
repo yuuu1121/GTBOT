@@ -15,6 +15,6 @@
 | `pre_real_matching_20260817/` | 실기 매칭 전 기준 |
 | `real_lidar_data/` | 실기 LiDAR 백(rosbag) |
 | `video/` | 영상(git 비추적) |
-| `2026-10-06/` | model·mpc 팔 검증 런(ψ 확장·논문 형태·Koopman MPC·analytic 대조, 4×4 사각 + 리더 정지) — 영상 8편, 런 csv 8개, 수치 MPC 비교 영상 |
+| `2026-10-06/` | model·mpc 팔 검증 런(ψ 확장·논문 형태·Koopman MPC·analytic 대조, 4×4 사각 + 리더 정지) — 영상 8편, 런 csv 9개, 수치 MPC 비교 영상 |
 
 새 결과는 `results/<YYYY-MM-DD>_<주제>/` + README 한 줄로 추가한다.
