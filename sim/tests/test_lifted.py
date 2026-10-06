@@ -2,7 +2,9 @@ import sys, os
 import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'src', 'gtbot_formation'))
 from gtbot_formation.relative_state import make_scenario
-from sim.lifted import PolyPhiDict, LiftedModel, zeta, fit_lifted, identification_data, build_mpc_model
+from sim.lifted import PolyPhiDict, LiftedModel, zeta, fit_lifted, identification_data, build_mpc_model, in_trust_region
+from sim.experiment import analytic_c
+from sim.control import solve_input
 from sim.dynamics import ab_matrices
 from sim.experiment import operating_point
 from sim.utility import z2_vector
@@ -50,13 +52,16 @@ def test_mpc_gradient_matches_finite_difference():
 
 
 def test_koopman_mpc_settles_on_nominal_plant():
-    """사전·식별·MPC 전체: 이상 이중적분기에서 H=3 MPC 가 초기 오차 0.3 m 와 1.0 m(식별 영역 밖, 포화 좌표가
-    받는다) 둘 다에서 편대를 붙들고 정지한다(적합 ~10 s)."""
+    """사전·식별·MPC 전체(노드 control() 과 같은 구조: 신뢰 영역 밖은 analytic): 이상 이중적분기에서 초기 오차
+    0.3 m 와 1.0 m(초기 시드 3 = 장벽 안쪽 출발) 둘 다 편대를 붙들고 정지한다(적합 ~10 s)."""
     M = build_mpc_model(SC); A, B = ab_matrices(3, SC.dt); z10, _ = operating_point(SC)
-    for init in (0.3, 1.0):
-        X = z10 + np.concatenate([np.random.default_rng(0).normal(0, init, 6), np.zeros(6)]); plan = np.zeros((3, 6)); u_prev = np.zeros(6)
+    for init, seed in ((0.3, 0), (1.0, 3)):
+        X = z10 + np.concatenate([np.random.default_rng(seed).normal(0, init, 6), np.zeros(6)]); plan = np.zeros((3, 6)); u_prev = np.zeros(6)
         for _ in range(800):
-            plan = M.mpc(M.D.lift(X), 3, np.vstack([plan[1:], plan[-1:]]), SC.input_reg, SC.u_min, SC.u_max, rho=3.0, u_prev=u_prev)
+            if in_trust_region(X, SC):
+                plan = M.mpc(M.D.lift(X), 3, np.vstack([plan[1:], plan[-1:]]), SC.input_reg, SC.u_min, SC.u_max, rho=3.0, u_prev=u_prev)
+            else:
+                plan[:] = solve_input(analytic_c(X, SC, SC.w_full), SC.u_min, SC.u_max, reg=SC.input_reg)[0]
             u_prev = plan[0]; X = A @ X + B @ u_prev
         err = np.linalg.norm(X[:6].reshape(3, 2) - SC.targets, axis=1).max()
         assert err < 0.1 and np.abs(X[6:]).max() < 0.02, (init, err)

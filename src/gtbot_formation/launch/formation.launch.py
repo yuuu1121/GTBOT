@@ -4,6 +4,7 @@ from launch.actions import (DeclareLaunchArgument, IncludeLaunchDescription,
                             SetEnvironmentVariable)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
+from launch_ros.parameter_descriptions import ParameterValue
 from launch.conditions import IfCondition
 from launch.substitutions import (LaunchConfiguration, PathJoinSubstitution,
                                   PythonExpression)
@@ -108,8 +109,11 @@ def generate_launch_description():
         # 밀려나 state_est가 영구 invalid → k가 안 늘어 S2 전환이 오지 않는다(S6 실측 확인).
         # start_leader:=false로 기동해 S2 전환(제어 진입) 확인 후 leader_pilot을 별도 실행한다.
         DeclareLaunchArgument('start_leader', default_value='true'),
-        # koopman_formation 제어 팔: 'analytic'(참 그래디언트) | 'model'(bilinear Koopman 모델 Θ)
-        DeclareLaunchArgument('controller', default_value='mpc'),   # 기본 = Koopman MPC(2026-10-06), analytic·model 은 비교군
+        # koopman_formation 제어 팔: 'mpc'(기본, 불변성 보강 사전 Θ + H스텝 MPC) | 'analytic'(참 그래디언트) |
+        # 'model'(원논문 꼴 bilinear Θ 1-step). mpc 노브는 koopman_node 파라미터 기본값 참조.
+        DeclareLaunchArgument('controller', default_value='mpc'),
+        DeclareLaunchArgument('mpc_rho', default_value='3.0'), DeclareLaunchArgument('mpc_sat', default_value='1.5'),
+        DeclareLaunchArgument('mpc_horizon', default_value='3'), DeclareLaunchArgument('mpc_fit_seed', default_value='0'),
         DeclareLaunchArgument('lidar_yaw_bias', default_value='0.0'),
         DeclareLaunchArgument('det_dropout', default_value='0.0'),
         DeclareLaunchArgument('dropout_seed', default_value='0'),
@@ -140,5 +144,9 @@ def generate_launch_description():
              # 강건 기대 — 결과(S2 판정)로 검증한다.
              parameters=[{'state_source': 'lidar', 'excite_div': 16.0, 'warmup_steps': 200,
                           'controller': LaunchConfiguration('controller'),
+                          'mpc_rho': ParameterValue(LaunchConfiguration('mpc_rho'), value_type=float),
+                          'mpc_sat': ParameterValue(LaunchConfiguration('mpc_sat'), value_type=float),
+                          'mpc_horizon': ParameterValue(LaunchConfiguration('mpc_horizon'), value_type=int),
+                          'mpc_fit_seed': ParameterValue(LaunchConfiguration('mpc_fit_seed'), value_type=int),
                           'log_csv': f'{LOG_DIR}/koopman.csv'}]),
     ] + bridges + rpm_sims + drift_shims)

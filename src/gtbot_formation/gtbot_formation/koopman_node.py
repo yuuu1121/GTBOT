@@ -13,7 +13,7 @@ ensure()
 from sim.dynamics import ab_matrices
 from sim.experiment import (make_rls, _zeta, operating_point, frozen_1step_eval, analytic_c,
                             nominal_theta, model_scenario, MODEL_ARM_FIT)
-from sim.lifted import build_mpc_model, MPC_RHO
+from sim.lifted import build_mpc_model, in_trust_region
 from sim.scenario import table1_input
 from sim.control import input_objective, solve_input
 from sim.utility import z2_vector
@@ -25,7 +25,11 @@ class KoopmanFormation(Node):
         super().__init__('koopman_formation')
         # rate는 make_scenario의 dt와 짝(1/rate == sc.dt) — analytic_c의 A,B가 dt 기반.
         for n, d in [('warmup_steps', 600), ('rate', 20.0), ('results_dir', 'results'),
-                     ('controller', 'mpc'), ('log_csv', ''), ('mpc_horizon', 3),
+                     ('controller', 'mpc'), ('log_csv', ''),
+                     # mpc 팔 노브(sim/lifted 주석): 지평 H, 입력 변화 패널티 ρ(포화율↔코너 이득), 사전 포화 좌표 s,
+                     # 식별 시드, Θ 캐시 폴더(''=캐시 끔). 2026-10-06 Stonefish 4×4 사각 값이 기본.
+                     ('mpc_horizon', 3), ('mpc_rho', 3.0), ('mpc_sat', 1.5), ('mpc_fit_seed', 0),
+                     ('mpc_cache_dir', os.path.expanduser('~/.cache/gtbot')),
                      ('actuation_delay', 0.16), ('state_source', 'odometry'),
                      # 1.0 = 평활 무효(통과). round 6에서 rel_vel이 platform_perception의
                      # 트랙 KF 출력으로 바뀌어 여기서 또 EMA를 걸면 지연만 더한다.
@@ -76,9 +80,10 @@ class KoopmanFormation(Node):
         # 플랜트에서 적합하고(약 10 s), H스텝 효용을 수반 역전파 MPC(입력 변화 패널티 ρ)로 최대화한다.
         # Stonefish 4×4 사각: edge 중앙 0.151 vs analytic 0.168 m. 틱당 12~27 ms(20 Hz 예산 50 ms).
         if self.controller == 'mpc':
-            self.H = int(p('mpc_horizon'))
-            self.lifted = build_mpc_model(self.sc)
-            self.plan = np.zeros((self.H, 2 * len(ROBOTS)))
+            self.H, self.rho = int(p('mpc_horizon')), float(p('mpc_rho'))
+            self.lifted = build_mpc_model(self.sc, seed=int(p('mpc_fit_seed')), sat=float(p('mpc_sat')),
+                                          cache_dir=p('mpc_cache_dir') or None)
+            self.plan = np.zeros((self.H, 2 * len(ROBOTS))); self.n_fallback = 0
             self.get_logger().info(f'mpc 팔: 리프팅 모델 적합 완료 (dim {self.lifted.n}, H={self.H})')
         # 지연 보상: 실측 작동기 지연 τ(U→실가속 교차상관 0.16 s)만큼 X를 미리 전파해
         # analytic_c에 넘긴다. 보상 없으면 τ=0.15 s에서 릴레이 한계 사이클이 터진다(round4 대조실험).
@@ -165,13 +170,19 @@ class KoopmanFormation(Node):
         """제어 단계의 U. 세 팔 공통으로 지연 보상 상태 Xd 를 쓴다."""
         Xd = self.Ad @ X + self.Bd @ self.u_prev
         arm = self.controller
+        if arm == 'mpc' and not in_trust_region(Xd, self.sc):
+            # 식별 영역(자리 0.45 m·속도 0.3 m/s) 밖은 analytic — 포화 좌표로 밖까지 덮으려 했으나 초기조건 시드
+            # 1~5 에서 전부 발산해 되돌렸다(sim/lifted identification_data 주석). 사각 주행 중에는 발동 0.
+            arm = 'analytic'; self.n_fallback += 1
+        if self.controller == 'mpc' and self.k % 1200 == 0:
+            self.get_logger().info(f'mpc 폴백 누적 {self.n_fallback}/{self.k} 틱')
         if arm == 'analytic':
             # 참 그래디언트 해석적 팔(식별 Θ 불요) — E1~E4 시뮬레이션 캠페인에서 검증된 경로.
             # Θ0=0 + 워밍업 표본의 model 팔은 외삽으로 발산했다(S3 model 기록) — 현 model 팔은 공칭 Θ0.
             c = analytic_c(Xd, self.sc, self.sc.w_full)
         elif arm == 'mpc':  # 리프팅 모델로 H스텝 효용 최대화, 첫 입력만 발행(워밍스타트 = 이전 계획 한 칸 밀기)
             self.plan = self.lifted.mpc(self.lifted.D.lift(Xd), self.H, np.vstack([self.plan[1:], self.plan[-1:]]),
-                                        self.sc.input_reg, self.sc.u_min, self.sc.u_max, rho=MPC_RHO, u_prev=self.u_prev)
+                                        self.sc.input_reg, self.sc.u_min, self.sc.u_max, rho=self.rho, u_prev=self.u_prev)
             U = self.plan[0]
             if not np.isfinite(U).all():
                 U = np.zeros_like(U); self.plan[:] = 0.0; self.get_logger().warn(f'MPC nan_guard @k={self.k}')
@@ -263,7 +274,10 @@ class KoopmanFormation(Node):
         # 660 s 임무면 13,200틱이 통째로 죽은 계산이었고, 그 부하가 렌더 경로를 굶겨
         # LiDAR 발행률을 5 Hz -> 1 Hz로 끌어내렸다(A1/A2 대조). S2는 워밍업 산출물이라
         # 영향받지 않는다.
-        needs_theta = self.phase == 'warmup'      # model 팔은 self.rls가 아니라 self.theta_c를 읽는다
+        # 2026-10-06 정리: model 팔(theta_c)·mpc 팔(lifted)은 self.rls 를 읽지 않는다. 워밍업 RLS 는 S2 게이트
+        # (bilinear < linear 잔차, 식별 가능성 확인)와 run 스크립트의 '제어 진입' 신호("S2: {" 로그)로만 남긴다 —
+        # 워밍업 200틱 동안만 돌아 비용이 없고, 절차를 바꾸면 결과 재현 스크립트가 깨진다.
+        needs_theta = self.phase == 'warmup'
         if self.prev is not None and needs_theta:   # 전이 (ζ(k-1) → z2(k))로 RLS 갱신
             Xp, z2p, Up = self.prev
             for m in ('linear', 'bilinear'):
