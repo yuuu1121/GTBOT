@@ -94,7 +94,7 @@ $$
 
 세 줄이다. 윗줄은 월드 좌표 top view(회색 사각 = 지령 경로, 주황 = 리더 자취, 세 점 = 팔로워), 가운데는 리더를 원점에 고정한 상대좌표(× = 목표 자리, 선 = 편대 변, 붉을수록 오차 큼), 아랫줄은 최대 변 오차 시계열. 10배속, t = 0은 제어 진입.
 
-- **Koopman MPC v2 (기본)** — 제안 방법. 삼각형이 목표 자리에 가장 가깝게 붙어 돌고 코너에서 변이 거의 안 늘어난다(정착 후 최대 변 오차 중앙 0.13 / p90 0.17 m). 입력은 analytic의 1.5배(|U| 0.05), 포화 5 %.
+- **Koopman MPC (기본, SQP + re-proj H=5)** — 제안 방법. 삼각형이 목표 자리에 가장 가깝게 붙어 돌고 코너에서 변이 거의 안 늘어난다(정착 후 최대 변 오차 중앙 0.13 / p90 0.19 m; analytic 0.24 / 0.31, 논문 꼴 0.32 / 0.40). 입력은 analytic의 1.5배(|U| 0.05), 포화 2 %.
 - **analytic gradient 1-step** — 기준선. 안정적이지만 코너마다 변이 늘어났다 돌아오는 과도응답이 크다. Koopman이 아니다.
 - **Koopman 1-step (원논문 꼴)** — 원논문 재현. 변이 가장 크게 출렁이고 로봇 하나가 자리에서 자주 밀려난다. 1차식 모델의 한계가 그대로 보인다.
 
@@ -172,7 +172,7 @@ H=5가 중앙·p90 −5 %인데 리더는 10 % 더 빨랐다. 느린 리더(≈1
 ### 선행 연구와의 자리
 
 - Korda & Mezić 2018 (Automatica): Koopman MPC의 원전 — "Koopman MPC를 만들었다"는 기여가 못 된다
-- Folkestad & Burdick 2021 (ICRA, Koopman NMPC): 같은 bilinear 모델, SQP 1회/틱으로 horizon 0.5 s(27차원, 13 ms). 우리는 508차원·H=2
+- Folkestad & Burdick 2021 (ICRA, Koopman NMPC): 같은 bilinear 모델, SQP 1회/틱으로 horizon 0.5 s(27차원, 13 ms). 우리는 508차원·H=5(0.25 s, 13 ms)
 - Higuchi & Sato 2026: lifted 예측이 manifold를 벗어나 다스텝 오차가 쌓인다 → 매 스텝 원 상태로 사영·재lifting. 우리 dictionary는 X를 포함해 적용 가능 — h=1 J 오차 −36 %, h≤4 개선(그 너머는 상태 예측 오차가 뾰족한 utility로 증폭)
 - 우리 기여: (1) utility-observable 틀의 편대 확장과 그 1-step의 한계 규명, (2) 그 틀에서 다스텝 예측이 서는 dictionary(10스텝 오차 10.0 → 1.19), (3) 이득·매끈함을 맞춘 공정 비교 — Koopman MPC 논문 대부분이 이 ablation을 안 한다
 
