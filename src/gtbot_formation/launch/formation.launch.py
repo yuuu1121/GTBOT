@@ -113,8 +113,8 @@ def generate_launch_description():
         # 'model'(원논문 꼴 bilinear Θ 1-step). mpc 노브는 koopman_node 파라미터 기본값 참조.
         DeclareLaunchArgument('controller', default_value='mpc'),
         DeclareLaunchArgument('mpc_rho', default_value='3.0'), DeclareLaunchArgument('mpc_sat', default_value='1.5'),
-        DeclareLaunchArgument('mpc_horizon', default_value='2'), DeclareLaunchArgument('mpc_fit_seed', default_value='0'),
-        DeclareLaunchArgument('mpc_lam', default_value='0.0'), DeclareLaunchArgument('mpc_sub', default_value='1'), DeclareLaunchArgument('qp_lam', default_value='0.0'), DeclareLaunchArgument('qp_rho', default_value='0.0'),
+        DeclareLaunchArgument('mpc_horizon', default_value='5'), DeclareLaunchArgument('mpc_fit_seed', default_value='0'),
+        DeclareLaunchArgument('mpc_lam', default_value='0.0'), DeclareLaunchArgument('mpc_sub', default_value='1'), DeclareLaunchArgument('qp_lam', default_value='0.0'), DeclareLaunchArgument('qp_rho', default_value='0.0'), DeclareLaunchArgument('mpc_reproject', default_value='true'), DeclareLaunchArgument('mpc_solver', default_value='sqp'), DeclareLaunchArgument('mpc_dmax', default_value='0.1'),
         DeclareLaunchArgument('lidar_yaw_bias', default_value='0.0'),
         DeclareLaunchArgument('det_dropout', default_value='0.0'),
         DeclareLaunchArgument('dropout_seed', default_value='0'),
@@ -153,5 +153,8 @@ def generate_launch_description():
                           'mpc_sub': ParameterValue(LaunchConfiguration('mpc_sub'), value_type=int),
                           'qp_lam': ParameterValue(LaunchConfiguration('qp_lam'), value_type=float),
                           'qp_rho': ParameterValue(LaunchConfiguration('qp_rho'), value_type=float),
+                          'mpc_reproject': ParameterValue(LaunchConfiguration('mpc_reproject'), value_type=bool),
+                          'mpc_solver': LaunchConfiguration('mpc_solver'),
+                          'mpc_dmax': ParameterValue(LaunchConfiguration('mpc_dmax'), value_type=float),
                           'log_csv': f'{LOG_DIR}/koopman.csv'}]),
     ] + bridges + rpm_sims + drift_shims)

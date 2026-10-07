@@ -38,6 +38,9 @@ class PolyPhiDict:
         self.n_phi = len(sc.phi_terms); self.n_poly = 1 + sc.n_robots * len(self.E)
         self.n = self.n_poly + sc.n_robots * self.n_phi * (1 + len(self.Ep))
         self.g = np.zeros(self.n); self.g[self.n_poly:self.n_poly + sc.n_robots * self.n_phi] = sc.w_full   # J = w·φ
+        lin = [next(j for j, e in enumerate(self.E) if e.sum() == 1 and np.argmax(e) == k) for k in range(4)]
+        self.idx_lin = np.array([[1 + r * len(self.E) + j for j in lin] for r in range(sc.n_robots)])   # (N,4): z 안의 1차 단항식(포화 좌표) 위치
+        N = sc.n_robots; self.idx_X = np.array([[2 * r, 2 * r + 1, 2 * N + 2 * r, 2 * N + 2 * r + 1] for r in range(N)])  # (N,4): 그 좌표의 X 위치
 
     def lift(self, X):
         N = self.sc.n_robots; pos, vel = X[:2 * N].reshape(N, 2), X[2 * N:].reshape(N, 2)
@@ -48,6 +51,22 @@ class PolyPhiDict:
             if len(self.Ep):
                 f.append(np.outer(phi[r * self.n_phi:(r + 1) * self.n_phi], np.prod(xs[r][None, :] ** self.Ep, axis=1)).ravel())
         return np.concatenate(f)
+
+    def unlift(self, z):
+        """z → X: 1차 단항식(포화 좌표 x̃ = s·tanh(x/s))을 읽어 tanh 역변환. re-projection(Higuchi & Sato 2026 식 사영) 용.
+        반환 (X, dX/dx̃ 대각) — 예측 z 가 |x̃| ≥ s 로 벗어나면 0.999s 로 자른다."""
+        N = self.sc.n_robots; xt = np.clip(z[self.idx_lin] / self.sat_vec, -0.999, 0.999)
+        x = self.sat_vec * np.arctanh(xt); dx = 1.0 / (1.0 - xt ** 2)
+        scale = np.array([POS_SCALE, POS_SCALE, VEL_SCALE, VEL_SCALE])
+        X = np.zeros(4 * N); X[:2 * N] = (x[:, :2] * POS_SCALE + np.asarray(self.sc.targets)).ravel(); X[2 * N:] = (x[:, 2:] * VEL_SCALE).ravel()
+        return X, dx * scale
+
+    def lift_jac_T(self, X, a, eps=1e-6):
+        """Jψ(X)ᵀ a — ψ 의 상태 Jacobian 전치곱(12 차원 유한차분, lift 12회)."""
+        z0 = self.lift(X); out = np.zeros(len(X))
+        for i in range(len(X)):
+            Xp = X.copy(); Xp[i] += eps; out[i] = (self.lift(Xp) - z0) @ a / eps
+        return out
 
 
 def zeta(z, u):
@@ -73,28 +92,60 @@ class LiftedModel:
         """c_l = ∂(gᵀz⁺)/∂U_l = gᵀ(L[:,l] + N_l z) — 1-step QP용."""
         return self.g @ self.L + (self.N @ z) @ self.g
 
-    def mpc(self, z0, H, u0, lam, u_min, u_max, rho=0.0, u_prev=None, maxiter=10):
+    def mpc(self, z0, H, u0, lam, u_min, u_max, rho=0.0, u_prev=None, maxiter=10, reproject=False):
         """max Σ_h gᵀz_h − λ/2 Σ|U_h|² − ρ/2 Σ|U_h − U_{h−1}|²  (U_{−1} = 직전 발행 입력), 박스 제약.
         ρ(입력 변화 패널티)가 없으면 MPC 는 입력을 62 % 포화·부호 반전 0.89 로 써서 이기는 것이라(수치 시뮬),
         Stonefish 에서는 속도 추정이 채터링을 못 따라가 est 속도 오차 RMS 0.15 로 커졌다(1-step 0.017). ρ=3 이면
-        포화 0.02·반전 0.43 으로 analytic(0.11·0.70)보다 매끈하고 코너 이득 −8 %는 남는다."""
+        포화 0.02·반전 0.43 으로 analytic(0.11·0.70)보다 매끈하고 코너 이득 −8 %는 남는다.
+        reproject=True: 매 스텝 예측 z 를 원 상태로 사영(unlift)하고 다시 lifting 한다(Higuchi & Sato 2026 — 유한 차원 Koopman
+        예측기는 lifted 상태 manifold 를 보존하지 않아 다스텝 예측이 벗어난다). 비용 gᵀψ(X_h) 가 예측 상태의 정확한 utility 가 되고
+        h=1 J 예측 RMS 0.14→0.09, h≤4 개선. gradient 는 사영 Jacobian(대각) × ψ Jacobian(상태 12차원 FD, lift 12회/스텝)을 거친다."""
         nu = self.nu; up0 = np.zeros(nu) if u_prev is None else u_prev
 
         def f(v):
-            us = v.reshape(H, nu); zs = [z0]; Ms = []
-            for h in range(H):
-                Ms.append(self.M_of(us[h])); zs.append(Ms[-1] @ zs[-1] + self.L @ us[h])
+            us = v.reshape(H, nu); Ju, gu = self._rollout_grad(z0, us, reproject)
             du = np.diff(np.vstack([up0[None], us]), axis=0)
-            J = sum(self.g @ z for z in zs[1:]) - lam / 2 * float(v @ v) - rho / 2 * float((du ** 2).sum())
-            adj = np.zeros(self.n); grad = np.zeros((H, nu))
-            for h in range(H - 1, -1, -1):
-                adj = self.g + adj
-                grad[h] = adj @ self.L + (self.N @ zs[h]) @ adj - lam * us[h] - rho * du[h] + (rho * du[h + 1] if h + 1 < H else 0.0)
-                adj = Ms[h].T @ adj
+            J = Ju - lam / 2 * float(v @ v) - rho / 2 * float((du ** 2).sum())
+            grad = gu - lam * us - rho * du + rho * np.vstack([du[1:], np.zeros((1, nu))])
             return -J, -grad.ravel()
         r = minimize(f, u0.ravel(), jac=True, method='L-BFGS-B', bounds=[(u_min, u_max)] * (H * nu),
                      options=dict(maxiter=maxiter))
         return r.x.reshape(H, nu)
+
+    def _rollout_grad(self, z0, us, reproject):
+        """Σ_h gᵀz_h 와 그 ∂/∂U (H,nu) — forward 롤아웃 + 수반 역전파 한 번. reproject 면 매 스텝 unlift→lift."""
+        H = len(us); zs = [z0]; Ms = []; Xs = []; dXs = []
+        for h in range(H):
+            Ms.append(self.M_of(us[h])); zh = Ms[-1] @ zs[-1] + self.L @ us[h]
+            if reproject:
+                X, dX = self.D.unlift(zh); Xs.append(X); dXs.append(dX); zh = self.D.lift(X)
+            zs.append(zh)
+        adj = np.zeros(self.n); grad = np.zeros((H, self.nu))
+        for h in range(H - 1, -1, -1):
+            adj = self.g + adj                                       # ∂J/∂z_{h+1} (사영 뒤 z)
+            if reproject:                                            # ∂J/∂ẑ_{h+1} = JCᵀ Jψᵀ adj — JC 는 1차 단항식 12칸에만 대각
+                b = np.zeros(self.n); b[self.D.idx_lin.ravel()] = (self.D.lift_jac_T(Xs[h], adj)[self.D.idx_X] * dXs[h]).ravel(); adj = b
+            grad[h] = adj @ self.L + (self.N @ zs[h]) @ adj
+            adj = Ms[h].T @ adj
+        return sum(self.g @ z for z in zs[1:]), grad
+
+    def mpc_sqp(self, z0, H, u0, lam, u_min, u_max, rho=0.0, u_prev=None, reproject=True, dmax=0.1, iters=1):
+        """Folkestad & Burdick 2021 식 SQP — 틱당 선형화 1회 + QP 1회, 이전 계획 shift warm start(u0).
+        비용이 z 에 선형(gᵀz)이라 선형화하면 Δu 의 1차식 + λ·ρ 2차식만 남아 모델 호출 없는 작은 QP 가 된다:
+            max cᵀΔu − λ/2|u+Δu|² − ρ/2 Σ|(u_h+Δu_h) − (u_{h−1}+Δu_{h−1})|²,  box(u+Δu), |Δu| ≤ dmax(신뢰 영역).
+        틱당 비용 = forward 1 + adjoint 1 (re-projection 이면 lift 12H 회) — L-BFGS 10회(10~15 평가)의 1/10."""
+        nu = self.nu; up0 = np.zeros(nu) if u_prev is None else u_prev; us = np.asarray(u0, float).copy()
+        for _ in range(iters):
+            _, c = self._rollout_grad(z0, us, reproject)
+            def q(v):
+                d = v.reshape(H, nu); u = us + d; du = np.diff(np.vstack([up0[None], u]), axis=0)
+                J = float((c * d).sum()) - lam / 2 * float((u ** 2).sum()) - rho / 2 * float((du ** 2).sum())
+                g = c - lam * u - rho * du + rho * np.vstack([du[1:], np.zeros((1, nu))])
+                return -J, -g.ravel()
+            lo = np.maximum(u_min - us, -dmax).ravel(); hi = np.minimum(u_max - us, dmax).ravel()
+            r = minimize(q, np.zeros(H * nu), jac=True, method='L-BFGS-B', bounds=list(zip(lo, hi)), options=dict(maxiter=50))
+            us = us + r.x.reshape(H, nu)
+        return us
 
 
 MPC_RHO = 3.0                          # 입력 변화 패널티(위 mpc 주석)

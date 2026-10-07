@@ -28,9 +28,12 @@ class KoopmanFormation(Node):
                      ('controller', 'mpc'), ('log_csv', ''),
                      # mpc 팔 노브(sim/lifted 주석): 지평 H, 입력 변화 패널티 ρ(포화율↔코너 이득), 사전 포화 좌표 s,
                      # 식별 시드, Θ 캐시 폴더(''=캐시 끔). 2026-10-06 Stonefish 4×4 사각 값이 기본.
-                     ('mpc_horizon', 2), ('mpc_rho', 3.0), ('mpc_sat', 1.5), ('mpc_fit_seed', 0),
+                     ('mpc_horizon', 5), ('mpc_rho', 3.0), ('mpc_sat', 1.5), ('mpc_fit_seed', 0),
                      ('mpc_lam', 0.0),      # MPC 입력 정칙화 λ; 0 = Scenario.input_reg(1.0) 그대로. 루프 이득 노브
                      ('mpc_sub', 1),
+                     ('mpc_reproject', True),   # 매 스텝 예측 z 를 원 상태로 사영·재lifting(Higuchi & Sato 2026). 틱당 +15~20 ms
+                     ('mpc_solver', 'sqp'),     # 'lbfgs'(10회) | 'sqp'(Folkestad & Burdick 2021: 선형화 1회 + QP 1회, shift warm start, |Δu| ≤ mpc_dmax)
+                     ('mpc_dmax', 0.1),
                      ('qp_lam', 0.0),       # analytic·model 1-step QP 의 λ; 0 = input_reg(1.0). MPC 와 이득을 맞춘 공정 비교용(λ=0.5 ≈ MPC H=2 이득)
                      ('qp_rho', 0.0),       # 1-step QP 에 MPC 와 같은 ΔU penalty: U = clip((c+ρU_prev)/(λ+ρ)). 매끈함을 맞춘 공정 비교용        # 예측 스텝 당 제어 틱 수(입력 ZOH). 3·H=3 이면 지평 0.45 s(sim/lifted.py fit_lifted)
                      ('mpc_cache_dir', os.path.expanduser('~/.cache/gtbot')),
@@ -88,12 +91,13 @@ class KoopmanFormation(Node):
         # 돌아가고, H=2·λ=1 이 입력은 analytic 만큼 쓰면서 중앙 −9 %·p90 −24 %, 진동 0.021 로 절충이 가장 좋다.
         # 틱당 10~20 ms(20 Hz 예산 50 ms).
         if self.controller == 'mpc':
-            self.H, self.rho = int(p('mpc_horizon')), float(p('mpc_rho'))
+            self.H, self.rho = int(p('mpc_horizon')), float(p('mpc_rho')); self.reproject = bool(p('mpc_reproject'))
+            self.solver, self.dmax = str(p('mpc_solver')), float(p('mpc_dmax'))
             self.lam_mpc = float(p('mpc_lam')) or self.sc.input_reg
             self.lifted = build_mpc_model(self.sc, seed=int(p('mpc_fit_seed')), sat=float(p('mpc_sat')), sub=int(p('mpc_sub')),
                                           cache_dir=p('mpc_cache_dir') or None)
             self.plan = np.zeros((self.H, 2 * len(ROBOTS))); self.n_fallback = 0
-            self.get_logger().info(f'mpc 팔: 리프팅 모델 적합 완료 (dim {self.lifted.n}, H={self.H}, sub={int(p("mpc_sub"))})')
+            self.get_logger().info(f'mpc 팔: 리프팅 모델 적합 완료 (dim {self.lifted.n}, H={self.H}, sub={int(p("mpc_sub"))}, reproject={self.reproject}, solver={self.solver})')
         # 지연 보상: 실측 작동기 지연 τ(U→실가속 교차상관 0.16 s)만큼 X를 미리 전파해
         # analytic_c에 넘긴다. 보상 없으면 τ=0.15 s에서 릴레이 한계 사이클이 터진다(round4 대조실험).
         self.tau = float(p('actuation_delay'))
@@ -190,8 +194,10 @@ class KoopmanFormation(Node):
             # Θ0=0 + 워밍업 표본의 model 팔은 외삽으로 발산했다(S3 model 기록) — 현 model 팔은 공칭 Θ0.
             c = analytic_c(Xd, self.sc, self.sc.w_full)
         elif arm == 'mpc':  # 리프팅 모델로 H스텝 효용 최대화, 첫 입력만 발행(워밍스타트 = 이전 계획 한 칸 밀기)
-            self.plan = self.lifted.mpc(self.lifted.D.lift(Xd), self.H, np.vstack([self.plan[1:], self.plan[-1:]]),
-                                        self.lam_mpc, self.sc.u_min, self.sc.u_max, rho=self.rho, u_prev=self.u_prev)
+            solve = self.lifted.mpc_sqp if self.solver == 'sqp' else self.lifted.mpc
+            kw = dict(dmax=self.dmax) if self.solver == 'sqp' else {}
+            self.plan = solve(self.lifted.D.lift(Xd), self.H, np.vstack([self.plan[1:], self.plan[-1:]]),
+                              self.lam_mpc, self.sc.u_min, self.sc.u_max, rho=self.rho, u_prev=self.u_prev, reproject=self.reproject, **kw)
             U = self.plan[0]
             if not np.isfinite(U).all():
                 U = np.zeros_like(U); self.plan[:] = 0.0; self.get_logger().warn(f'MPC nan_guard @k={self.k}')
