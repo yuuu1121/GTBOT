@@ -98,7 +98,9 @@ Koopman MPC 팔(최종 설정, 적합 시드 0·1)은 analytic 대비 edge 중�
 
 논문 형태 팔은 analytic보다 edge 중앙 +0.02 m, p90 +0.08 m 나쁘다 — 수치 시뮬의 격차(정상 0.12~0.14 vs 0.08 m)와 같은 방향이고, 1차식 모델의 표현력 한계다(설명 노트 §5·§11). ψ 확장 사전은 analytic과 같지만 J의 미분을 사전에 넣은 동어반복이라 노드에서 뺐다.
 
-`koopman_arms_compare_sq4.mp4`: **3팔 비교 영상**(공정 비교 런 3편을 같은 시각 축으로 재생, 10배속, `tools/render_arm_compare.py`) — Koopman MPC | analytic | Koopman 1-step(논문 꼴). ψ 확장 사전 변종은 노드에서 뺀 상태라 재런하지 못해 영상에서 제외(이전 런 CSV 는 남아 있다). 세 줄: 윗줄 월드 좌표 탑뷰(각 런의 `*_topview.mp4` 프레임, 사각 경로를 실제로 도는지), 가운데 리더 고정 상대좌표(편대 변 오차), 아랫줄 최대 변 오차 시계열.
+`koopman_arms_compare_sq4_v2.mp4`: **3팔 비교 영상 v2(2026-10-07)** — MPC 팔을 새 기본(SQP-1 + re-projection H=5, `koopman_mpc_sq4_sqp_h5`, 리더 12.1 m)으로 교체. analytic·논문 꼴은 v1 과 같은 런(리더 12.0 m)이라 세 런의 리더 속도가 같다.
+
+`koopman_arms_compare_sq4.mp4`: **3팔 비교 영상 v1**(공정 비교 런 3편을 같은 시각 축으로 재생, 10배속, `tools/render_arm_compare.py`) — Koopman MPC | analytic | Koopman 1-step(논문 꼴). ψ 확장 사전 변종은 노드에서 뺀 상태라 재런하지 못해 영상에서 제외(이전 런 CSV 는 남아 있다). 세 줄: 윗줄 월드 좌표 탑뷰(각 런의 `*_topview.mp4` 프레임, 사각 경로를 실제로 도는지), 가운데 리더 고정 상대좌표(편대 변 오차), 아랫줄 최대 변 오차 시계열.
 
 `koopman_mpc_compare_numeric.mp4`: **수치 시뮬**(Stonefish 아님) 3분할 — 1-step QP(analytic) | Koopman Θ MPC H=5 | 참 모델 MPC H=5. 리더 사각 경로 0.1 m/s, 30 s마다 코너, 10배속. 코너 후 자리 오차 최대 0.138 / 0.277 / 0.087 m. 설명 노트 §10, `tools/koopman_mpc_lookahead.py`.
 
