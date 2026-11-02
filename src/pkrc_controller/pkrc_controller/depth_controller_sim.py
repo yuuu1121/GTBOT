@@ -12,13 +12,13 @@ from rcl_interfaces.msg import SetParametersResult
 
 
 class DepthPID:
-    def __init__(self, kp=0.8, ki=0.35, kd=1.2):
+    def __init__(self, kp=0.8, ki=0.35, kd=1.2, max_integral=1.0):
         self.kp = kp
         self.ki = ki
         self.kd = kd
         self.integral = 0.0
         self.prev_error = 0.0
-        self.max_integral = 1.0  # 적분 windup 방지 (여유있게)
+        self.max_integral = max_integral  # 적분 windup 방지
         self.max_output = 1.0
 
     def compute(self, error, dt):
@@ -51,6 +51,16 @@ class DepthController(Node):
         self.declare_parameter('kd', 1.2)   # 미분항 (안정성)
         self.declare_parameter('enabled', True)
         self.declare_parameter('depth_offset', 0.0)  # 깊이 보정값 (m)
+        # 차량별 스러스터 배치(2026-11-01). pkrc: 6기, heave 4·5번, +PWM이 상승이라 둘 다 -1.
+        # bluerov2: 8기, Dive 4~7번인데 프로펠러 handedness가 번갈아 있어 같은 PWM이면 추력이
+        # 상쇄되고 반동 토크만 더해져 제자리 yaw 회전한다(실측 1 rad/s). TAM.yaml heave 행
+        # [-1,+1,+1,-1]대로 부호를 줘야 추력이 모이고 토크가 상쇄된다. heave_signs[i]*PWM이 '하강'.
+        self.declare_parameter('num_thrusters', 6)
+        self.declare_parameter('heave_indices', [4, 5])
+        self.declare_parameter('heave_signs', [-1.0, -1.0])
+        # 적분 한계 × ki = 부력을 상쇄하는 정상 PWM의 상한(2026-11-01). pkrc는 0.344로 한계 1.0×0.35
+        # 바로 아래, bluerov2는 0.49가 필요해 1.0이면 0.2 m 못 내려간다(실측) → bluerov2는 4.0(런치 max_integral).
+        self.declare_parameter('max_integral', 1.0)
 
         self.vehicle_name = self.get_parameter('vehicle_name').value
         self.target_depth = self.get_parameter('target_depth').value
@@ -60,7 +70,7 @@ class DepthController(Node):
         kp = self.get_parameter('kp').value
         ki = self.get_parameter('ki').value
         kd = self.get_parameter('kd').value
-        self.pid = DepthPID(kp, ki, kd)
+        self.pid = DepthPID(kp, ki, kd, self.get_parameter('max_integral').value)
 
         self.current_depth = 0.0
         self.last_time = None
@@ -102,7 +112,12 @@ class DepthController(Node):
         )
 
         # Store teleop commands
-        self.teleop_pwm = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.heave_indices = list(self.get_parameter('heave_indices').value)
+        self.heave_signs = [float(v) for v in self.get_parameter('heave_signs').value]
+        assert len(self.heave_signs) == len(self.heave_indices), 'heave_signs와 heave_indices 길이가 다름'
+        self.teleop_pwm = [0.0] * int(self.get_parameter('num_thrusters').value)
+        self.heave_pwm = 0.0
+        self.last_meas_time = None
 
         # Also publish depth info
         self.depth_pub = self.create_publisher(
@@ -170,6 +185,17 @@ class DepthController(Node):
         mbar_msg.data = pressure / 100.0 + 1013.25   # 게이지 Pa -> 절대 mbar
         self.pressure_mbar_pub.publish(mbar_msg)
 
+        # PID는 측정이 들어올 때 실제 측정 간격 dt로 돈다(2026-11-01). 종전엔 50 Hz 루프에서
+        # dt=0.02 s로 미분했는데 압력은 5~10 Hz라 갱신 순간마다 Δe/0.02로 튀어 PWM이 포화됐고,
+        # bluerov2(압력 5 Hz)는 5 m 주위 ±0.3 m 한계 사이클이 이득을 줄여도 안 사라졌다(실측).
+        now = self.get_clock().now().nanoseconds / 1e9
+        if self.enabled and self.last_meas_time is not None:
+            dt = now - self.last_meas_time
+            if dt > 0:
+                # Depth error: positive means we need to go deeper
+                self.heave_pwm = self.pid.compute(self.target_depth - self.current_depth, dt)
+        self.last_meas_time = now
+
     def target_callback(self, msg):
         self.target_depth = msg.data
         self.pid.reset()
@@ -181,28 +207,16 @@ class DepthController(Node):
             self.teleop_pwm = list(msg.data)
 
     def control_loop(self):
-        current_time = self.get_clock().now().nanoseconds / 1e9
-
         # Start with teleop commands
         pwm_cmd = self.teleop_pwm.copy()
 
-        if self.enabled and self.last_time is not None:
-            dt = current_time - self.last_time
-            if dt > 0:
-                # Depth error: positive means we need to go deeper
-                depth_error = self.target_depth - self.current_depth
-
-                # Compute heave correction
-                heave_pwm = self.pid.compute(depth_error, dt)
-
-                # Override heave with depth controller.
-                # gtbot_world.scn의 pkrc heave 스러스터는 +PWM이 상승 방향(실측:
-                # +1 인가 시 0.4 m 부상, -1 인가 시 25 s에 9 m 하강) — 깊이 오차
-                # 양수(더 깊이)에 음수 PWM이 필요해 부호를 뒤집는다.
-                pwm_cmd[4] = -heave_pwm
-                pwm_cmd[5] = -heave_pwm
-
-        self.last_time = current_time
+        if self.enabled:
+            # Override heave with depth controller.
+            # gtbot_world.scn의 pkrc heave 스러스터는 +PWM이 상승 방향(실측:
+            # +1 인가 시 0.4 m 부상, -1 인가 시 25 s에 9 m 하강) — 깊이 오차
+            # 양수(더 깊이)에 음수 PWM이 필요해 부호를 뒤집는다.
+            for i, sign in zip(self.heave_indices, self.heave_signs):
+                pwm_cmd[i] = sign * self.heave_pwm
 
         # Publish merged PWM
         msg = Float64MultiArray()
@@ -221,7 +235,7 @@ def main(args=None):
     finally:
         # Stop thrusters
         stop_msg = Float64MultiArray()
-        stop_msg.data = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        stop_msg.data = [0.0] * len(node.teleop_pwm)
         node.pwm_pub.publish(stop_msg)
         node.get_logger().info('Depth controller stopped.')
         node.destroy_node()
