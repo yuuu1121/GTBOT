@@ -28,10 +28,17 @@ rendering_quality가 카메라 센서 이미지 품질에도 걸리는지 역시
 
 물리 스텝(simulation_rate)은 건드리지 말 것. 낮추면 동역학이 바뀌어 지금까지의
 게이트 결과가 전부 무효가 된다.
+
+pkrc·bluerov2 깊이 유지(2026-11-01): 씬에서 pkrc는 수심 10 m, bluerov2는 5 m에 스폰하고,
+이 런치가 depth_controller_sim을 차량마다 띄워 그 깊이를 바로 유지한다. 끄려면 pkrc_depth:=false,
+bluerov2_depth:=false
+(pkrc_sim_stack.launch.py를 따로 띄울 때는 둘이 /pkrc/setpoint/pwm를 두고 싸우니 꺼야 한다).
 """
 from launch import LaunchDescription
 from launch.actions import (DeclareLaunchArgument, IncludeLaunchDescription,
                             SetEnvironmentVariable)
+from launch.conditions import IfCondition
+from launch_ros.actions import Node
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.substitutions import FindPackageShare
@@ -53,7 +60,30 @@ def generate_launch_description():
         DeclareLaunchArgument('window_res_x', default_value='1600'),
         DeclareLaunchArgument('window_res_y', default_value='900'),
         DeclareLaunchArgument('rendering_quality', default_value='low'),
+        DeclareLaunchArgument('pkrc_depth', default_value='true'),
+        DeclareLaunchArgument('pkrc_target_depth', default_value='10.0'),
+        DeclareLaunchArgument('bluerov2_depth', default_value='true'),
+        DeclareLaunchArgument('bluerov2_target_depth', default_value='5.0'),
     ]
+    pkrc_depth = Node(package='pkrc_controller', executable='depth_controller_sim',
+                      name='depth_controller_pkrc',
+                      output='screen', condition=IfCondition(LaunchConfiguration('pkrc_depth')),
+                      parameters=[{'vehicle_name': 'pkrc',
+                                   'target_depth': LaunchConfiguration('pkrc_target_depth')}])
+    # bluerov2: 스러스터 8기, Dive 4기(인덱스 4~7)가 heave. 부호는 TAM.yaml heave 행 그대로 —
+    # 같은 부호를 주면 추력이 상쇄되고 반동 토크만 남아 제자리 회전한다(2026-11-01 실측).
+    bluerov2_depth = Node(package='pkrc_controller', executable='depth_controller_sim',
+                          name='depth_controller_bluerov2',
+                          output='screen', condition=IfCondition(LaunchConfiguration('bluerov2_depth')),
+                          parameters=[{'vehicle_name': 'bluerov2',
+                                       'target_depth': LaunchConfiguration('bluerov2_target_depth'),
+                                       'num_thrusters': 8,
+                                       'heave_indices': [4, 5, 6, 7],
+                                       'heave_signs': [-1.0, 1.0, 1.0, -1.0],
+                                       # 부력 상쇄 정상 PWM 0.49 > 기본 한계 1.0×0.35(실측) → 적분 한계 4.0.
+                                       # ki 0.35면 5 m 주위 ±0.1 m 진동, 0.15면 ±0.05 m(실측 2026-11-01).
+                                       'ki': 0.15,
+                                       'max_integral': 4.0}])
     simulator = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             FindPackageShare('stonefish_ros2'), '/launch/simulator_gpu.launch.py']),
@@ -67,4 +97,4 @@ def generate_launch_description():
             'window_res_y': LaunchConfiguration('window_res_y'),
             'rendering_quality': LaunchConfiguration('rendering_quality'),
         }.items())
-    return LaunchDescription(args + [simulator])
+    return LaunchDescription(args + [simulator, pkrc_depth, bluerov2_depth])

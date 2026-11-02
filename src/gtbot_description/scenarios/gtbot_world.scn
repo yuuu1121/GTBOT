@@ -4,10 +4,13 @@
 	<include file="data/common/materials.scn"/>
 	<include file="data/common/visual.scn"/>
 
+	<!-- SeaBed 18 m(2026-11-01, 사용자 결정): 수조 바닥 메시(18 m)와 맞춤. 종전 10 m는
+	     pkrc 운용 수심 10 m와 겹쳐 스폰 즉시 바닥에 박혔다. 수면 LiDAR가 보는 바닥 거리가
+	     10→18 m로 바뀌므로 FAST-LIO 점군 분포는 종전 결과와 다르다(벽 기하는 그대로). -->
 	<static name="SeaBed" type="plane">
 		<material name="Seabed"/>
 		<look name="seabed"/>
-		<world_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 10.0"/>
+		<world_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 18.0"/>
 	</static>
 
 	<!-- 메인: PKRC 부유 플랫폼 (수동 동체 — 액추에이터 없음)
@@ -64,7 +67,7 @@
 					<origin rpy="-1.571 0.0 0.0" xyz="0.0 0.0 0.0"/>
 				</visual>
 				<material name="Fiberglass"/>
-				<look name="orange"/>
+				<look name="white"/>
 				<mass value="14.0"/>
 				<cg rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.05"/>
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
@@ -73,7 +76,7 @@
 				<dimensions xyz="0.4 0.4 0.15"/>
 				<origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
 				<material name="Neutral"/>
-				<look name="orange"/>
+				<look name="blue"/>
 				<mass value="0.1"/>
 				<compound_transform rpy="0.0 0.0 0.0" xyz="0.0 0.0 -0.17"/>
 			</internal_part>
@@ -218,6 +221,7 @@
 			<origin xyz="0.0 -0.0 -1.195" rpy="0.0 0.0 0.0"/>
 		</light>
 	</robot>
+
 
 	<!-- 팔로워: GTBOT
 	     실물 8 kg < phy 메시 폐부피 11.99 L → 질량만 맞추면 부유.
@@ -827,8 +831,18 @@
 			<link name="base_link"/>
 		</linelaser>
 
-		<world_transform xyz="0.0 0.0 4.0" rpy="0.0 0.0 0.0"/>
+		<world_transform xyz="0.0 0.0 10.0" rpy="0.0 0.0 0.0"/>  <!-- 운용 수심 10 m에서 스폰(2026-11-01). depth_controller_sim이 같은 깊이를 유지한다 -->
 		<ros_base_link_transforms publish="true"/>
 		<ros_subscriber thrusters="/pkrc/setpoint/pwm"/>
 	</robot>
+
+	<!-- BlueROV2(2026-11-01, 사용자 지정): vlm_ws stonefish_description의 bluerov2.scn 그대로(상향
+	     camera_up 포함, /bluerov2/up). 수심 5 m에서 스폰하고 depth_controller_sim이 5 m를 유지한다.
+	     (x, y)는 pkrc와 같은 (0, 0) — pkrc(10 m)가 바로 아래서 위를 보므로 bluerov2 하부 Active
+	     Marker(LED cone 10°)가 pkrc 상향 카메라 정중앙에 들어온다(2026-11-02 사용자 지정; 종전 x=3). -->
+	<include file="data/robots/bluerov2/bluerov2.scn">
+		<arg name="vehicle_name" value="bluerov2"/>
+		<arg name="xyz" value="0.0 0.0 5.0"/>
+		<arg name="rpy" value="0.0 0.0 0.0"/>
+	</include>
 </scenario>

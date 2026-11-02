@@ -56,6 +56,8 @@ colcon build --packages-select gtbot_description && source install/setup.bash
 ros2 launch gtbot_description gtbot_world.launch.py
 ```
 
+pkrc(잠수 로봇)는 수심 10 m, bluerov2(vlm_ws 모델, 상향 카메라 `/bluerov2/up`, 하부 Active Marker)는 pkrc 바로 위 수심 5 m에 스폰하며 같은 런치가 차량마다 `depth_controller_sim`을 띄워 그 수심을 유지한다(`pkrc_depth:=false`·`bluerov2_depth:=false`로 끔, `*_target_depth:=N`으로 변경). SeaBed는 수조 바닥과 같은 18 m.
+
 씬에는 로봇 편대 외에 `ObserverCam`(고정 카메라, `/gtbot_world/view` 토픽) — 씬 로드 검증·스크린샷 확보용 관측 장치이며 편대제어 로직과 무관.
 
 ## 게이트 S1~S3 재현 (Stonefish 편대제어)
