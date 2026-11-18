@@ -1,0 +1,67 @@
+# 헤딩 유지 캐스케이드 PID + 텔레옵 파라미터
+# pwm_node 파라미터는 thruster_pwm_params.yaml 을 그대로 사용한다.
+
+cascade_controller:
+  ros__parameters:
+    # ---- 루프 ----
+    control_rate: 50.0        # 내부(요레이트) 루프 Hz — IMU 50Hz 와 동일
+    outer_divider: 5          # 외부(헤딩) 루프 = 50/5 = 10 Hz
+    cmd_timeout: 0.6          # cmd_vel 끊기면 X=Y=0 (헤딩 유지는 계속)
+    imu_timeout: 0.5          # IMU 끊기면 전 채널 0
+    init_settle_sec: 3.0      # IMU 수신 후 이 시간 지나 초기 목표 헤딩 설정 (madgwick 수렴 대기)
+    cmd_vel_topic: cmd_vel
+    imu_filtered_topic: imu/data_filtered   # madgwick 출력 (yaw)
+    imu_raw_topic: imu/data_raw             # 센서 자이로 z
+    cmd_topic: thruster_pwm_cmd
+
+    # ---- 외부 루프: 헤딩 오차(rad) -> 목표 요레이트(rad/s) ----
+    heading_kp: 1.0           # 10° 오차 -> 10°/s (실기 10-27: 1.5 에서 ~6s 주기 진동 → 낮춤)
+    heading_ki: 0.0
+    heading_kd: 0.0
+    heading_i_limit_deg: 10.0
+    heading_deadband_deg: 0.5
+    yaw_rate_max_deg: 30.0    # 목표 요레이트 한계
+
+    # ---- 내부 루프: 요레이트 오차(rad/s) -> N(cmd 단위, -1~1) ----
+    rate_kp: 0.12             # 실기 10-27: 0.12cmd 1.5s 에 100°/s 이상 도는 고응답 선체 → 0.6 에서 대폭 낮춤
+    rate_ki: 0.05
+    rate_kd: 0.0
+    rate_i_limit: 0.05
+    rate_ff: 0.0
+    yaw_cmd_max: 0.15        # N 한계 (±60µs)
+    manual_yaw_gain: 0.3      # 헤딩 유지 OFF 때 angular.z(rad/s) -> N
+    hold_enabled: true
+    # 발산 감지: 헤딩 오차가 diverge_err_deg 이상인 채 diverge_sec 지속되면 헤딩 유지 자동 OFF (yaw 부호 반대 보호)
+    diverge_err_deg: 60.0
+    diverge_sec: 2.0
+    # yaw 부호 자동 캘리브레이션 (텔레옵 c): 채널 하나씩 물리 +yawcal_cmd 로 yawcal_sec 구동 -> 자이로 z 부호 = yaw_mix[i]
+    yawcal_cmd: 0.06          # 실기: 0.12 는 1.5s 에 100°/s 이상 → 절반
+    yawcal_sec: 1.0
+    yawcal_settle_sec: 3.0    # 채널 사이 최소 대기. 실제로는 |gyro| < yawcal_quiet_deg 가 1s 이어질 때까지 기다림 (최대 yawcal_settle_max_sec)
+    yawcal_settle_max_sec: 12.0
+    yawcal_quiet_deg: 3.0
+    yawcal_min_rate_deg: 1.0
+
+    # ---- Thruster Allocation Matrix (접선형 + 배치, FLU 좌표계) ----
+    #            ch1(좌팔↑) ch2(우팔↑) ch3(앞팔 횡) ch4(뒤팔 횡)
+    surge_mix:  [ 1.0,  1.0,  0.0,  0.0]    # X+ 전진
+    sway_mix:   [ 0.0,  0.0,  1.0,  1.0]    # Y+ 좌측 (실측: ch3·4 전기 + = 좌측 추력)
+    yaw_mix:    [-1.0,  1.0,  1.0, -1.0]    # N+ 반시계. 10-27 실기 캘리브레이션 결과 (ch1 -47, ch2 +101, ch4 -115 °/s 확실,
+                                            #   ch3 +31 은 잔류 회전 +46 속에서 측정되어 불확실 → 정지 후 c 재실행으로 확정)
+    directions: [ 1.0, -1.0,  1.0, -1.0]    # 배선/프로펠러 전기 부호 (keyboard_node 와 동일)
+    max_cmd: 0.25             # pwm_node max_cmd 와 같게 (하드 리밋)
+    xy_max: 0.15              # 조종 X/Y 한계 (±60µs, N 여유 확보)
+    deadband: 0.0625          # ESC 시동 데드존 보정 ±25µs (실측). 0 이면 작은 N 이 추력을 못 내 헤딩이 느리게 진동함
+    deadband_min_cmd: 0.02    # 이보다 작은 명령은 0 (보정이 릴레이처럼 채터링하는 것 방지)
+    reverse_gain: 1.0         # 역추력 60% 보정이면 1.6
+
+heading_teleop:
+  ros__parameters:
+    speed: 0.10               # 시작 세기 (±40µs)
+    speed_max: 0.15           # +키로 올릴 수 있는 상한
+    speed_step: 0.05
+    turn_rate_deg: 20.0       # q/e 로 목표 헤딩이 도는 속도
+    release_timeout: 0.6
+    publish_rate: 10.0        # cmd_timeout(0.6) 보다 충분히 빠르게
+    cmd_vel_topic: cmd_vel
+    controller_name: cascade_controller

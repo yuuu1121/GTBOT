@@ -1,0 +1,40 @@
+serial_cmd_node:
+  ros__parameters:
+    # ttyUSB 번호가 바뀌어도 유지되는 경로
+    port: /dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0
+    baud: 115200
+    eol: lf                        # lf | crlf | cr | none
+    cmd_topic: serial_cmd          # 즉시 실행: 이 토픽(String)으로 받은 텍스트를 바로 전송
+    sched_topic: serial_cmd_sched  # 예약 실행: ScheduledCmd.exec_time 에 전송 (여러 Pi 동시 실행용)
+    ack_topic: serial_cmd_ack      # 예약 실행 결과(CmdAck) 발행
+    rx_topic: serial_rx            # 장치에서 받은 줄을 이 토픽으로 발행
+    robot_id: ""                   # 이 Pi 식별자. 비우면 hostname. targets 지정에 쓰임
+    max_late_sec: 0.5              # exec_time 이 이만큼 이상 지나서 도착하면 드롭 (이내면 경고 후 실행)
+    probe_topic: serial_cmd_probe  # PC 가 Pi 시계차를 재는 왕복 프로브
+    probe_reply_topic: serial_cmd_probe_reply
+
+serial_cmd_broadcast:
+  ros__parameters:
+    sched_topic: serial_cmd_sched
+    ack_topic: serial_cmd_ack
+    lead_time: 1.0                 # 입력 -> 실행까지 여유(초). 유선이면 0.3 정도로 줄여도 됨
+    periodic_cmd: "1001"           # 이 명령을 보내면 resync 자동 시작
+    stop_cmd: "x"                  # 이 명령을 보내면 resync 자동 중지
+    resync_enabled: true
+    resync_period: 10.0            # resync 주기(초)
+    resync_cmds: ["x", "1001"]     # resync 때 순서대로 보낼 명령
+    resync_gap: 1.0                # resync_cmds 사이 간격(초). x 뒤 1초 꺼졌다가 1001 로 다시 켜져 눈으로도 확인됨.
+                                   # 펌웨어가 한 줄씩 느리게 읽으면 0.02 같은 짧은 간격은 x 가 묻힐 수 있음
+    resync_verbose: false          # true 면 resync/blink 때도 ack/판정 상세 출력 (false: PASS 는 한 줄/요약)
+    # blink 모드: STM32 타이머 대신 Pi 시계로 매 깜빡임을 직접 쏨 (blink [주기] 로 시작, x 로 중지)
+    blink_cmd: "100"               # 한 번 깜빡임 명령
+    blink_period: 1.0              # 기본 주기(초)
+    blink_report_every: 10         # 이 횟수마다 판정 요약 한 줄 (FAIL 은 즉시 출력)
+    # 동시 실행 판정
+    sync_tolerance_ms: 5.0         # Pi 간 실제 실행 시각 편차 허용치(ms). 이내면 PASS
+    ack_wait: 0.5                  # exec_time 뒤 ack 를 이만큼(초) 기다린 뒤 판정
+    probe_topic: serial_cmd_probe
+    probe_reply_topic: serial_cmd_probe_reply
+    probe_count: 8                 # 왕복 프로브 발수 (지연 최소 표본 사용)
+    probe_interval: 0.05
+    probe_settle: 0.3              # 마지막 프로브 뒤 응답 대기(초)

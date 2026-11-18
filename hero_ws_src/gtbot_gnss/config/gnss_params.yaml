@@ -1,0 +1,15 @@
+gnss_node:
+  ros__parameters:
+    port: ""               # "" = 자동 (/dev/serial/by-id/usb-u-blox... -> 없으면 첫 /dev/ttyACM*)
+    baud: 38400
+    frame_id: gnss_link
+    use_ntrip: true
+    # 국토지리정보원 NTRIP (비밀번호는 사이트 비번이 아닌 고정값 gnss)
+    ntrip_host: www.gnssdata.or.kr
+    ntrip_port: "2101"
+    ntrip_mountpoint: POHN-RTCM32   # 포항 14km. 영천 YCHG, 호미곶 HOMI
+    ntrip_user: kwbnoa123@postech.ac.kr
+    ntrip_password: gnss
+    web_port: 8000         # 실시간 지도 http://<IP>:8000, 0 이면 끔
+    save_csv: true
+    csv_dir: ~/gnss_logs

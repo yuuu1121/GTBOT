@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>gtbot_gnss</name>
+  <version>0.1.0</version>
+  <description>ZED-F9P + 국토지리정보원 NTRIP RTK 측위 (NavSatFix 발행, 실시간 지도, CSV 로그)</description>
+  <maintainer email="kwbnoa1234@gmail.com">hero</maintainer>
+  <license>MIT</license>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <exec_depend>python3-serial</exec_depend>
+  <!-- pyubx2 는 rosdep 키가 없어 pip 로 따로 설치 (README 참고) -->
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
