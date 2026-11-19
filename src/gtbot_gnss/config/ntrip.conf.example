@@ -1,0 +1,11 @@
+# 국토지리정보원 GNSS 데이터 통합센터 NTRIP 설정
+# 이 파일을 ntrip.conf 로 복사한 뒤 user 를 본인 로그인 이메일로 바꾸세요.
+# (ntrip.conf 는 .gitignore 에 있어 저장소에 올라가지 않습니다)
+host = www.gnssdata.or.kr
+port = 2101
+# 가까운 상시관측소 + RTCM32. 포항 캠퍼스 기준 POHN(포항, 14km). 영천 YCHG, 호미곶 HOMI 등
+mountpoint = POHN-RTCM32
+# gnssdata.or.kr 회원가입 시 사용한 로그인 아이디(이메일)
+user = your_id@postech.ac.kr
+# NTRIP 비밀번호는 사이트 비밀번호가 아니라 국토지리정보원이 공지한 고정값 'gnss'
+password = gnss

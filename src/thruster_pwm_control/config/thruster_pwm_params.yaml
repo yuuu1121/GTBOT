@@ -1,0 +1,24 @@
+pwm_node:
+  ros__parameters:
+    i2c_bus: 7
+    i2c_addr: 64           # 0x40 = 외부 PCA9685 (실측: 인터페이스 보드 내장 PCA9685 는 0x41)
+    pwm_freq: 200          # 200Hz: 1틱 ≈ 1.2µs (50Hz는 4.9µs라 분해능 낮음)
+    channels: [6, 7, 8, 9]
+    us_min: 1100.0
+    us_mid: 1500.0
+    us_max: 1900.0
+    max_cmd: 0.25          # ★ 전체 출력 하드 리밋: |cmd| 0.25 -> 1400~1600µs (모든 경로가 여기서 잘림)
+    cmd_topic: thruster_pwm_cmd
+
+keyboard_node:
+  ros__parameters:
+    cmd: 0.10              # 키당 기본 세기 (1500 ± 40µs)
+    cmd_step: 0.05
+    num_thrusters: 4
+    # 스러스터별 추력 부호 (1·2=전후진 쌍, 3·4=좌우 쌍, 쌍끼리 반대 방향)
+    # w 가 후진하면 1·2 부호를, d 가 좌측으로 가면 3·4 부호를 뒤집을 것
+    directions: [1.0, -1.0, 1.0, -1.0]
+    # 키를 떼고 이 시간(초) 동안 입력이 없으면 정지.
+    # 누르고 있는데 끊기면(키 반복 시작 지연보다 짧으면) 값을 늘릴 것
+    release_timeout: 0.6
+    cmd_topic: thruster_pwm_cmd

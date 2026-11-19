@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><title>RTK Live</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+html,body,#map{height:100%;margin:0}
+.panel{position:absolute;top:10px;right:10px;z-index:1000;background:#fff;padding:10px 12px;border-radius:6px;
+box-shadow:0 1px 6px rgba(0,0,0,.3);font:13px/1.6 system-ui,sans-serif;min-width:230px}
+.panel span.sw{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:middle;margin-right:6px}
+.big{font-size:18px;font-weight:600}
+</style></head><body><div id="map"></div>
+<div class="panel">
+<div class="big" id="fix">연결 중...</div>
+<div id="info"></div>
+<hr style="margin:6px 0">
+<div><span class="sw" style="background:#1a9850"></span>RTK FIXED (cm급)</div>
+<div><span class="sw" style="background:#f46d43"></span>RTK FLOAT (수십cm)</div>
+<div><span class="sw" style="background:#4575b4"></span>보정 없음 (m급)</div>
+<label><input type="checkbox" id="follow" checked> 현재 위치 따라가기</label>
+</div>
+<script>
+const COLOR={"RTK-FIXED":"#1a9850","RTK-FLOAT":"#f46d43","NONE":"#4575b4"};
+const map=L.map('map').setView([36.02,129.32],17);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+let drawn=0, prev=null, cur=null, acc=null, total=0;
+function hav(a,b){const R=6371000,r=Math.PI/180,dp=(b.lat-a.lat)*r,dl=(b.lon-a.lon)*r,
+ h=Math.sin(dp/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+async function tick(){
+  let d; try{ d=await (await fetch('/points.json?from='+drawn)).json(); }catch(e){ document.getElementById('fix').textContent='서버 연결 끊김'; return; }
+  for(const p of d.points){
+    if(prev){ L.polyline([[prev.lat,prev.lon],[p.lat,p.lon]],{color:COLOR[p.rtk]||'#888',weight:4,opacity:.9}).addTo(map); total+=hav(prev,p); }
+    prev=p; drawn++;
+  }
+  if(prev){
+    if(!cur){ cur=L.circleMarker([prev.lat,prev.lon],{radius:7,color:'#000',fillColor:'#fff',fillOpacity:1,weight:2}).addTo(map);
+              acc=L.circle([prev.lat,prev.lon],{radius:prev.hacc,color:COLOR[prev.rtk],weight:1,fillOpacity:.15}).addTo(map); map.setView([prev.lat,prev.lon],19); }
+    cur.setLatLng([prev.lat,prev.lon]); acc.setLatLng([prev.lat,prev.lon]); acc.setRadius(prev.hacc); acc.setStyle({color:COLOR[prev.rtk]});
+    if(document.getElementById('follow').checked) map.panTo([prev.lat,prev.lon]);
+    const f=document.getElementById('fix'); f.textContent=(prev.rtk==='NONE'?prev.fix:prev.rtk)+'  ±'+prev.hacc.toFixed(2)+' m'; f.style.color=COLOR[prev.rtk];
+    document.getElementById('info').innerHTML=`${prev.t}<br>위성 ${prev.sats} · 고도 ${prev.alt.toFixed(1)} m<br>${prev.lat.toFixed(7)}, ${prev.lon.toFixed(7)}<br>점 ${drawn}개 · 이동 ${total.toFixed(0)} m<br>RTCM ${d.rtcm_age===null?'없음':d.rtcm_age+'초 전'} · ${d.ntrip}`;
+  } else { document.getElementById('fix').textContent='위성 fix 대기 중'; document.getElementById('info').textContent='ntrip: '+d.ntrip; }
+}
+setInterval(tick,1000); tick();
+</script></body></html>
